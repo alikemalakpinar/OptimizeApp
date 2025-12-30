@@ -2,7 +2,7 @@
 //  SplashScreen.swift
 //  optimize
 //
-//  Splash screen with animated logo
+//  Splash screen with animated logo and dynamic status messages
 //
 
 import SwiftUI
@@ -10,26 +10,42 @@ import SwiftUI
 struct SplashScreen: View {
     @State private var logoScale: CGFloat = 0.92
     @State private var logoOpacity: Double = 0
+    @State private var textOpacity: Double = 0
+    @State private var statusIndex = 0
     @State private var isAnimationComplete = false
 
     let onComplete: () -> Void
 
+    // Technical status messages for "engineering marvel" feel
+    private let statusMessages = [
+        "Neural Engine Başlatılıyor...",
+        "Görüntü İşleme Çekirdekleri Aktif...",
+        "Sıkıştırma Algoritmaları Yükleniyor...",
+        "Hazır."
+    ]
+
     var body: some View {
         ZStack {
             // Background
-            AppBackground()
+            AppBackground(animated: false)
 
-            // Logo
+            // Content
             VStack(spacing: Spacing.md) {
+                Spacer()
+
+                // Logo with breathing effect
                 ZStack {
-                    // Outer glow
-                    Circle()
-                        .fill(Color.appAccent.opacity(0.1))
-                        .frame(width: 120, height: 120)
-                        .blur(radius: 20)
+                    // Outer glow rings (breathing effect)
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .fill(Color.appAccent.opacity(0.05 - Double(index) * 0.015))
+                            .frame(width: 120 + CGFloat(index) * 30, height: 120 + CGFloat(index) * 30)
+                            .blur(radius: CGFloat(index) * 8 + 10)
+                    }
 
                     // Icon container
                     ZStack {
+                        // Background shape with gradient
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .fill(
                                 LinearGradient(
@@ -39,32 +55,92 @@ struct SplashScreen: View {
                                 )
                             )
                             .frame(width: 100, height: 100)
+                            .shadow(color: Color.appAccent.opacity(0.3), radius: 20, x: 0, y: 10)
 
+                        // Icon with subtle animation
                         Image(systemName: "doc.zipper")
                             .font(.system(size: 44, weight: .medium))
                             .foregroundStyle(.white)
+                            .symbolPulse(isActive: !isAnimationComplete)
                     }
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
 
+                // App name
                 Text("Optimize")
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
                     .opacity(logoOpacity)
+
+                Spacer()
+
+                // Dynamic status message
+                VStack(spacing: Spacing.xs) {
+                    // Status indicator
+                    HStack(spacing: Spacing.xs) {
+                        if statusIndex < statusMessages.count - 1 {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .appAccent))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color.appMint)
+                                .font(.system(size: 16))
+                        }
+
+                        Text(statusMessages[min(statusIndex, statusMessages.count - 1)])
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .opacity(textOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: statusIndex)
+                }
+                .frame(height: 40)
+                .padding(.bottom, Spacing.xxl)
             }
         }
         .onAppear {
-            // Logo animation
-            withAnimation(.easeOut(duration: 0.6)) {
-                logoOpacity = 1
-                logoScale = 1.0
-            }
+            startAnimationSequence()
+        }
+    }
 
-            // Complete after animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                onComplete()
+    private func startAnimationSequence() {
+        // Phase 1: Logo appears
+        withAnimation(.easeOut(duration: 0.6)) {
+            logoOpacity = 1
+            logoScale = 1.0
+        }
+
+        // Phase 2: Status text appears
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeIn(duration: 0.3)) {
+                textOpacity = 1
             }
+        }
+
+        // Phase 3: Cycle through status messages
+        let messageInterval: Double = 0.5
+        for (index, _) in statusMessages.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 + Double(index) * messageInterval) {
+                withAnimation {
+                    statusIndex = index
+                }
+
+                // Play subtle haptic on status change
+                if index < statusMessages.count - 1 {
+                    Haptics.selection()
+                } else {
+                    Haptics.success()
+                    isAnimationComplete = true
+                }
+            }
+        }
+
+        // Complete after all animations
+        let totalDuration = 0.6 + Double(statusMessages.count) * messageInterval + 0.3
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
+            onComplete()
         }
     }
 }

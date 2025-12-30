@@ -12,6 +12,19 @@ extension Color {
     // Primary accent - Premium blue
     static let appAccent = Color("AccentColor")
 
+    // Secondary accent - Mint/Electric Teal (Success & Completion)
+    static let appMint = Color(red: 0.2, green: 0.78, blue: 0.65) // #33C7A6
+    static let appTeal = Color(red: 0.0, green: 0.8, blue: 0.82) // #00CCD1
+
+    // Gradient accent for success states
+    static let successGradientStart = Color(red: 0.2, green: 0.78, blue: 0.65)
+    static let successGradientEnd = Color(red: 0.0, green: 0.8, blue: 0.82)
+
+    // Pro/Premium gradient colors
+    static let proGradientStart = Color.purple
+    static let proGradientEnd = Color.blue
+    static let goldAccent = Color(red: 1.0, green: 0.84, blue: 0.0) // Gold for premium
+
     // Semantic colors (auto Dark Mode)
     static let appBackground = Color(.systemBackground)
     static let appSurface = Color(.secondarySystemBackground)
@@ -23,7 +36,7 @@ extension Color {
     static let textTertiary = Color(.tertiaryLabel)
 
     // Status colors
-    static let statusSuccess = Color.green
+    static let statusSuccess = Color(red: 0.2, green: 0.78, blue: 0.65) // Mint green
     static let statusWarning = Color.orange
     static let statusError = Color.red
 
@@ -173,9 +186,11 @@ extension View {
     }
 }
 
-// MARK: - Gradient Background
+// MARK: - Gradient Background (Animated)
 struct AppBackground: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var rotationAngle: Double = 0
+    var animated: Bool = true
 
     private var gradientColors: [Color] {
         if colorScheme == .dark {
@@ -192,20 +207,53 @@ struct AppBackground: View {
     }
 
     var body: some View {
-        LinearGradient(
-            colors: gradientColors,
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .overlay(
+        ZStack {
+            // Base gradient
+            LinearGradient(
+                colors: gradientColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            // Slowly rotating radial gradient overlay
+            RadialGradient(
+                colors: [
+                    Color.appAccent.opacity(colorScheme == .dark ? 0.12 : 0.08),
+                    Color.appMint.opacity(colorScheme == .dark ? 0.06 : 0.04),
+                    .clear
+                ],
+                center: .center,
+                startRadius: 50,
+                endRadius: 400
+            )
+            .rotationEffect(.degrees(rotationAngle))
+            .scaleEffect(1.2)
+
+            // Secondary highlight
             RadialGradient(
                 colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.08), .clear],
                 center: .topTrailing,
                 startRadius: 40,
                 endRadius: 320
             )
-        )
+        }
         .ignoresSafeArea()
+        .onAppear {
+            if animated {
+                withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) {
+                    rotationAngle = 360
+                }
+            }
+        }
+    }
+}
+
+// Static version for performance-sensitive screens
+struct AppBackgroundStatic: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        AppBackground(animated: false)
     }
 }
 
@@ -229,5 +277,374 @@ struct StaggeredAppearance: ViewModifier {
 extension View {
     func staggeredAppearance(index: Int) -> some View {
         modifier(StaggeredAppearance(index: index))
+    }
+}
+
+// MARK: - Shimmer Effect Modifier
+struct ShimmerModifier: ViewModifier {
+    @State private var phase: CGFloat = 0
+    var isActive: Bool = true
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    if isActive {
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                Color.white.opacity(0.4),
+                                .clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: geometry.size.width * 0.6)
+                        .offset(x: -geometry.size.width * 0.3 + (geometry.size.width * 1.6) * phase)
+                        .mask(content)
+                    }
+                }
+            )
+            .onAppear {
+                if isActive {
+                    withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                        phase = 1
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    func shimmer(isActive: Bool = true) -> some View {
+        modifier(ShimmerModifier(isActive: isActive))
+    }
+}
+
+// MARK: - Breathing Circle Animation
+struct BreathingCircle: View {
+    let color: Color
+    var size: CGFloat = 80
+    @State private var scale: CGFloat = 1.0
+    @State private var opacity: Double = 0.3
+
+    var body: some View {
+        ZStack {
+            // Outer breathing ring
+            Circle()
+                .stroke(color.opacity(0.3), lineWidth: 2)
+                .frame(width: size * 1.3, height: size * 1.3)
+                .scaleEffect(scale)
+                .opacity(opacity)
+
+            // Middle ring
+            Circle()
+                .stroke(color.opacity(0.2), lineWidth: 1.5)
+                .frame(width: size * 1.15, height: size * 1.15)
+                .scaleEffect(1 + (scale - 1) * 0.5)
+
+            // Inner solid circle
+            Circle()
+                .fill(color.opacity(0.1))
+                .frame(width: size, height: size)
+        }
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: 2.0)
+                .repeatForever(autoreverses: true)
+            ) {
+                scale = 1.15
+                opacity = 0.6
+            }
+        }
+    }
+}
+
+// MARK: - Scan Line Animation
+struct ScanLineView: View {
+    let color: Color
+    var height: CGFloat = 3
+    @State private var position: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Glow effect
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.clear, color.opacity(0.3), color, color.opacity(0.3), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: height + 6)
+                    .blur(radius: 4)
+
+                // Main scan line
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.clear, color, .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: height)
+            }
+            .offset(y: position * (geometry.size.height - height))
+            .onAppear {
+                withAnimation(
+                    .easeInOut(duration: 2.0)
+                    .repeatForever(autoreverses: true)
+                ) {
+                    position = 1
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Confetti View
+struct ConfettiView: View {
+    @State private var confettiPieces: [ConfettiPiece] = []
+    @State private var isAnimating = false
+
+    private let colors: [Color] = [
+        .appMint, .appTeal, .appAccent, .purple, .pink, .yellow, .orange
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                ForEach(confettiPieces) { piece in
+                    ConfettiPieceView(piece: piece, isAnimating: isAnimating)
+                }
+            }
+            .onAppear {
+                generateConfetti(in: geometry.size)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeOut(duration: 3.0)) {
+                        isAnimating = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func generateConfetti(in size: CGSize) {
+        confettiPieces = (0..<50).map { _ in
+            ConfettiPiece(
+                x: CGFloat.random(in: 0...size.width),
+                y: -20,
+                targetY: size.height + 50,
+                rotation: Double.random(in: 0...360),
+                targetRotation: Double.random(in: 720...1440),
+                scale: CGFloat.random(in: 0.5...1.0),
+                color: colors.randomElement() ?? .appMint,
+                shape: ConfettiShape.allCases.randomElement() ?? .circle,
+                delay: Double.random(in: 0...0.5),
+                horizontalDrift: CGFloat.random(in: -50...50)
+            )
+        }
+    }
+}
+
+struct ConfettiPiece: Identifiable {
+    let id = UUID()
+    let x: CGFloat
+    let y: CGFloat
+    let targetY: CGFloat
+    let rotation: Double
+    let targetRotation: Double
+    let scale: CGFloat
+    let color: Color
+    let shape: ConfettiShape
+    let delay: Double
+    let horizontalDrift: CGFloat
+}
+
+enum ConfettiShape: CaseIterable {
+    case circle, rectangle, triangle
+}
+
+struct ConfettiPieceView: View {
+    let piece: ConfettiPiece
+    let isAnimating: Bool
+
+    var body: some View {
+        Group {
+            switch piece.shape {
+            case .circle:
+                Circle()
+                    .fill(piece.color)
+                    .frame(width: 8 * piece.scale, height: 8 * piece.scale)
+            case .rectangle:
+                Rectangle()
+                    .fill(piece.color)
+                    .frame(width: 10 * piece.scale, height: 6 * piece.scale)
+            case .triangle:
+                Triangle()
+                    .fill(piece.color)
+                    .frame(width: 10 * piece.scale, height: 10 * piece.scale)
+            }
+        }
+        .position(
+            x: piece.x + (isAnimating ? piece.horizontalDrift : 0),
+            y: isAnimating ? piece.targetY : piece.y
+        )
+        .rotationEffect(.degrees(isAnimating ? piece.targetRotation : piece.rotation))
+        .opacity(isAnimating ? 0 : 1)
+        .animation(
+            .easeOut(duration: 3.0).delay(piece.delay),
+            value: isAnimating
+        )
+    }
+}
+
+struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+// MARK: - Glow Effect Modifier
+struct GlowModifier: ViewModifier {
+    let color: Color
+    var radius: CGFloat = 10
+    var isAnimated: Bool = true
+    @State private var isGlowing = false
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: color.opacity(isGlowing ? 0.8 : 0.4), radius: radius)
+            .shadow(color: color.opacity(isGlowing ? 0.4 : 0.2), radius: radius * 2)
+            .onAppear {
+                if isAnimated {
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                        isGlowing = true
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    func glow(color: Color, radius: CGFloat = 10, animated: Bool = true) -> some View {
+        modifier(GlowModifier(color: color, radius: radius, isAnimated: animated))
+    }
+}
+
+// MARK: - Pulse Effect Modifier
+struct PulseModifier: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPulsing ? 1.05 : 1.0)
+            .animation(
+                .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear {
+                isPulsing = true
+            }
+    }
+}
+
+extension View {
+    func pulse() -> some View {
+        modifier(PulseModifier())
+    }
+}
+
+// MARK: - Typing Text Animation
+struct TypingText: View {
+    let texts: [String]
+    var typingSpeed: Double = 0.05
+    var pauseDuration: Double = 1.5
+
+    @State private var currentTextIndex = 0
+    @State private var displayedText = ""
+    @State private var isTyping = true
+
+    var body: some View {
+        Text(displayedText)
+            .onAppear {
+                startTypingAnimation()
+            }
+    }
+
+    private func startTypingAnimation() {
+        guard !texts.isEmpty else { return }
+
+        let currentText = texts[currentTextIndex]
+
+        if isTyping {
+            // Typing phase
+            if displayedText.count < currentText.count {
+                DispatchQueue.main.asyncAfter(deadline: .now() + typingSpeed) {
+                    displayedText = String(currentText.prefix(displayedText.count + 1))
+                    startTypingAnimation()
+                }
+            } else {
+                // Pause before next text
+                DispatchQueue.main.asyncAfter(deadline: .now() + pauseDuration) {
+                    isTyping = false
+                    startTypingAnimation()
+                }
+            }
+        } else {
+            // Move to next text
+            displayedText = ""
+            currentTextIndex = (currentTextIndex + 1) % texts.count
+            isTyping = true
+            startTypingAnimation()
+        }
+    }
+}
+
+// MARK: - Sound Manager
+import AVFoundation
+
+class SoundManager {
+    static let shared = SoundManager()
+    private var audioPlayer: AVAudioPlayer?
+
+    private init() {}
+
+    func playSuccessSound() {
+        // System sound for completion
+        AudioServicesPlaySystemSound(1407) // Payment success sound
+    }
+
+    func playNotificationSound() {
+        AudioServicesPlaySystemSound(1315) // Subtle notification
+    }
+}
+
+// MARK: - Symbol Effect Extensions (iOS 17+)
+extension View {
+    @ViewBuilder
+    func symbolBounce(trigger: Bool) -> some View {
+        if #available(iOS 17.0, *) {
+            self.symbolEffect(.bounce, value: trigger)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func symbolPulse(isActive: Bool) -> some View {
+        if #available(iOS 17.0, *) {
+            self.symbolEffect(.pulse, isActive: isActive)
+        } else {
+            self
+        }
     }
 }

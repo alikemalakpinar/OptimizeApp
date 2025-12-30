@@ -2,15 +2,17 @@
 //  HomeScreen.swift
 //  optimize
 //
-//  Main home screen with file selection CTA and history
+//  Main home screen with breathing CTA and enhanced empty state
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct HomeScreen: View {
     @State private var showFilePicker = false
     @State private var showSettings = false
     @State private var ctaPulse = false
+    @State private var isDropTargeted = false
 
     // Sample history for demo
     @State private var recentHistory: [HistoryItem] = [
@@ -58,38 +60,28 @@ struct HomeScreen: View {
 
             ScrollView {
                 VStack(spacing: Spacing.xl) {
-                    // Main CTA Section
+                    // Main CTA Section with Breathing Effect
                     VStack(spacing: Spacing.lg) {
-                        // CTA Card
-                        Button(action: {
-                            Haptics.impact()
-                            onSelectFile()
-                        }) {
-                            VStack(spacing: Spacing.md) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.appAccent.opacity(0.1))
-                                        .frame(width: 80, height: 80)
-                                        .scaleEffect(ctaPulse ? 1.1 : 1.0)
-
-                                    Image(systemName: "doc.badge.plus")
-                                        .font(.system(size: 32, weight: .medium))
-                                        .foregroundStyle(Color.appAccent)
-                                }
-
-                                Text("Dosya Seç")
-                                    .font(.appTitle)
-                                    .foregroundStyle(.primary)
-
-                                Text("PDF, görsel veya döküman seç")
-                                    .font(.appCaption)
-                                    .foregroundStyle(.secondary)
+                        // CTA Card with drop support
+                        BreathingCTACard(
+                            isDropTargeted: isDropTargeted,
+                            onTap: {
+                                Haptics.impact()
+                                onSelectFile()
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.xl)
-                            .glassMaterial()
+                        )
+                        .dropDestination(for: URL.self) { urls, _ in
+                            if let url = urls.first {
+                                Haptics.success()
+                                // Handle dropped file
+                                return true
+                            }
+                            return false
+                        } isTargeted: { targeted in
+                            withAnimation(AppAnimation.spring) {
+                                isDropTargeted = targeted
+                            }
                         }
-                        .buttonStyle(.pressable)
 
                         // Privacy badges
                         PrivacyBadge()
@@ -97,8 +89,12 @@ struct HomeScreen: View {
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)
 
-                    // Recent History Section
-                    if !recentHistory.isEmpty {
+                    // Recent History Section or Empty State
+                    if recentHistory.isEmpty {
+                        EmptyHistoryState()
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.top, Spacing.xl)
+                    } else {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             HStack {
                                 Text("Son İşlemler")
@@ -132,17 +128,181 @@ struct HomeScreen: View {
             }
         }
         .appBackgroundLayered()
-        .onAppear {
-            // Single pulse animation on first appear
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation(AppAnimation.bouncy) {
-                    ctaPulse = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation(AppAnimation.standard) {
-                        ctaPulse = false
+    }
+}
+
+// MARK: - Breathing CTA Card
+struct BreathingCTACard: View {
+    let isDropTargeted: Bool
+    let onTap: () -> Void
+
+    @State private var breathScale: CGFloat = 1.0
+    @State private var ringOpacity: Double = 0.3
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: Spacing.md) {
+                // Icon with breathing effect
+                ZStack {
+                    // Outer breathing rings
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .stroke(
+                                Color.appAccent.opacity(0.15 - Double(index) * 0.04),
+                                lineWidth: 1.5
+                            )
+                            .frame(
+                                width: 80 + CGFloat(index) * 20,
+                                height: 80 + CGFloat(index) * 20
+                            )
+                            .scaleEffect(breathScale + CGFloat(index) * 0.02)
+                            .opacity(ringOpacity - Double(index) * 0.1)
                     }
+
+                    // Main circle
+                    Circle()
+                        .fill(Color.appAccent.opacity(0.1))
+                        .frame(width: 80, height: 80)
+                        .scaleEffect(isDropTargeted ? 1.1 : 1.0)
+
+                    // Icon
+                    Image(systemName: "doc.badge.plus")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundStyle(Color.appAccent)
+                        .symbolBounce(trigger: isDropTargeted)
                 }
+
+                // Text
+                VStack(spacing: Spacing.xxs) {
+                    Text(isDropTargeted ? "Dosyayı Bırak" : "Dosya Seç")
+                        .font(.appTitle)
+                        .foregroundStyle(.primary)
+
+                    Text(isDropTargeted ? "Optimize etmek için bırak" : "Dokun veya dosyayı buraya sürükle")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        isDropTargeted ? Color.appAccent : Color.glassBorder,
+                        lineWidth: isDropTargeted ? 2 : 0.5
+                    )
+            )
+        }
+        .buttonStyle(.pressable)
+        .onAppear {
+            startBreathingAnimation()
+        }
+    }
+
+    private func startBreathingAnimation() {
+        withAnimation(
+            .easeInOut(duration: 2.5)
+            .repeatForever(autoreverses: true)
+        ) {
+            breathScale = 1.08
+            ringOpacity = 0.5
+        }
+    }
+}
+
+// MARK: - Empty History State
+struct EmptyHistoryState: View {
+    @State private var floatOffset: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            // Floating illustration
+            ZStack {
+                // Background glow
+                Circle()
+                    .fill(Color.appAccent.opacity(0.05))
+                    .frame(width: 160, height: 160)
+                    .blur(radius: 30)
+
+                // Floating documents illustration
+                ZStack {
+                    // Back document
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.appSurface)
+                        .frame(width: 50, height: 65)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.appAccent.opacity(0.2), lineWidth: 1)
+                        )
+                        .rotationEffect(.degrees(-15))
+                        .offset(x: -20, y: 10)
+                        .offset(y: floatOffset * 0.5)
+
+                    // Middle document
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.appSurface)
+                        .frame(width: 55, height: 70)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.appAccent.opacity(0.3), lineWidth: 1)
+                        )
+                        .rotationEffect(.degrees(5))
+                        .offset(x: 15, y: -5)
+                        .offset(y: floatOffset * 0.7)
+
+                    // Front document with sparkle
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.appAccent.opacity(0.1), Color.appMint.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 60, height: 75)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.appAccent.opacity(0.4), lineWidth: 1.5)
+                            )
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Color.appAccent)
+                    }
+                    .offset(y: floatOffset)
+                }
+            }
+            .frame(height: 140)
+
+            // Text
+            VStack(spacing: Spacing.xs) {
+                Text("Depolama Alanın")
+                    .font(.appTitle)
+                    .foregroundStyle(.primary)
+
+                Text("Ferahlamayı Bekliyor")
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.appMint)
+
+                Text("İlk dosyanı seç ve sihri başlat")
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, Spacing.xxs)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, Spacing.xl)
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: 2.0)
+                .repeatForever(autoreverses: true)
+            ) {
+                floatOffset = -8
             }
         }
     }
@@ -194,13 +354,13 @@ struct HistoryRow: View {
 
                 Spacer()
 
-                // Savings badge
+                // Savings badge with mint color
                 Text("-%\(item.savingsPercent)")
                     .font(.appCaptionMedium)
-                    .foregroundStyle(Color.statusSuccess)
+                    .foregroundStyle(Color.appMint)
                     .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, Spacing.xxs)
-                    .background(Color.statusSuccess.opacity(0.1))
+                    .background(Color.appMint.opacity(0.1))
                     .clipShape(Capsule())
             }
             .padding(Spacing.sm)
