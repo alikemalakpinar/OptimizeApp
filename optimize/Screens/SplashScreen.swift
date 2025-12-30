@@ -55,8 +55,8 @@ struct SplashScreen: View {
                 .opacity(logoOpacity)
 
                 // App name
-                Text("Optimize")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                Text(".optimize")
+                    .font(.system(size: 48, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
                     .opacity(logoOpacity)
 

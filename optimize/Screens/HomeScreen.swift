@@ -36,7 +36,7 @@ struct HomeScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            ScreenHeader("Optimize") {
+            ScreenHeader(".optimize") {
                 HeaderIconButton(systemName: "gearshape") {
                     onOpenSettings()
                 }
