@@ -380,7 +380,7 @@ struct ImageDensityGauge: View {
 
 // MARK: - Savings Potential View
 struct SavingsPotentialView: View {
-    let level: AnalysisResult.SavingsLevel
+    let level: SavingsLevel
 
     private var percentage: Int {
         switch level {
