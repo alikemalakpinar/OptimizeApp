@@ -17,8 +17,31 @@ class HistoryManager: ObservableObject {
 
     @Published var items: [HistoryItem] = []
 
+    // Read retention days from UserDefaults (synced with SettingsScreen)
+    private var retentionDays: Int {
+        UserDefaults.standard.integer(forKey: "historyRetentionDays").nonZeroOr(30)
+    }
+
     private init() {
         loadHistory()
+        cleanupOldItems()
+    }
+
+    // MARK: - Cleanup Old Items Based on Retention Setting
+    func cleanupOldItems() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        let cutoffDate = calendar.date(byAdding: .day, value: -retentionDays, to: now) ?? now
+
+        let originalCount = items.count
+        items.removeAll { item in
+            item.processedAt < cutoffDate
+        }
+
+        if items.count != originalCount {
+            saveHistory()
+        }
     }
 
     // MARK: - Public Methods
@@ -123,5 +146,12 @@ private struct StoredHistoryItem: Codable {
             processedAt: processedAt,
             presetUsed: presetUsed
         )
+    }
+}
+
+// MARK: - Int Extension for Default Value
+private extension Int {
+    func nonZeroOr(_ defaultValue: Int) -> Int {
+        self == 0 ? defaultValue : self
     }
 }

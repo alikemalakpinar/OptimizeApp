@@ -65,6 +65,16 @@ enum Radius {
     static let full: CGFloat = 100
 }
 
+// MARK: - Opacity Scale
+enum Opacity {
+    static let disabled: Double = 0.4
+    static let subtle: Double = 0.1
+    static let light: Double = 0.2
+    static let medium: Double = 0.5
+    static let high: Double = 0.8
+    static let full: Double = 1.0
+}
+
 // MARK: - Typography
 extension Font {
     // Title styles

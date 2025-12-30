@@ -54,6 +54,8 @@ struct HomeScreen: View {
                                 onSelectFile()
                             }
                         )
+                        .accessibilityLabel("PDF dosyası seç")
+                        .accessibilityHint("PDF dosyası seçmek için dokunun veya sürükleyip bırakın")
                         .dropDestination(for: URL.self) { urls, _ in
                             if let url = urls.first {
                                 Haptics.success()
@@ -145,7 +147,7 @@ struct BreathingCTACard: View {
 
                     // Main circle
                     Circle()
-                        .fill(Color.appAccent.opacity(0.1))
+                        .fill(Color.appAccent.opacity(Opacity.subtle))
                         .frame(width: 80, height: 80)
                         .scaleEffect(isDropTargeted ? 1.1 : 1.0)
 
@@ -306,13 +308,14 @@ struct HistoryRow: View {
                 // File icon
                 ZStack {
                     RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                        .fill(Color.appAccent.opacity(0.1))
+                        .fill(Color.appAccent.opacity(Opacity.subtle))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "doc.fill")
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Color.appAccent)
                 }
+                .accessibilityHidden(true)
 
                 // File info
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
@@ -329,6 +332,7 @@ struct HistoryRow: View {
                         Text("•")
                             .font(.appCaption)
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
 
                         Text(item.timeAgo)
                             .font(.appCaption)
@@ -344,14 +348,17 @@ struct HistoryRow: View {
                     .foregroundStyle(Color.appMint)
                     .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, Spacing.xxs)
-                    .background(Color.appMint.opacity(0.1))
+                    .background(Color.appMint.opacity(Opacity.subtle))
                     .clipShape(Capsule())
+                    .accessibilityLabel("Yüzde \(item.savingsPercent) tasarruf")
             }
             .padding(Spacing.sm)
             .background(Color.appSurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.pressable)
+        .accessibilityLabel("\(item.fileName), \(item.originalSizeFormatted) boyutundan \(item.compressedSizeFormatted) boyutuna sıkıştırıldı, yüzde \(item.savingsPercent) tasarruf, \(item.timeAgo)")
+        .accessibilityHint("Detayları görmek için dokunun")
     }
 }
 
