@@ -8,7 +8,13 @@
 import SwiftUI
 
 struct SettingsScreen: View {
-    @State private var settings = AppSettings()
+    // MARK: - Persistent Settings with @AppStorage
+    @AppStorage("defaultPresetId") private var defaultPresetId: String = "whatsapp"
+    @AppStorage("processOnWifiOnly") private var processOnWifiOnly: Bool = true
+    @AppStorage("deleteOriginalAfterProcess") private var deleteOriginalAfterProcess: Bool = false
+    @AppStorage("historyRetentionDays") private var historyRetentionDays: Int = 30
+    @AppStorage("enableAnalytics") private var enableAnalytics: Bool = true
+
     @State private var showPrivacy = false
     @State private var showTerms = false
 
@@ -32,7 +38,7 @@ struct SettingsScreen: View {
                                 icon: "slider.horizontal.3",
                                 options: presetOptions,
                                 optionLabel: { presetName($0) },
-                                selection: $settings.defaultPresetId
+                                selection: $defaultPresetId
                             )
 
                             Divider()
@@ -41,7 +47,7 @@ struct SettingsScreen: View {
                                 title: "Wi-Fi ile işle",
                                 subtitle: "Mobil veri kullanma",
                                 icon: "wifi",
-                                isOn: $settings.processOnWifiOnly
+                                isOn: $processOnWifiOnly
                             )
 
                             Divider()
@@ -50,7 +56,7 @@ struct SettingsScreen: View {
                                 title: "İşlem sonrası sil",
                                 subtitle: "Orijinal dosyayı kaldır",
                                 icon: "trash",
-                                isOn: $settings.deleteOriginalAfterProcess
+                                isOn: $deleteOriginalAfterProcess
                             )
                         }
                     }
@@ -62,7 +68,7 @@ struct SettingsScreen: View {
                             icon: "clock.arrow.circlepath",
                             options: retentionOptions,
                             optionLabel: { "\($0) gün" },
-                            selection: $settings.historyRetentionDays
+                            selection: $historyRetentionDays
                         )
                     }
 
@@ -73,7 +79,7 @@ struct SettingsScreen: View {
                                 title: "Anonim kullanım verileri",
                                 subtitle: "Uygulamayı geliştirmemize yardımcı olun",
                                 icon: "chart.bar",
-                                isOn: $settings.enableAnalytics
+                                isOn: $enableAnalytics
                             )
 
                             Divider()

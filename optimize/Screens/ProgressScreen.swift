@@ -86,6 +86,7 @@ struct ProgressScreen: View {
                     Text("\(Int(compressionService.progress * 100))%")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.appMint)
+                        .accessibilityLabel("Sıkıştırma ilerleme durumu: yüzde \(Int(compressionService.progress * 100))")
                 }
 
                 // Fun fact card
@@ -150,7 +151,7 @@ struct ProcessingAnimation: View {
             ForEach(0..<3, id: \.self) { index in
                 Circle()
                     .stroke(
-                        Color.appAccent.opacity(0.1 - Double(index) * 0.03),
+                        Color.appAccent.opacity(Opacity.subtle - Double(index) * 0.03),
                         lineWidth: 2
                     )
                     .frame(width: 120 + CGFloat(index) * 30, height: 120 + CGFloat(index) * 30)
@@ -176,7 +177,7 @@ struct ProcessingAnimation: View {
             // Center icon
             ZStack {
                 Circle()
-                    .fill(Color.appAccent.opacity(0.1))
+                    .fill(Color.appAccent.opacity(Opacity.subtle))
                     .frame(width: 80, height: 80)
                     .scaleEffect(pulseScale)
 

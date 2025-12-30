@@ -59,9 +59,16 @@ class AppCoordinator: ObservableObject {
     @Published var currentResult: CompressionResult?
     @Published var selectedPreset: CompressionPreset?
 
+    // Retry state
+    @Published var showRetryAlert = false
+    @Published var lastError: Error?
+    private var retryCount = 0
+    private let maxRetries = 2
+
     // Services
     let compressionService = PDFCompressionService.shared
     let historyManager = HistoryManager.shared
+    let analytics = AnalyticsService.shared
 
     // User defaults keys
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
@@ -84,6 +91,7 @@ class AppCoordinator: ObservableObject {
 
     func onboardingComplete() {
         hasSeenOnboarding = true
+        analytics.track(.onboardingCompleted)
         withAnimation(AppAnimation.standard) {
             currentScreen = .home
         }
@@ -100,13 +108,20 @@ class AppCoordinator: ObservableObject {
             do {
                 let fileInfo = try FileInfo.from(url: url)
                 currentFile = fileInfo
+
+                // Track file selection
+                analytics.trackFileSelected(fileName: fileInfo.name, fileSize: fileInfo.size)
+
                 withAnimation(AppAnimation.standard) {
                     currentScreen = .analyze(fileInfo)
                 }
 
                 // Start analysis
+                analytics.track(.fileAnalysisStarted)
                 await performAnalysis(for: fileInfo)
+                analytics.track(.fileAnalysisCompleted)
             } catch {
+                analytics.trackError(error, context: "file_selection")
                 showError(message: "Dosya okunamadı: \(error.localizedDescription)")
             }
         }
@@ -140,6 +155,13 @@ class AppCoordinator: ObservableObject {
         guard let file = currentFile else { return }
         selectedPreset = preset
 
+        // Track preset selection and compression start
+        analytics.trackPresetSelected(presetId: preset.id, isCustom: preset.quality == .custom)
+        analytics.track(.compressionStarted, parameters: [
+            "preset_id": preset.id,
+            "file_size_mb": file.sizeMB
+        ])
+
         withAnimation(AppAnimation.standard) {
             currentScreen = .progress(file, preset)
         }
@@ -170,6 +192,16 @@ class AppCoordinator: ObservableObject {
             )
 
             currentResult = result
+            retryCount = 0 // Reset retry count on success
+
+            // Track compression success
+            analytics.trackCompressionCompleted(
+                originalSize: file.size,
+                compressedSize: result.compressedSize,
+                savingsPercent: result.savingsPercent,
+                presetId: preset.id,
+                duration: 0 // Could track actual duration if needed
+            )
 
             // Add to history
             historyManager.addFromResult(result, presetId: preset.id)
@@ -178,18 +210,50 @@ class AppCoordinator: ObservableObject {
                 currentScreen = .result(result)
             }
         } catch {
-            showError(message: "Sıkıştırma başarısız: \(error.localizedDescription)")
-            goHome()
+            lastError = error
+            analytics.trackCompressionFailed(error: error, presetId: preset.id)
+
+            if retryCount < maxRetries {
+                showRetryAlert = true
+            } else {
+                retryCount = 0
+                showError(message: "Sıkıştırma başarısız: \(error.localizedDescription)")
+                goHome()
+            }
         }
+    }
+
+    func retryCompression() {
+        guard let file = currentFile, let preset = selectedPreset else { return }
+        retryCount += 1
+        showRetryAlert = false
+
+        analytics.track(.compressionRetried, parameters: ["retry_count": retryCount])
+
+        withAnimation(AppAnimation.standard) {
+            currentScreen = .progress(file, preset)
+        }
+
+        Task {
+            await performCompression(file: file, preset: preset)
+        }
+    }
+
+    func cancelRetry() {
+        showRetryAlert = false
+        retryCount = 0
+        goHome()
     }
 
     func shareResult() {
         guard currentResult != nil else { return }
+        analytics.track(.fileShared)
         showShareSheet = true
     }
 
     func saveResult() {
         guard currentResult != nil else { return }
+        analytics.track(.fileSaved)
         showFileSaver = true
     }
 
@@ -200,6 +264,7 @@ class AppCoordinator: ObservableObject {
     }
 
     func openSettings() {
+        analytics.track(.settingsOpened)
         withAnimation(AppAnimation.standard) {
             currentScreen = .settings
         }
@@ -223,6 +288,7 @@ class AppCoordinator: ObservableObject {
     }
 
     func presentPaywall() {
+        analytics.track(.paywallViewed)
         showPaywall = true
     }
 
@@ -303,6 +369,16 @@ struct RootView: View {
             }
         } message: {
             Text(coordinator.errorMessage)
+        }
+        .alert("Sıkıştırma Başarısız", isPresented: $coordinator.showRetryAlert) {
+            Button("Tekrar Dene") {
+                coordinator.retryCompression()
+            }
+            Button("İptal", role: .cancel) {
+                coordinator.cancelRetry()
+            }
+        } message: {
+            Text("Sıkıştırma işlemi başarısız oldu. Tekrar denemek ister misiniz?")
         }
     }
 

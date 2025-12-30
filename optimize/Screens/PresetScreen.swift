@@ -12,6 +12,8 @@ struct PresetScreen: View {
     @State private var wifiOnly = true
     @State private var deleteAfterProcess = false
     @State private var showPaywall = false
+    @State private var customTargetMB: Double = 10 // Custom preset slider value
+    @State private var showCustomSlider = false
 
     let presets: [CompressionPreset]
     let onCompress: (CompressionPreset) -> Void
@@ -31,7 +33,19 @@ struct PresetScreen: View {
     }
 
     var selectedPreset: CompressionPreset? {
-        presets.first { $0.id == selectedPresetId }
+        if selectedPresetId == "custom" {
+            // Return custom preset with user-defined target size
+            return CompressionPreset(
+                id: "custom",
+                name: "Özel Boyut",
+                description: "\(Int(customTargetMB)) MB hedef",
+                icon: "slider.horizontal.3",
+                targetSizeMB: Int(customTargetMB),
+                quality: .custom,
+                isProOnly: false // Already unlocked if selected
+            )
+        }
+        return presets.first { $0.id == selectedPresetId }
     }
 
     var body: some View {
@@ -66,8 +80,18 @@ struct PresetScreen: View {
                                     Haptics.selection()
                                 }
                             }
+                            .accessibilityLabel("\(preset.name), \(preset.description)")
+                            .accessibilityValue(selectedPresetId == preset.id ? "Seçili" : "Seçili değil")
+                            .accessibilityHint(preset.isProOnly ? "Pro özellik, kilidi açmak için dokunun" : "Seçmek için dokunun")
+                            .accessibilityAddTraits(selectedPresetId == preset.id ? .isSelected : [])
                             .staggeredAppearance(index: index)
                         }
+                    }
+
+                    // Custom Size Slider (shown when custom preset is selected)
+                    if selectedPresetId == "custom" {
+                        CustomSizeSlider(targetMB: $customTargetMB)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
                     // Settings section
@@ -322,7 +346,7 @@ struct EnhancedPresetCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(isSelected ? iconColor.opacity(0.08) : Color.appSurface)
+                .fill(isSelected ? iconColor.opacity(Opacity.subtle) : Color.appSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
@@ -430,6 +454,105 @@ struct ProBadge: View {
                 isGlowing = true
             }
         }
+    }
+}
+
+// MARK: - Custom Size Slider
+struct CustomSizeSlider: View {
+    @Binding var targetMB: Double
+
+    private let minMB: Double = 1
+    private let maxMB: Double = 50
+
+    var body: some View {
+        GlassCard {
+            VStack(spacing: Spacing.md) {
+                HStack {
+                    Text("Hedef Boyut")
+                        .font(.appBodyMedium)
+                        .foregroundStyle(.primary)
+
+                    Spacer()
+
+                    Text("\(Int(targetMB)) MB")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.purple)
+                }
+
+                // Slider
+                VStack(spacing: Spacing.xs) {
+                    Slider(value: $targetMB, in: minMB...maxMB, step: 1)
+                        .tint(Color.purple)
+                        .onChange(of: targetMB) { _, _ in
+                            Haptics.selection()
+                        }
+
+                    // Labels
+                    HStack {
+                        Text("\(Int(minMB)) MB")
+                            .font(.appCaption)
+                            .foregroundStyle(.tertiary)
+
+                        Spacer()
+
+                        Text("\(Int(maxMB)) MB")
+                            .font(.appCaption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                // Size recommendations
+                HStack(spacing: Spacing.sm) {
+                    SizeChip(size: 5, currentSize: $targetMB)
+                    SizeChip(size: 10, currentSize: $targetMB)
+                    SizeChip(size: 25, currentSize: $targetMB)
+                    SizeChip(size: 50, currentSize: $targetMB)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Hedef boyut seçici")
+        .accessibilityValue("\(Int(targetMB)) megabayt")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                targetMB = min(targetMB + 5, maxMB)
+            case .decrement:
+                targetMB = max(targetMB - 5, minMB)
+            @unknown default:
+                break
+            }
+        }
+    }
+}
+
+// MARK: - Size Chip
+struct SizeChip: View {
+    let size: Int
+    @Binding var currentSize: Double
+
+    var isSelected: Bool {
+        Int(currentSize) == size
+    }
+
+    var body: some View {
+        Button(action: {
+            withAnimation(AppAnimation.spring) {
+                currentSize = Double(size)
+            }
+            Haptics.selection()
+        }) {
+            Text("\(size)")
+                .font(.appCaptionMedium)
+                .foregroundStyle(isSelected ? .white : .secondary)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(isSelected ? Color.purple : Color.appSurface)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel("\(size) megabayt")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
