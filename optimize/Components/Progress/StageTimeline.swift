@@ -8,19 +8,51 @@
 import SwiftUI
 
 enum ProcessingStage: String, CaseIterable, Identifiable {
-    case preparing = "Hazırlanıyor"
-    case uploading = "Yükleniyor"
+    case preparing = "Hazirlanıyor"
+    case uploading = "Analiz ediliyor"
     case optimizing = "Optimize ediliyor"
-    case downloading = "İndiriliyor"
+    case downloading = "Tamamlaniyor"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
         case .preparing: return "doc.badge.gearshape"
-        case .uploading: return "arrow.up.circle"
+        case .uploading: return "magnifyingglass"
         case .optimizing: return "wand.and.stars"
-        case .downloading: return "arrow.down.circle"
+        case .downloading: return "checkmark.circle"
+        }
+    }
+
+    /// Detailed sub-messages for each stage
+    var detailMessages: [String] {
+        switch self {
+        case .preparing:
+            return [
+                "Dosya okunuyor...",
+                "Sayfa yapisi analiz ediliyor...",
+                "Guvenlik izinleri kontrol ediliyor..."
+            ]
+        case .uploading:
+            return [
+                "Gorseller taraniyor...",
+                "Metin katmanlari tespit ediliyor...",
+                "Optimizasyon stratejisi belirleniyor..."
+            ]
+        case .optimizing:
+            return [
+                "Gereksiz metadata temizleniyor...",
+                "Gorseller sikistiriliyor...",
+                "Sayfa boyutlari optimize ediliyor...",
+                "Font verileri duzenleniyor...",
+                "PDF yeniden paketleniyor..."
+            ]
+        case .downloading:
+            return [
+                "Son kontroller yapiliyor...",
+                "Dosya kaydediliyor...",
+                "Islem tamamlaniyor..."
+            ]
         }
     }
 }
