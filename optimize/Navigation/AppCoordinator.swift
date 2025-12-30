@@ -162,6 +162,9 @@ class AppCoordinator: ObservableObject {
             "file_size_mb": file.sizeMB
         ])
 
+        // Reset observable progress state so the progress screen is accurate immediately
+        compressionService.prepareForNewTask()
+
         withAnimation(AppAnimation.standard) {
             currentScreen = .progress(file, preset)
         }
@@ -268,6 +271,8 @@ class AppCoordinator: ObservableObject {
         showRetryAlert = false
 
         analytics.track(.compressionRetried, parameters: ["retry_count": retryCount])
+
+        compressionService.prepareForNewTask()
 
         withAnimation(AppAnimation.standard) {
             currentScreen = .progress(file, preset)
@@ -467,8 +472,10 @@ struct RootView: View {
             )
             .transition(.move(edge: .trailing))
 
-        case .preset(_, _):
+        case .preset(let file, let analysis):
             PresetScreen(
+                file: file,
+                analysisResult: analysis,
                 onCompress: { preset in
                     coordinator.startCompression(preset: preset)
                 },

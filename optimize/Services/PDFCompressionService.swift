@@ -22,6 +22,15 @@ class PDFCompressionService: ObservableObject {
 
     private init() {}
 
+    // Prepare UI state for a new compression task so progress views
+    // immediately reflect the upcoming run.
+    func prepareForNewTask() {
+        isProcessing = false
+        progress = 0
+        currentStage = .preparing
+        error = nil
+    }
+
     // MARK: - Compression Quality
     enum CompressionLevel {
         case mail       // Aggressive compression, target ~25MB
