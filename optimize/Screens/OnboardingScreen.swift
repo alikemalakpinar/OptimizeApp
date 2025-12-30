@@ -18,22 +18,22 @@ struct OnboardingScreen: View {
             icon: "doc.zipper",
             iconAnimation: .compress,
             accentColor: .appAccent,
-            title: "Devasa Dosyaları\nE-Postaya Sığdır",
-            subtitle: "300 MB'lık PDF'leri saniyeler içinde paylaşılabilir boyuta düşür. Mail, WhatsApp, her yere."
+            title: "Dosyalar Artık\nEngel Değil",
+            subtitle: "GB'larca veriyi kaliteden ödün vermeden MB'lara dönüştür. E-posta ve WhatsApp sınırlarına takılma."
         ),
         OnboardingPage(
             icon: "lock.shield.fill",
             iconAnimation: .shield,
             accentColor: .appMint,
-            title: "Senin Dosyan,\nSenin Sırrın",
-            subtitle: "Bulut yok, sunucu yok, iz yok. Tüm işlemler cihazında gerçekleşir. Dosyaların sadece sana ait."
+            title: "Tamamen Cihazında,\nTamamen Güvende",
+            subtitle: "Dosyaların asla sunuculara gönderilmez. İnternet olmasa bile güvenle çalışır."
         ),
         OnboardingPage(
             icon: "bolt.fill",
             iconAnimation: .bolt,
             accentColor: .appTeal,
-            title: "Saniyeler İçinde\nPaylaşmaya Hazır",
-            subtitle: "Tek dokunuş, maksimum sıkıştırma. Karmaşık ayarlar yok, sadece sonuç var."
+            title: "Tek Dokunuşla\nÖzgürleş",
+            subtitle: "Karmaşık ayarlar yok. Dosyanı seç, küçült ve anında paylaş."
         )
     ]
 
@@ -85,7 +85,7 @@ struct OnboardingScreen: View {
                         Haptics.selection()
                         onComplete()
                     }) {
-                        Text("Atla")
+                        Text("Şimdilik Geç")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }

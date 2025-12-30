@@ -19,13 +19,13 @@ struct AnalyzeScreen: View {
     @State private var statusIndex = 0
     @State private var showResults = false
 
-    // Technical analysis messages
+    // User-friendly analysis messages
     private let analysisMessages = [
-        "Vektör katmanları ayrıştırılıyor...",
-        "OCR metin analizi yapılıyor...",
-        "Görüntü yoğunluğu hesaplanıyor...",
-        "Gürültü haritası çıkarılıyor...",
-        "Sıkıştırma potansiyeli belirleniyor..."
+        "Görseller taranıyor...",
+        "Metin alanları inceleniyor...",
+        "Gereksiz veriler tespit ediliyor...",
+        "En iyi sıkıştırma stratejisi belirleniyor...",
+        "Dosya haritası çıkarılıyor..."
     ]
 
     var body: some View {

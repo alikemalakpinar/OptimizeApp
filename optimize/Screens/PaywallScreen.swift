@@ -23,10 +23,10 @@ struct PaywallScreen: View {
 
     private let features = [
         "1 GB'a kadar büyük dosyalar",
-        "Hedef boyut modu",
-        "Batch işlemler",
-        "Öncelikli sıkıştırma",
-        "Reklamsız deneyim"
+        "Tam İstediğin Boyuta İndir",
+        "Çoklu Dosya Sihirbazı (Aynı anda 10+ dosya)",
+        "Öncelikli sıkıştırma motoru",
+        "Kesintisiz ve Reklamsız Odaklanma"
     ]
 
     var body: some View {
@@ -45,8 +45,8 @@ struct PaywallScreen: View {
                 VStack(spacing: Spacing.lg) {
                     // Enhanced Header with animation
                     EnhancedPaywallHeader(
-                        title: "Sınırları Kaldır",
-                        subtitle: "Pro ile büyük dosyaları anında optimize et"
+                        title: "Dosya Boyutu Derdine Son Ver",
+                        subtitle: "Profesyonel gücün kilidini aç"
                     )
 
                     // Limit exceeded banner (if applicable)
@@ -94,11 +94,17 @@ struct PaywallScreen: View {
                     }
 
                     // Subscription info
-                    Text("Abonelik otomatik olarak yenilenir. İstediğiniz zaman iptal edebilirsiniz.")
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.md)
+                    VStack(spacing: Spacing.xs) {
+                        Text("Memnun kalmazsan iade garantisi.")
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(Color.appMint)
+
+                        Text("Abonelik otomatik olarak yenilenir. İstediğiniz zaman iptal edebilirsiniz.")
+                            .font(.appCaption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.md)
 
                     // Social proof
                     SocialProofBanner()
