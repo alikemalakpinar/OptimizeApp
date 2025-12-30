@@ -68,7 +68,7 @@ struct ResultScreen: View {
                 VStack(spacing: Spacing.sm) {
                     // Pulsing share button
                     PulsingPrimaryButton(
-                        title: "Hemen Paylaş",
+                        title: "Share Now",
                         icon: "square.and.arrow.up",
                         isPulsing: shareButtonPulse
                     ) {
@@ -76,11 +76,11 @@ struct ResultScreen: View {
                         onShare()
                     }
 
-                    SecondaryButton(title: "Galeriye Kaydet", icon: "square.and.arrow.down") {
+                    SecondaryButton(title: "Save to Files", icon: "square.and.arrow.down") {
                         onSave()
                     }
 
-                    TextButton(title: "Yeni dosya seç", icon: "arrow.counterclockwise") {
+                    TextButton(title: "Select new file", icon: "arrow.counterclockwise") {
                         onNewFile()
                     }
                     .padding(.top, Spacing.xs)
@@ -170,11 +170,11 @@ struct EnhancedSuccessHeader: View {
 
             // Title
             VStack(spacing: Spacing.xs) {
-                Text("Harika İş Çıkardın!")
+                Text("Great Job!")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Dosyan tüy gibi hafifledi")
+                Text("Your file is now light as a feather")
                     .font(.appBody)
                     .foregroundStyle(.secondary)
             }
@@ -209,7 +209,7 @@ struct VisualComparisonCard: View {
             VStack(spacing: Spacing.md) {
                 // Before bar
                 HStack(spacing: Spacing.sm) {
-                    Text("Önce")
+                    Text("Before")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .frame(width: 50, alignment: .leading)
@@ -229,7 +229,7 @@ struct VisualComparisonCard: View {
 
                 // After bar (animated)
                 HStack(spacing: Spacing.sm) {
-                    Text("Sonra")
+                    Text("After")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .frame(width: 50, alignment: .leading)
@@ -270,7 +270,7 @@ struct EnhancedResultNumbers: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             // Giant percentage
-            Text("%\(displayedPercent)")
+            Text("\(displayedPercent)%")
                 .font(.system(size: 72, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(
@@ -281,7 +281,7 @@ struct EnhancedResultNumbers: View {
                     )
                 )
 
-            Text("Tasarruf")
+            Text("Saved")
                 .font(.appTitle)
                 .foregroundStyle(.secondary)
         }

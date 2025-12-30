@@ -26,15 +26,15 @@ struct SettingsScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Ayarlar", onBack: onBack)
+            NavigationHeader("Settings", onBack: onBack)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.lg) {
                     // Compression Settings
-                    SettingsSection(title: "Sıkıştırma") {
+                    SettingsSection(title: "Compression") {
                         VStack(spacing: Spacing.md) {
                             PickerRow(
-                                title: "Varsayılan preset",
+                                title: "Default preset",
                                 icon: "slider.horizontal.3",
                                 options: presetOptions,
                                 optionLabel: { presetName($0) },
@@ -44,8 +44,8 @@ struct SettingsScreen: View {
                             Divider()
 
                             ToggleRow(
-                                title: "Wi-Fi ile işle",
-                                subtitle: "Mobil veri kullanma",
+                                title: "Process on Wi-Fi",
+                                subtitle: "Don't use mobile data",
                                 icon: "wifi",
                                 isOn: $processOnWifiOnly
                             )
@@ -53,8 +53,8 @@ struct SettingsScreen: View {
                             Divider()
 
                             ToggleRow(
-                                title: "İşlem sonrası sil",
-                                subtitle: "Orijinal dosyayı kaldır",
+                                title: "Delete after processing",
+                                subtitle: "Remove original file",
                                 icon: "trash",
                                 isOn: $deleteOriginalAfterProcess
                             )
@@ -62,22 +62,22 @@ struct SettingsScreen: View {
                     }
 
                     // History Settings
-                    SettingsSection(title: "Geçmiş") {
+                    SettingsSection(title: "History") {
                         PickerRow(
-                            title: "Geçmişi sakla",
+                            title: "Keep history",
                             icon: "clock.arrow.circlepath",
                             options: retentionOptions,
-                            optionLabel: { "\($0) gün" },
+                            optionLabel: { "\($0) days" },
                             selection: $historyRetentionDays
                         )
                     }
 
                     // Privacy Settings
-                    SettingsSection(title: "Gizlilik") {
+                    SettingsSection(title: "Privacy") {
                         VStack(spacing: Spacing.md) {
                             ToggleRow(
-                                title: "Anonim kullanım verileri",
-                                subtitle: "Uygulamayı geliştirmemize yardımcı olun",
+                                title: "Anonymous usage data",
+                                subtitle: "Help us improve the app",
                                 icon: "chart.bar",
                                 isOn: $enableAnalytics
                             )
@@ -85,7 +85,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Gizlilik Politikası",
+                                title: "Privacy Policy",
                                 icon: "hand.raised"
                             ) {
                                 showPrivacy = true
@@ -94,7 +94,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Kullanım Koşulları",
+                                title: "Terms of Service",
                                 icon: "doc.text"
                             ) {
                                 showTerms = true
@@ -103,10 +103,10 @@ struct SettingsScreen: View {
                     }
 
                     // Support
-                    SettingsSection(title: "Destek") {
+                    SettingsSection(title: "Support") {
                         VStack(spacing: Spacing.md) {
                             SettingsLinkRow(
-                                title: "Yardım & SSS",
+                                title: "Help & FAQ",
                                 icon: "questionmark.circle"
                             ) {
                                 // Open help
@@ -115,7 +115,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Geri Bildirim Gönder",
+                                title: "Send Feedback",
                                 icon: "envelope"
                             ) {
                                 // Open feedback
@@ -124,7 +124,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Uygulamayı Değerlendir",
+                                title: "Rate the App",
                                 icon: "star"
                             ) {
                                 // Open App Store review
@@ -156,7 +156,7 @@ struct SettingsScreen: View {
         switch id {
         case "mail": return "Mail (25 MB)"
         case "whatsapp": return "WhatsApp"
-        case "quality": return "En İyi Kalite"
+        case "quality": return "Best Quality"
         default: return id
         }
     }

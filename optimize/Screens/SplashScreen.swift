@@ -18,10 +18,10 @@ struct SplashScreen: View {
 
     // Technical status messages for "engineering marvel" feel
     private let statusMessages = [
-        "Neural Engine Başlatılıyor...",
-        "Görüntü İşleme Çekirdekleri Aktif...",
-        "Sıkıştırma Algoritmaları Yükleniyor...",
-        "Hazır."
+        "Initializing Neural Engine...",
+        "Image Processing Cores Active...",
+        "Loading Compression Algorithms...",
+        "Ready."
     ]
 
     var body: some View {

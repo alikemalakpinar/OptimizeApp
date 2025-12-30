@@ -71,8 +71,8 @@ struct HomeScreen: View {
                                 onSelectFile()
                             }
                         )
-                        .accessibilityLabel("PDF dosyası seç")
-                        .accessibilityHint("PDF dosyası seçmek için dokunun veya sürükleyip bırakın")
+                        .accessibilityLabel("Select PDF file")
+                        .accessibilityHint("Tap or drag and drop to select a PDF file")
                         .dropDestination(for: URL.self) { urls, _ in
                             if let url = urls.first {
                                 Haptics.success()
@@ -107,7 +107,7 @@ struct HomeScreen: View {
                     } else {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             HStack {
-                                Text("Son İşlemler")
+                                Text("Recent Activity")
                                     .font(.appSection)
                                     .foregroundStyle(.primary)
 
@@ -116,7 +116,7 @@ struct HomeScreen: View {
                                 Button(action: {
                                     onOpenHistory()
                                 }) {
-                                    Text("Tümünü Gör")
+                                    Text("View All")
                                         .font(.appCaptionMedium)
                                         .foregroundStyle(Color.appAccent)
                                 }
@@ -184,11 +184,11 @@ struct BreathingCTACard: View {
 
                 // Text
                 VStack(spacing: Spacing.xxs) {
-                    Text(isDropTargeted ? "Dosyayı Bırak" : "Dosya Seç")
+                    Text(isDropTargeted ? "Drop File" : "Select File")
                         .font(.appTitle)
                         .foregroundStyle(.primary)
 
-                    Text(isDropTargeted ? "Optimize etmek için bırak" : "Dokun veya dosyayı buraya sürükle")
+                    Text(isDropTargeted ? "Drop to optimize" : "Tap or drag file here")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -242,17 +242,17 @@ struct ConversionHighlights: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack {
                     VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text("Optimize performansı")
+                        Text("Optimize Performance")
                             .font(.appBodyMedium)
                             .foregroundStyle(.primary)
-                        Text("Gerçek tasarruflara göre öneriler")
+                        Text("Recommendations based on real savings")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
-                    Label("Yeni", systemImage: "sparkles")
+                    Label("New", systemImage: "sparkles")
                         .font(.appCaptionMedium)
                         .foregroundStyle(Color.appAccent)
                         .padding(.horizontal, Spacing.xs)
@@ -264,20 +264,20 @@ struct ConversionHighlights: View {
                 HStack(spacing: Spacing.sm) {
                     HighlightCard(
                         icon: "arrow.down.to.line",
-                        title: "Toplam kazanç",
+                        title: "Total saved",
                         value: formattedTotal
                     )
 
                     HighlightCard(
                         icon: "percent",
-                        title: "Ortalama tasarruf",
-                        value: "%\(averageSaving)"
+                        title: "Avg. savings",
+                        value: "\(averageSaving)%"
                     )
 
                     HighlightCard(
                         icon: "rosette",
-                        title: "En iyi sonuç",
-                        value: bestSaving.map { "%\($0)" } ?? "%75"
+                        title: "Best result",
+                        value: bestSaving.map { "\($0)%" } ?? "75%"
                     )
                 }
             }
@@ -379,15 +379,15 @@ struct EmptyHistoryState: View {
 
             // Text
             VStack(spacing: Spacing.xs) {
-                Text("Depolama Alanın")
+                Text("Your Storage")
                     .font(.appTitle)
                     .foregroundStyle(.primary)
 
-                Text("Ferahlamayı Bekliyor")
+                Text("Awaits Relief")
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.appMint)
 
-                Text("İlk dosyanı seç ve sihri başlat")
+                Text("Select your first file and start the magic")
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
                     .padding(.top, Spacing.xxs)
@@ -455,22 +455,22 @@ struct HistoryRow: View {
                 Spacer()
 
                 // Savings badge with mint color
-                Text("-%\(item.savingsPercent)")
+                Text("-\(item.savingsPercent)%")
                     .font(.appCaptionMedium)
                     .foregroundStyle(Color.appMint)
                     .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, Spacing.xxs)
                     .background(Color.appMint.opacity(Opacity.subtle))
                     .clipShape(Capsule())
-                    .accessibilityLabel("Yüzde \(item.savingsPercent) tasarruf")
+                    .accessibilityLabel("\(item.savingsPercent) percent saved")
             }
             .padding(Spacing.sm)
             .background(Color.appSurface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel("\(item.fileName), \(item.originalSizeFormatted) boyutundan \(item.compressedSizeFormatted) boyutuna sıkıştırıldı, yüzde \(item.savingsPercent) tasarruf, \(item.timeAgo)")
-        .accessibilityHint("Detayları görmek için dokunun")
+        .accessibilityLabel("\(item.fileName), compressed from \(item.originalSizeFormatted) to \(item.compressedSizeFormatted), \(item.savingsPercent) percent saved, \(item.timeAgo)")
+        .accessibilityHint("Tap to view details")
     }
 }
 

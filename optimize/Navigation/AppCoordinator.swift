@@ -122,7 +122,7 @@ class AppCoordinator: ObservableObject {
                 analytics.track(.fileAnalysisCompleted)
             } catch {
                 analytics.trackError(error, context: "file_selection")
-                showError(message: "Dosya okunamadı: \(error.localizedDescription)")
+                showError(message: "Unable to read file: \(error.localizedDescription)")
             }
         }
     }
@@ -181,7 +181,7 @@ class AppCoordinator: ObservableObject {
             let error = CompressionError.fileTooLarge
             lastError = error
             analytics.trackCompressionFailed(error: error, presetId: preset.id)
-            showError(message: error.errorDescription ?? "Dosya cok buyuk")
+            showError(message: error.errorDescription ?? "File too large")
             goHome()
             return
         }
@@ -227,7 +227,7 @@ class AppCoordinator: ObservableObject {
             analytics.trackCompressionFailed(error: compressionError, presetId: preset.id)
 
             // Build error message with recovery suggestion
-            var message = compressionError.errorDescription ?? "Sikistirma basarisiz"
+            var message = compressionError.errorDescription ?? "Compression failed"
             if let suggestion = compressionError.recoverySuggestion {
                 message += "\n\n\(suggestion)"
             }
@@ -247,7 +247,7 @@ class AppCoordinator: ObservableObject {
                 showRetryAlert = true
             } else {
                 retryCount = 0
-                showError(message: "Sikistirma basarisiz: \(error.localizedDescription)")
+                showError(message: "Compression failed: \(error.localizedDescription)")
                 goHome()
             }
         }
@@ -316,7 +316,21 @@ class AppCoordinator: ObservableObject {
 
     func goBack() {
         withAnimation(AppAnimation.standard) {
-            currentScreen = .home
+            // Navigate back based on current screen
+            switch currentScreen {
+            case .analyze:
+                currentScreen = .home
+            case .preset:
+                if let file = currentFile {
+                    currentScreen = .analyze(file)
+                } else {
+                    currentScreen = .home
+                }
+            case .history, .settings:
+                currentScreen = .home
+            default:
+                currentScreen = .home
+            }
         }
     }
 
@@ -407,22 +421,22 @@ struct RootView: View {
                 }
             )
         }
-        .alert("Hata", isPresented: $coordinator.showError) {
-            Button("Tamam", role: .cancel) {
+        .alert("Error", isPresented: $coordinator.showError) {
+            Button("OK", role: .cancel) {
                 coordinator.dismissError()
             }
         } message: {
             Text(coordinator.errorMessage)
         }
-        .alert("Sıkıştırma Başarısız", isPresented: $coordinator.showRetryAlert) {
-            Button("Tekrar Dene") {
+        .alert("Compression Failed", isPresented: $coordinator.showRetryAlert) {
+            Button("Retry") {
                 coordinator.retryCompression()
             }
-            Button("İptal", role: .cancel) {
+            Button("Cancel", role: .cancel) {
                 coordinator.cancelRetry()
             }
         } message: {
-            Text("Sıkıştırma işlemi başarısız oldu. Tekrar denemek ister misiniz?")
+            Text("Compression failed. Would you like to try again?")
         }
     }
 
@@ -497,7 +511,10 @@ struct RootView: View {
                     coordinator.goHome()
                 }
             )
-            .transition(.opacity)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                removal: .opacity
+            ))
 
         case .result(let result):
             ResultScreen(
@@ -512,7 +529,10 @@ struct RootView: View {
                     coordinator.goHome()
                 }
             )
-            .transition(.opacity)
+            .transition(.asymmetric(
+                insertion: .opacity.combined(with: .scale(scale: 0.95)),
+                removal: .opacity
+            ))
 
         case .history:
             HistoryScreen(

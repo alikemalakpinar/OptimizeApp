@@ -50,8 +50,8 @@ struct PresetScreen: View {
             // Return custom preset with user-defined target size
             return CompressionPreset(
                 id: "custom",
-                name: "Özel Boyut",
-                description: "\(Int(customTargetMB)) MB hedef",
+                name: "Custom Size",
+                description: "\(Int(customTargetMB)) MB target",
                 icon: "slider.horizontal.3",
                 targetSizeMB: Int(customTargetMB),
                 quality: .custom,
@@ -128,7 +128,7 @@ struct PresetScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Hedef", onBack: onBack)
+            NavigationHeader("Target", onBack: onBack)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.md) {
@@ -170,8 +170,8 @@ struct PresetScreen: View {
                                 }
                             }
                             .accessibilityLabel("\(preset.name), \(preset.description)")
-                            .accessibilityValue(selectedPresetId == preset.id ? "Seçili" : "Seçili değil")
-                            .accessibilityHint(preset.isProOnly ? "Pro özellik, kilidi açmak için dokunun" : "Seçmek için dokunun")
+                            .accessibilityValue(selectedPresetId == preset.id ? "Selected" : "Not selected")
+                            .accessibilityHint(preset.isProOnly ? "Pro feature, tap to unlock" : "Tap to select")
                             .accessibilityAddTraits(selectedPresetId == preset.id ? .isSelected : [])
                             .staggeredAppearance(index: index)
                         }
@@ -187,8 +187,8 @@ struct PresetScreen: View {
                     GlassCard {
                         VStack(spacing: Spacing.md) {
                             ToggleRow(
-                                title: "Wi-Fi ile işle",
-                                subtitle: "Mobil veri kullanma",
+                                title: "Process on Wi-Fi",
+                                subtitle: "Don't use mobile data",
                                 icon: "wifi",
                                 isOn: $wifiOnly
                             )
@@ -196,8 +196,8 @@ struct PresetScreen: View {
                             Divider()
 
                             ToggleRow(
-                                title: "İşlem sonrası sil",
-                                subtitle: "Orijinal dosyayı kaldır",
+                                title: "Delete after processing",
+                                subtitle: "Remove original file",
                                 icon: "trash",
                                 isOn: $deleteAfterProcess
                             )
@@ -213,7 +213,7 @@ struct PresetScreen: View {
             // Bottom CTA
             VStack(spacing: Spacing.sm) {
                 PrimaryButton(
-                    title: "Sıkıştır",
+                    title: "Compress",
                     icon: "bolt.fill",
                     isDisabled: selectedPreset == nil
                 ) {
@@ -243,12 +243,12 @@ struct OutcomeSummaryCard: View {
 
     private var badgeLabel: String {
         if let preset = selectedPreset {
-            return preset.id == recommendedPresetId ? "Önerilen ayar" : "Seçili"
+            return preset.id == recommendedPresetId ? "Recommended" : "Selected"
         }
         if let recommendedPreset {
-            return "Önerilen: \(recommendedPreset.name)"
+            return "Recommended: \(recommendedPreset.name)"
         }
-        return "Önerilen"
+        return "Recommended"
     }
 
     private var badgeColor: Color {
@@ -263,11 +263,11 @@ struct OutcomeSummaryCard: View {
             VStack(spacing: Spacing.md) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
                     VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text(selectedPreset?.name ?? "Doğru hedefi seç")
+                        Text(selectedPreset?.name ?? "Choose the right target")
                             .font(.appBodyMedium)
                             .foregroundStyle(.primary)
 
-                        Text("\(analysis.imageDensity.rawValue) içerik • \(file.sizeFormatted)")
+                        Text("\(analysis.imageDensity.rawValue) content • \(file.sizeFormatted)")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
@@ -292,14 +292,14 @@ struct OutcomeSummaryCard: View {
                 HStack(spacing: Spacing.sm) {
                     BenefitRow(
                         icon: "sparkles",
-                        title: "Akıllı optimizasyon",
-                        subtitle: "Görsel yoğunluğuna göre ayarlandı"
+                        title: "Smart optimization",
+                        subtitle: "Adjusted for image density"
                     )
 
                     BenefitRow(
                         icon: "bolt.fill",
-                        title: "Anlık ilerleme",
-                        subtitle: "Sıkıştırma başlar başlamaz izleyin"
+                        title: "Real-time progress",
+                        subtitle: "Watch as compression begins"
                     )
                 }
             }
@@ -312,30 +312,30 @@ struct ValuePropGrid: View {
     private let items: [ValuePropItemModel] = [
         .init(
             icon: "lock.shield",
-            title: "Cihaz içi güvenlik",
-            subtitle: "Dosyaların buluta çıkmadan işlenir"
+            title: "On-device security",
+            subtitle: "Files processed without cloud upload"
         ),
         .init(
             icon: "hand.thumbsup",
-            title: "Kalite garantisi",
-            subtitle: "Yazılar net, renkler dengeli kalır"
+            title: "Quality guarantee",
+            subtitle: "Text stays sharp, colors balanced"
         ),
         .init(
             icon: "clock.arrow.2.circlepath",
-            title: "Zaman kazancı",
-            subtitle: "Tek dokunuşla hazır paylaşım boyutları"
+            title: "Time saver",
+            subtitle: "One-tap ready-to-share sizes"
         ),
         .init(
             icon: "arrow.uturn.backward",
-            title: "Geri dönüş kalkanı",
-            subtitle: "Başarısız olursa hızlıca yeniden dene"
+            title: "Retry protection",
+            subtitle: "Quick retry if something fails"
         )
     ]
 
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("Daha yüksek başarı için ince ayar")
+                Text("Fine-tune for higher success")
                     .font(.appBodyMedium)
                     .foregroundStyle(.primary)
 
@@ -437,11 +437,11 @@ struct QualityPreviewCard: View {
 
     private var qualityLabel: String {
         switch selectedPresetId {
-        case "mail": return "Orta Kalite"
-        case "whatsapp": return "İyi Kalite"
-        case "quality": return "En İyi Kalite"
-        case "custom": return "Özel Ayar"
-        default: return "Önizleme"
+        case "mail": return "Medium Quality"
+        case "whatsapp": return "Good Quality"
+        case "quality": return "Best Quality"
+        case "custom": return "Custom Settings"
+        default: return "Preview"
         }
     }
 
@@ -459,7 +459,7 @@ struct QualityPreviewCard: View {
         GlassCard {
             VStack(spacing: Spacing.md) {
                 HStack {
-                    Text("Kalite Önizlemesi")
+                    Text("Quality Preview")
                         .font(.appCaptionMedium)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -519,7 +519,7 @@ struct QualityPreviewCard: View {
                             Spacer()
                             HStack {
                                 Spacer()
-                                Text("Sıkıştırılmış")
+                                Text("Compressed")
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 8)
@@ -649,11 +649,11 @@ struct EnhancedPresetCard: View {
                     )
                 )
 
-            Text("Pro Özellik")
+            Text("Pro Feature")
                 .font(.appBodyMedium)
                 .foregroundStyle(.primary)
 
-            Text("Kilidi açmak için dokun")
+            Text("Tap to unlock")
                 .font(.appCaption)
                 .foregroundStyle(.secondary)
         }
@@ -747,7 +747,7 @@ struct CustomSizeSlider: View {
         GlassCard {
             VStack(spacing: Spacing.md) {
                 HStack {
-                    Text("Hedef Boyut")
+                    Text("Target Size")
                         .font(.appBodyMedium)
                         .foregroundStyle(.primary)
 
@@ -790,8 +790,8 @@ struct CustomSizeSlider: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Hedef boyut seçici")
-        .accessibilityValue("\(Int(targetMB)) megabayt")
+        .accessibilityLabel("Target size selector")
+        .accessibilityValue("\(Int(targetMB)) megabytes")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
@@ -830,7 +830,7 @@ struct SizeChip: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel("\(size) megabayt")
+        .accessibilityLabel("\(size) megabytes")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

@@ -23,7 +23,7 @@ struct FilePreviewCard: View {
             VStack(spacing: Spacing.sm) {
                 // Header
                 HStack {
-                    Text("Dosya Onizlemesi")
+                    Text("File Preview")
                         .font(.appCaptionMedium)
                         .foregroundStyle(.secondary)
 
@@ -34,7 +34,7 @@ struct FilePreviewCard: View {
                         HStack(spacing: Spacing.xxs) {
                             Image(systemName: "doc.on.doc")
                                 .font(.system(size: 12))
-                            Text("\(count) sayfa")
+                            Text("\(count) pages")
                                 .font(.appCaption)
                         }
                         .foregroundStyle(.tertiary)
@@ -225,7 +225,7 @@ private struct LoadingThumbnail: View {
             .overlay(
                 VStack(spacing: Spacing.sm) {
                     ProgressView()
-                    Text("Yukleniyor...")
+                    Text("Loading...")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -243,7 +243,7 @@ private struct ErrorThumbnail: View {
                     Image(systemName: "doc.questionmark")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
-                    Text("Onizleme kullanilamiyor")
+                    Text("Preview unavailable")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -275,7 +275,7 @@ private struct QuickInfoBadges: View {
                 Image(systemName: "checkmark.shield.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.appMint)
-                Text("Dosya dogrulandi")
+                Text("File verified")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

@@ -25,14 +25,14 @@ struct ProgressScreen: View {
 
     // Fun facts / "Did you know" messages
     private let funFacts = [
-        "Biliyor muydun? PDF'lerin %40'ı insan gözünün görmediği verilerden oluşur.",
-        "Şu an dosyanın yazı tiplerini diyete sokuyoruz...",
-        "Her sıkıştırılan MB, bir kediyi mutlu eder. (Kaynak: Biz)",
-        "Dosyanın fazlalıklarını atıyoruz...",
-        "Dijital detoks uygulanıyor...",
-        "Gereksiz piksellerle tek tek vedalaşıyoruz...",
-        "Dosyanı e-postaya sığdırma sanatı icra ediliyor...",
-        "Görünmez metadata'ları avlıyoruz..."
+        "Did you know? 40% of PDFs contain data invisible to the human eye.",
+        "Currently putting your fonts on a diet...",
+        "Every compressed MB makes a kitten happy. (Source: Us)",
+        "Trimming the excess from your file...",
+        "Applying digital detox...",
+        "Saying goodbye to unnecessary pixels one by one...",
+        "Mastering the art of fitting your file into an email...",
+        "Hunting down invisible metadata..."
     ]
 
     private var completedStages: Set<ProcessingStage> {
@@ -56,7 +56,7 @@ struct ProgressScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            ScreenHeader("İşleniyor")
+            ScreenHeader("Processing")
 
             Spacer()
 
@@ -101,7 +101,7 @@ struct ProgressScreen: View {
                     Text("\(Int(compressionService.progress * 100))%")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.appMint)
-                        .accessibilityLabel("Sikistirma ilerleme durumu: yuzde \(Int(compressionService.progress * 100))")
+                        .accessibilityLabel("Compression progress: \(Int(compressionService.progress * 100)) percent")
                 }
 
                 // Fun fact card
@@ -116,7 +116,7 @@ struct ProgressScreen: View {
 
             // Cancel button
             VStack(spacing: Spacing.sm) {
-                SecondaryButton(title: "İptal", icon: "xmark") {
+                SecondaryButton(title: "Cancel", icon: "xmark") {
                     Haptics.warning()
                     factTimer?.invalidate()
                     onCancel()

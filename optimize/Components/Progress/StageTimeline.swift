@@ -8,10 +8,10 @@
 import SwiftUI
 
 enum ProcessingStage: String, CaseIterable, Identifiable {
-    case preparing = "Hazirlanıyor"
-    case uploading = "Analiz ediliyor"
-    case optimizing = "Optimize ediliyor"
-    case downloading = "Tamamlaniyor"
+    case preparing = "Preparing"
+    case uploading = "Analyzing"
+    case optimizing = "Optimizing"
+    case downloading = "Completing"
 
     var id: String { rawValue }
 
@@ -29,29 +29,29 @@ enum ProcessingStage: String, CaseIterable, Identifiable {
         switch self {
         case .preparing:
             return [
-                "Dosya okunuyor...",
-                "Sayfa yapisi analiz ediliyor...",
-                "Guvenlik izinleri kontrol ediliyor..."
+                "Reading file...",
+                "Analyzing page structure...",
+                "Checking security permissions..."
             ]
         case .uploading:
             return [
-                "Gorseller taraniyor...",
-                "Metin katmanlari tespit ediliyor...",
-                "Optimizasyon stratejisi belirleniyor..."
+                "Scanning images...",
+                "Detecting text layers...",
+                "Determining optimization strategy..."
             ]
         case .optimizing:
             return [
-                "Gereksiz metadata temizleniyor...",
-                "Gorseller sikistiriliyor...",
-                "Sayfa boyutlari optimize ediliyor...",
-                "Font verileri duzenleniyor...",
-                "PDF yeniden paketleniyor..."
+                "Cleaning unnecessary metadata...",
+                "Compressing images...",
+                "Optimizing page sizes...",
+                "Organizing font data...",
+                "Repackaging PDF..."
             ]
         case .downloading:
             return [
-                "Son kontroller yapiliyor...",
-                "Dosya kaydediliyor...",
-                "Islem tamamlaniyor..."
+                "Final checks...",
+                "Saving file...",
+                "Completing process..."
             ]
         }
     }
@@ -149,7 +149,7 @@ struct StageRow: View {
                     .foregroundStyle(isActive || isCompleted ? .primary : .secondary)
 
                 if isActive && !isCompleted {
-                    Text("İşleniyor...")
+                    Text("Processing...")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }

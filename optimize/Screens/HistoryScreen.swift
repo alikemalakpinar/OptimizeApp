@@ -18,13 +18,13 @@ struct HistoryScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Geçmiş", onBack: onBack) {
+            NavigationHeader("History", onBack: onBack) {
                 if !historyManager.items.isEmpty {
                     Button(action: {
                         Haptics.warning()
                         showClearConfirmation = true
                     }) {
-                        Text("Temizle")
+                        Text("Clear")
                             .font(.appCaption)
                             .foregroundStyle(Color.statusError)
                     }
@@ -42,11 +42,11 @@ struct HistoryScreen: View {
                         .font(.system(size: 48, weight: .light))
                         .foregroundStyle(.secondary)
 
-                    Text("Henüz işlem yok")
+                    Text("No activity yet")
                         .font(.appBodyMedium)
                         .foregroundStyle(.primary)
 
-                    Text("Optimize ettiğiniz dosyalar burada görünecek")
+                    Text("Your optimized files will appear here")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -70,7 +70,7 @@ struct HistoryScreen: View {
                                         historyManager.removeItem(item)
                                     }
                                 } label: {
-                                    Label("Sil", systemImage: "trash")
+                                    Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
@@ -90,15 +90,15 @@ struct HistoryScreen: View {
                 .presentationDragIndicator(.visible)
             }
         }
-        .alert("Geçmişi Temizle", isPresented: $showClearConfirmation) {
-            Button("İptal", role: .cancel) {}
-            Button("Temizle", role: .destructive) {
+        .alert("Clear History", isPresented: $showClearConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
                 withAnimation {
                     historyManager.clearAll()
                 }
             }
         } message: {
-            Text("Tüm geçmiş silinecek. Bu işlem geri alınamaz.")
+            Text("All history will be deleted. This action cannot be undone.")
         }
     }
 }
@@ -112,7 +112,7 @@ struct HistoryDetailSheet: View {
         VStack(spacing: Spacing.lg) {
             // Header
             HStack {
-                Text("Detaylar")
+                Text("Details")
                     .font(.appSection)
                     .foregroundStyle(.primary)
 
@@ -149,10 +149,10 @@ struct HistoryDetailSheet: View {
 
                     Divider()
 
-                    KeyValueRow(key: "Orijinal boyut", value: item.originalSizeFormatted)
-                    KeyValueRow(key: "Sıkıştırılmış boyut", value: item.compressedSizeFormatted, valueColor: .statusSuccess)
-                    KeyValueRow(key: "Tasarruf", value: "%\(item.savingsPercent)", valueColor: .statusSuccess)
-                    KeyValueRow(key: "Kullanılan preset", value: presetName(item.presetUsed))
+                    KeyValueRow(key: "Original size", value: item.originalSizeFormatted)
+                    KeyValueRow(key: "Compressed size", value: item.compressedSizeFormatted, valueColor: .statusSuccess)
+                    KeyValueRow(key: "Savings", value: "\(item.savingsPercent)%", valueColor: .statusSuccess)
+                    KeyValueRow(key: "Preset used", value: presetName(item.presetUsed))
                 }
             }
             .padding(.horizontal, Spacing.md)
@@ -166,8 +166,8 @@ struct HistoryDetailSheet: View {
         switch id {
         case "mail": return "Mail (25 MB)"
         case "whatsapp": return "WhatsApp"
-        case "quality": return "En İyi Kalite"
-        case "custom": return "Özel"
+        case "quality": return "Best Quality"
+        case "custom": return "Custom"
         default: return id
         }
     }
