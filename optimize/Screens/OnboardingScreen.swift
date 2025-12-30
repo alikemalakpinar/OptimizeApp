@@ -68,7 +68,7 @@ struct OnboardingScreen: View {
             }
             .padding(.bottom, Spacing.xl)
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
     }
 }
 

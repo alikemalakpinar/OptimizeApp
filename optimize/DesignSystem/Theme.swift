@@ -166,6 +166,47 @@ extension View {
     func glassMaterial(cornerRadius: CGFloat = Radius.lg) -> some View {
         modifier(GlassMaterialModifier(cornerRadius: cornerRadius))
     }
+
+    // Layered gradient background used across main screens
+    func appBackgroundLayered() -> some View {
+        background(AppBackground())
+    }
+}
+
+// MARK: - Gradient Background
+struct AppBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var gradientColors: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color.appAccent.opacity(0.28),
+                Color.appBackground
+            ]
+        }
+
+        return [
+            Color.appAccent.opacity(0.16),
+            Color.appBackground
+        ]
+    }
+
+    var body: some View {
+        LinearGradient(
+            colors: gradientColors,
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(
+            RadialGradient(
+                colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.08), .clear],
+                center: .topTrailing,
+                startRadius: 40,
+                endRadius: 320
+            )
+        )
+        .ignoresSafeArea()
+    }
 }
 
 // MARK: - Stagger Animation Modifier

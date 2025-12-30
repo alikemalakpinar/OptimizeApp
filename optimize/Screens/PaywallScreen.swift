@@ -126,7 +126,7 @@ struct PaywallScreen: View {
             .padding(.vertical, Spacing.md)
             .background(Color.appBackground)
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
     }
 }
 
