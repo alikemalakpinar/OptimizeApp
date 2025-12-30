@@ -2,7 +2,7 @@
 //  AnalyzeScreen.swift
 //  optimize
 //
-//  File analysis screen with scan animation and technical status
+//  File analysis screen with real analysis results
 //
 
 import SwiftUI
@@ -73,7 +73,7 @@ struct AnalyzeScreen: View {
                     )
 
                     // Analysis Animation or Results
-                    if isAnalyzing {
+                    if isAnalyzing || analysisResult == nil {
                         AnalysisScanView(
                             statusMessages: analysisMessages,
                             currentIndex: statusIndex
@@ -109,7 +109,7 @@ struct AnalyzeScreen: View {
                     title: isAnalyzing ? "Analiz Ediliyor..." : "Devam",
                     icon: isAnalyzing ? nil : "arrow.right",
                     isLoading: isAnalyzing,
-                    isDisabled: isAnalyzing
+                    isDisabled: isAnalyzing || analysisResult == nil
                 ) {
                     onContinue()
                 }
@@ -121,6 +121,11 @@ struct AnalyzeScreen: View {
         .appBackgroundLayered()
         .onAppear {
             startAnalysisAnimation()
+        }
+        .onChange(of: analysisResult) { _, newValue in
+            if newValue != nil {
+                completeAnalysis()
+            }
         }
     }
 
@@ -136,15 +141,21 @@ struct AnalyzeScreen: View {
             }
         }
 
-        // Complete analysis
-        let totalDuration = Double(analysisMessages.count) * messageInterval + 0.5
-        DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
-            withAnimation(AppAnimation.spring) {
-                isAnalyzing = false
-                showResults = true
+        // Check if we already have results
+        if analysisResult != nil {
+            let totalDuration = Double(analysisMessages.count) * messageInterval
+            DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
+                completeAnalysis()
             }
-            Haptics.success()
         }
+    }
+
+    private func completeAnalysis() {
+        withAnimation(AppAnimation.spring) {
+            isAnalyzing = false
+            showResults = true
+        }
+        Haptics.success()
     }
 }
 
@@ -456,62 +467,6 @@ struct SavingsPotentialView: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Skeleton Loading View (keeping for backwards compatibility)
-struct AnalysisSkeletonView: View {
-    @State private var isAnimating = false
-
-    var body: some View {
-        GlassCard {
-            VStack(spacing: Spacing.md) {
-                HStack {
-                    SkeletonBox(width: 120, height: 20)
-                    Spacer()
-                }
-
-                Divider()
-
-                ForEach(0..<4, id: \.self) { _ in
-                    HStack {
-                        SkeletonBox(width: 100, height: 16)
-                        Spacer()
-                        SkeletonBox(width: 60, height: 16)
-                    }
-                }
-
-                Divider()
-
-                SkeletonBox(width: .infinity, height: 40)
-            }
-        }
-        .opacity(isAnimating ? 0.6 : 1.0)
-        .onAppear {
-            withAnimation(
-                Animation.easeInOut(duration: 0.8)
-                    .repeatForever(autoreverses: true)
-            ) {
-                isAnimating = true
-            }
-        }
-    }
-}
-
-struct SkeletonBox: View {
-    let width: CGFloat
-    let height: CGFloat
-
-    init(width: CGFloat, height: CGFloat) {
-        self.width = width
-        self.height = height
-    }
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color.secondary.opacity(0.2))
-            .frame(width: width == .infinity ? nil : width, height: height)
-            .frame(maxWidth: width == .infinity ? .infinity : nil)
     }
 }
 

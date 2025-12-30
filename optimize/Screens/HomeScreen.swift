@@ -2,52 +2,36 @@
 //  HomeScreen.swift
 //  optimize
 //
-//  Main home screen with breathing CTA and enhanced empty state
+//  Main home screen with breathing CTA and real history
 //
 
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct HomeScreen: View {
-    @State private var showFilePicker = false
-    @State private var showSettings = false
+    @ObservedObject var coordinator: AppCoordinator
     @State private var ctaPulse = false
     @State private var isDropTargeted = false
-
-    // Sample history for demo
-    @State private var recentHistory: [HistoryItem] = [
-        HistoryItem(
-            id: UUID(),
-            fileName: "Rapor_2024.pdf",
-            originalSize: 300_000_000,
-            compressedSize: 92_000_000,
-            savingsPercent: 69,
-            processedAt: Date().addingTimeInterval(-120),
-            presetUsed: "whatsapp"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Sunum.pdf",
-            originalSize: 150_000_000,
-            compressedSize: 45_000_000,
-            savingsPercent: 70,
-            processedAt: Date().addingTimeInterval(-3600),
-            presetUsed: "mail"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Belge_scan.pdf",
-            originalSize: 80_000_000,
-            compressedSize: 25_000_000,
-            savingsPercent: 69,
-            processedAt: Date().addingTimeInterval(-86400),
-            presetUsed: "quality"
-        )
-    ]
 
     let onSelectFile: () -> Void
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
+
+    init(
+        coordinator: AppCoordinator,
+        onSelectFile: @escaping () -> Void,
+        onOpenHistory: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void
+    ) {
+        self.coordinator = coordinator
+        self.onSelectFile = onSelectFile
+        self.onOpenHistory = onOpenHistory
+        self.onOpenSettings = onOpenSettings
+    }
+
+    var recentHistory: [HistoryItem] {
+        coordinator.historyManager.recentItems(limit: 3)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -73,7 +57,7 @@ struct HomeScreen: View {
                         .dropDestination(for: URL.self) { urls, _ in
                             if let url = urls.first {
                                 Haptics.success()
-                                // Handle dropped file
+                                coordinator.handlePickedFile(url)
                                 return true
                             }
                             return false
@@ -114,7 +98,7 @@ struct HomeScreen: View {
                             .padding(.horizontal, Spacing.md)
 
                             VStack(spacing: Spacing.xs) {
-                                ForEach(Array(recentHistory.prefix(3).enumerated()), id: \.element.id) { index, item in
+                                ForEach(Array(recentHistory.enumerated()), id: \.element.id) { index, item in
                                     HistoryRow(item: item)
                                         .staggeredAppearance(index: index)
                                 }
@@ -373,6 +357,7 @@ struct HistoryRow: View {
 
 #Preview {
     HomeScreen(
+        coordinator: AppCoordinator(),
         onSelectFile: {},
         onOpenHistory: {},
         onOpenSettings: {}

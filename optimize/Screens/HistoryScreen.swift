@@ -2,62 +2,16 @@
 //  HistoryScreen.swift
 //  optimize
 //
-//  History list screen
+//  History list screen with persistent data
 //
 
 import SwiftUI
 
 struct HistoryScreen: View {
-    @State private var history: [HistoryItem] = [
-        HistoryItem(
-            id: UUID(),
-            fileName: "Rapor_2024.pdf",
-            originalSize: 300_000_000,
-            compressedSize: 92_000_000,
-            savingsPercent: 69,
-            processedAt: Date().addingTimeInterval(-120),
-            presetUsed: "whatsapp"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Sunum_Q4.pdf",
-            originalSize: 150_000_000,
-            compressedSize: 45_000_000,
-            savingsPercent: 70,
-            processedAt: Date().addingTimeInterval(-3600),
-            presetUsed: "mail"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Belge_scan.pdf",
-            originalSize: 80_000_000,
-            compressedSize: 25_000_000,
-            savingsPercent: 69,
-            processedAt: Date().addingTimeInterval(-86400),
-            presetUsed: "quality"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Fatura_2024.pdf",
-            originalSize: 50_000_000,
-            compressedSize: 15_000_000,
-            savingsPercent: 70,
-            processedAt: Date().addingTimeInterval(-172800),
-            presetUsed: "mail"
-        ),
-        HistoryItem(
-            id: UUID(),
-            fileName: "Sözleşme.pdf",
-            originalSize: 25_000_000,
-            compressedSize: 8_000_000,
-            savingsPercent: 68,
-            processedAt: Date().addingTimeInterval(-259200),
-            presetUsed: "whatsapp"
-        )
-    ]
-
+    @ObservedObject var historyManager: HistoryManager
     @State private var selectedItem: HistoryItem?
     @State private var showDetail = false
+    @State private var showClearConfirmation = false
 
     let onBack: () -> Void
 
@@ -88,23 +42,23 @@ struct HistoryScreen: View {
                 Spacer()
 
                 // Clear all button
-                if !history.isEmpty {
+                if !historyManager.items.isEmpty {
                     Button(action: {
                         Haptics.warning()
-                        withAnimation(AppAnimation.standard) {
-                            history.removeAll()
-                        }
+                        showClearConfirmation = true
                     }) {
                         Text("Temizle")
                             .font(.appCaption)
                             .foregroundStyle(Color.statusError)
                     }
+                } else {
+                    Color.clear.frame(width: 60)
                 }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
 
-            if history.isEmpty {
+            if historyManager.items.isEmpty {
                 // Empty state
                 VStack(spacing: Spacing.md) {
                     Spacer()
@@ -129,12 +83,21 @@ struct HistoryScreen: View {
                 // History list
                 ScrollView {
                     LazyVStack(spacing: Spacing.xs) {
-                        ForEach(Array(history.enumerated()), id: \.element.id) { index, item in
+                        ForEach(Array(historyManager.items.enumerated()), id: \.element.id) { index, item in
                             HistoryRow(item: item) {
                                 selectedItem = item
                                 showDetail = true
                             }
                             .staggeredAppearance(index: index)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    withAnimation {
+                                        historyManager.removeItem(item)
+                                    }
+                                } label: {
+                                    Label("Sil", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, Spacing.md)
@@ -151,6 +114,16 @@ struct HistoryScreen: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             }
+        }
+        .alert("Geçmişi Temizle", isPresented: $showClearConfirmation) {
+            Button("İptal", role: .cancel) {}
+            Button("Temizle", role: .destructive) {
+                withAnimation {
+                    historyManager.clearAll()
+                }
+            }
+        } message: {
+            Text("Tüm geçmiş silinecek. Bu işlem geri alınamaz.")
         }
     }
 }
@@ -210,15 +183,6 @@ struct HistoryDetailSheet: View {
             .padding(.horizontal, Spacing.md)
 
             Spacer()
-
-            // Actions
-            VStack(spacing: Spacing.sm) {
-                SecondaryButton(title: "Tekrar Sıkıştır", icon: "arrow.counterclockwise") {
-                    // Re-compress action
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.bottom, Spacing.md)
         }
         .background(Color.appBackground)
     }
@@ -235,5 +199,8 @@ struct HistoryDetailSheet: View {
 }
 
 #Preview {
-    HistoryScreen(onBack: {})
+    HistoryScreen(
+        historyManager: HistoryManager.shared,
+        onBack: {}
+    )
 }
