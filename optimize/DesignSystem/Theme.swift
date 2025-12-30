@@ -40,9 +40,9 @@ extension Color {
     static let statusWarning = Color.orange
     static let statusError = Color.red
 
-    // Glass effect colors
+    // Glass effect colors - System-aware for better visibility
     static let glassBackground = Color(.systemBackground).opacity(0.7)
-    static let glassBorder = Color.white.opacity(0.2)
+    static let glassBorder = Color.primary.opacity(0.1) // Works in both light and dark mode
 }
 
 // MARK: - Spacing System

@@ -61,7 +61,7 @@ struct ResultScreen: View {
                 VStack(spacing: Spacing.sm) {
                     // Pulsing share button
                     PulsingPrimaryButton(
-                        title: "Paylaş",
+                        title: "Hemen Paylaş",
                         icon: "square.and.arrow.up",
                         isPulsing: shareButtonPulse
                     ) {
@@ -69,7 +69,7 @@ struct ResultScreen: View {
                         onShare()
                     }
 
-                    SecondaryButton(title: "Dosyalara Kaydet", icon: "square.and.arrow.down") {
+                    SecondaryButton(title: "Galeriye Kaydet", icon: "square.and.arrow.down") {
                         onSave()
                     }
 
@@ -163,11 +163,11 @@ struct EnhancedSuccessHeader: View {
 
             // Title
             VStack(spacing: Spacing.xs) {
-                Text("Hazır!")
+                Text("Harika İş Çıkardın!")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Dosyan başarıyla optimize edildi")
+                Text("Dosyan tüy gibi hafifledi")
                     .font(.appBody)
                     .foregroundStyle(.secondary)
             }

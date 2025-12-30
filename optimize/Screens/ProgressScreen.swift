@@ -22,7 +22,8 @@ struct ProgressScreen: View {
         "Biliyor muydun? PDF'lerin %40'ı insan gözünün görmediği verilerden oluşur.",
         "Şu an dosyanın yazı tiplerini diyete sokuyoruz...",
         "Her sıkıştırılan MB, bir kediyi mutlu eder. (Kaynak: Biz)",
-        "Optimize motorları tam güçle çalışıyor...",
+        "Dosyanın fazlalıklarını atıyoruz...",
+        "Dijital detoks uygulanıyor...",
         "Gereksiz piksellerle tek tek vedalaşıyoruz...",
         "Dosyanı e-postaya sığdırma sanatı icra ediliyor...",
         "Görünmez metadata'ları avlıyoruz..."

@@ -78,12 +78,13 @@ struct SecondaryButton: View {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 56)
-            .background(.ultraThinMaterial)
+            .background(.thickMaterial) // Better visibility than ultraThinMaterial
             .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                    .stroke(Color.glassBorder, lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
             )
+            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2) // Adds depth
         }
         .buttonStyle(.pressable)
         .disabled(isLoading)
