@@ -59,7 +59,7 @@ struct ProgressScreen: View {
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.md)
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
         .onAppear {
             startSimulatedProgress()
         }

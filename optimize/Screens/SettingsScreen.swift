@@ -171,7 +171,7 @@ struct SettingsScreen: View {
                 .padding(.top, Spacing.md)
             }
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
     }
 
     private func presetName(_ id: String) -> String {

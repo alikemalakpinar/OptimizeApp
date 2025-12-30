@@ -131,7 +131,7 @@ struct HomeScreen: View {
                 }
             }
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
         .onAppear {
             // Single pulse animation on first appear
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

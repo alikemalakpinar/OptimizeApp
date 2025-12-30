@@ -142,7 +142,7 @@ struct HistoryScreen: View {
                 }
             }
         }
-        .background(Color.appBackground)
+        .appBackgroundLayered()
         .sheet(isPresented: $showDetail) {
             if let item = selectedItem {
                 HistoryDetailSheet(item: item) {
