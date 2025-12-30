@@ -2,7 +2,7 @@
 //  PaywallScreen.swift
 //  optimize
 //
-//  Subscription paywall with glowing badges and social proof
+//  Modern subscription paywall with trial flow design
 //
 
 import SwiftUI
@@ -21,33 +21,55 @@ struct PaywallScreen: View {
     let onPrivacy: () -> Void
     let onTerms: () -> Void
 
-    private let features = [
-        "1 GB'a kadar büyük dosyalar",
-        "Tam İstediğin Boyuta İndir",
-        "Çoklu Dosya Sihirbazı (Aynı anda 10+ dosya)",
-        "Öncelikli sıkıştırma motoru",
-        "Kesintisiz ve Reklamsız Odaklanma"
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
-            // Close button
+            // Header with back/close button
             HStack {
-                Spacer()
-                HeaderCloseButton {
+                Button(action: {
+                    Haptics.selection()
                     onDismiss()
+                }) {
+                    HStack(spacing: Spacing.xxs) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Geri")
+                            .font(.appBody)
+                    }
+                    .foregroundStyle(Color.appAccent)
                 }
+                .buttonStyle(.pressable)
+
+                Spacer()
             }
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.sm)
 
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
-                    // Enhanced Header with animation
-                    EnhancedPaywallHeader(
-                        title: "Dosya Boyutu Derdine Son Ver",
-                        subtitle: "Profesyonel gücün kilidini aç"
-                    )
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Spacing.xl) {
+                    // App Icon Header
+                    AppIconHeader()
+
+                    // Title Section
+                    VStack(spacing: Spacing.xs) {
+                        Text("Aboneliğin Nasıl Çalışır")
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+
+                        Text(selectedPlan == .yearly ?
+                             "Yıllık ₺249,99 (aylık ₺20,83)" :
+                             "Aylık ₺49,99")
+                            .font(.appBody)
+                            .foregroundStyle(.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+
+                    // Plan Toggle
+                    PlanToggle(selectedPlan: $selectedPlan)
+                        .padding(.horizontal, Spacing.xl)
+
+                    // Trial Timeline
+                    TrialTimeline(selectedPlan: selectedPlan)
+                        .padding(.horizontal, Spacing.md)
 
                     // Limit exceeded banner (if applicable)
                     if limitExceeded, let size = currentFileSize {
@@ -55,81 +77,69 @@ struct PaywallScreen: View {
                             currentSize: size,
                             maxSize: "50 MB"
                         )
+                        .padding(.horizontal, Spacing.md)
                     }
 
-                    // Features with checkmarks
-                    GlassCard {
-                        FeatureList(features: features)
-                    }
+                    Spacer(minLength: Spacing.lg)
+                }
+                .padding(.top, Spacing.lg)
+            }
 
-                    // Plan cards with glowing best value
-                    HStack(spacing: Spacing.sm) {
-                        EnhancedPlanCard(
-                            title: "Aylık",
-                            price: "₺49,99",
-                            period: "ay",
-                            monthlyEquivalent: nil,
-                            isSelected: selectedPlan == .monthly,
-                            isBestValue: false
-                        ) {
-                            withAnimation(AppAnimation.spring) {
-                                selectedPlan = .monthly
-                            }
-                        }
-
-                        EnhancedPlanCard(
-                            title: "Yıllık",
-                            price: "₺249,99",
-                            period: "yıl",
-                            monthlyEquivalent: "₺20,83 / ay",
-                            badge: "En Avantajlı",
-                            savings: "%58 tasarruf",
-                            isSelected: selectedPlan == .yearly,
-                            isBestValue: true
-                        ) {
-                            withAnimation(AppAnimation.spring) {
-                                selectedPlan = .yearly
-                            }
+            // Bottom CTA Section
+            VStack(spacing: Spacing.md) {
+                // Main CTA Button
+                Button(action: {
+                    Haptics.impact(style: .medium)
+                    isLoading = true
+                    onSubscribe(selectedPlan)
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.9)
+                        } else {
+                            Text("Pro'ya Başla")
+                                .font(.system(size: 17, weight: .semibold))
                         }
                     }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.appAccent, Color.appAccent.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(Capsule())
+                    .shadow(color: Color.appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .buttonStyle(.pressable)
+                .disabled(isLoading)
+                .padding(.horizontal, Spacing.md)
 
-                    // Subscription info
-                    VStack(spacing: Spacing.xs) {
-                        Text("Memnun kalmazsan iade garantisi.")
-                            .font(.appCaptionMedium)
-                            .foregroundStyle(Color.appMint)
-
-                        Text("Abonelik otomatik olarak yenilenir. İstediğiniz zaman iptal edebilirsiniz.")
+                // Restore button
+                Button(action: {
+                    Haptics.selection()
+                    isRestoring = true
+                    onRestore()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        if isRestoring {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
+                                .scaleEffect(0.7)
+                        }
+                        Text("Satın Alımı Geri Yükle")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Spacing.md)
-
-                    // Social proof
-                    SocialProofBanner()
-
-                    Spacer(minLength: Spacing.xl)
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.md)
-            }
+                .disabled(isRestoring)
 
-            // Bottom section
-            VStack(spacing: Spacing.md) {
-                PrimaryButton(
-                    title: "Pro'ya Geç",
-                    isLoading: isLoading
-                ) {
-                    isLoading = true
-                    onSubscribe(selectedPlan)
-                }
-
-                RestoreButton(isLoading: isRestoring) {
-                    isRestoring = true
-                    onRestore()
-                }
-
+                // Footer links
                 PaywallFooterLinks(
                     onPrivacy: onPrivacy,
                     onTerms: onTerms
@@ -137,171 +147,227 @@ struct PaywallScreen: View {
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.md)
-            .background(Color.appBackground)
+            .background(
+                Color.appBackground
+                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: -5)
+            )
         }
         .appBackgroundLayered()
     }
 }
 
-// MARK: - Enhanced Paywall Header
-struct EnhancedPaywallHeader: View {
-    let title: String
-    var subtitle: String? = nil
-
-    @State private var crownScale: CGFloat = 1.0
-    @State private var glowOpacity: Double = 0.3
+// MARK: - App Icon Header
+struct AppIconHeader: View {
+    @State private var iconScale: CGFloat = 0.8
+    @State private var iconOpacity: Double = 0
 
     var body: some View {
-        VStack(spacing: Spacing.sm) {
-            // Animated Pro badge with glow
+        VStack(spacing: Spacing.md) {
+            // App Icon with glow effect
             ZStack {
-                // Glow effect
+                // Glow
                 Circle()
-                    .fill(Color.goldAccent.opacity(glowOpacity))
-                    .frame(width: 80, height: 80)
+                    .fill(Color.appAccent.opacity(0.2))
+                    .frame(width: 100, height: 100)
                     .blur(radius: 20)
 
-                // Crown icon
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 28))
-                    Text("PRO")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                }
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.goldAccent, .orange],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .scaleEffect(crownScale)
+                // App Icon
+                Image("AppIcon")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
             }
-
-            Text(title)
-                .font(.appTitle)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-
-            if let subtitle = subtitle {
-                Text(subtitle)
-                    .font(.appBody)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+            .scaleEffect(iconScale)
+            .opacity(iconOpacity)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                crownScale = 1.08
-                glowOpacity = 0.6
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) {
+                iconScale = 1.0
+                iconOpacity = 1.0
             }
         }
     }
 }
 
-// MARK: - Enhanced Plan Card with Glow
-struct EnhancedPlanCard: View {
-    let title: String
-    let price: String
-    let period: String
-    var monthlyEquivalent: String? = nil
-    var badge: String? = nil
-    var savings: String? = nil
-    var isSelected: Bool = false
-    var isBestValue: Bool = false
-    let onTap: () -> Void
+// MARK: - Plan Toggle
+struct PlanToggle: View {
+    @Binding var selectedPlan: SubscriptionPlan
 
-    @State private var glowIntensity: Double = 0.3
+    var body: some View {
+        HStack(spacing: 0) {
+            // Yearly Option
+            PlanToggleOption(
+                title: "Yıllık",
+                subtitle: "%58 tasarruf",
+                isSelected: selectedPlan == .yearly
+            ) {
+                withAnimation(AppAnimation.spring) {
+                    selectedPlan = .yearly
+                }
+            }
+
+            // Monthly Option
+            PlanToggleOption(
+                title: "Aylık",
+                subtitle: nil,
+                isSelected: selectedPlan == .monthly
+            ) {
+                withAnimation(AppAnimation.spring) {
+                    selectedPlan = .monthly
+                }
+            }
+        }
+        .padding(4)
+        .background(Color.appSurface)
+        .clipShape(Capsule())
+    }
+}
+
+struct PlanToggleOption: View {
+    let title: String
+    let subtitle: String?
+    let isSelected: Bool
+    let action: () -> Void
 
     var body: some View {
         Button(action: {
             Haptics.selection()
-            onTap()
+            action()
         }) {
-            VStack(spacing: Spacing.sm) {
-                // Badge if present
-                if let badge = badge {
-                    Text(badge)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xxs)
-                        .background(
-                            LinearGradient(
-                                colors: [.goldAccent, .orange],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .shadow(color: Color.goldAccent.opacity(glowIntensity), radius: 8)
-                        .offset(y: -Spacing.xxs)
-                }
-
-                // Title
+            VStack(spacing: 2) {
                 Text(title)
-                    .font(.appBodyMedium)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 15, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
 
-                // Price
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xxs) {
-                    Text(price)
-                        .font(.appNumberMedium)
-                        .foregroundStyle(.primary)
-
-                    Text("/ \(period)")
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Monthly equivalent
-                if let monthly = monthlyEquivalent {
-                    Text(monthly)
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Savings
-                if let savings = savings {
-                    Text(savings)
-                        .font(.appCaptionMedium)
-                        .foregroundStyle(Color.appMint)
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(isSelected ? Color.appMint : .secondary)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.lg)
-            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                    .fill(isSelected ? Color.appAccent.opacity(0.08) : Color.appSurface)
+                Capsule()
+                    .fill(isSelected ? Color.appBackground : Color.clear)
+                    .shadow(color: isSelected ? Color.black.opacity(0.08) : .clear, radius: 4, x: 0, y: 2)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                    .stroke(
-                        isSelected ? (isBestValue ? Color.goldAccent : Color.appAccent) : Color.clear,
-                        lineWidth: 2
-                    )
-            )
-            .shadow(
-                color: isBestValue && isSelected ? Color.goldAccent.opacity(glowIntensity) : .clear,
-                radius: 12
-            )
-            .overlay(alignment: .topTrailing) {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(isBestValue ? Color.goldAccent : Color.appAccent)
-                        .offset(x: -Spacing.sm, y: Spacing.sm)
-                }
-            }
         }
-        .buttonStyle(.pressable)
-        .onAppear {
-            if isBestValue {
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                    glowIntensity = 0.6
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Trial Timeline
+struct TrialTimeline: View {
+    let selectedPlan: SubscriptionPlan
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Step 1: Today
+            TimelineStep(
+                icon: "checkmark.circle.fill",
+                iconColor: .appAccent,
+                title: "Bugün",
+                description: "Tüm Pro özelliklere anında eriş. Sınırsız dosya boyutu, toplu işlem ve daha fazlası.",
+                isFirst: true,
+                isLast: false
+            )
+
+            // Step 2: Reminder
+            TimelineStep(
+                icon: "bell.fill",
+                iconColor: .appAccent,
+                title: "Her zaman",
+                description: "Aboneliğini istediğin zaman App Store ayarlarından iptal edebilirsin.",
+                isFirst: false,
+                isLast: false
+            )
+
+            // Step 3: Charge
+            TimelineStep(
+                icon: "creditcard.fill",
+                iconColor: .appAccent,
+                title: selectedPlan == .yearly ? "Yıllık yenileme" : "Aylık yenileme",
+                description: selectedPlan == .yearly ?
+                    "Her yıl ₺249,99 faturalanır. İstediğin zaman iptal et." :
+                    "Her ay ₺49,99 faturalanır. İstediğin zaman iptal et.",
+                isFirst: false,
+                isLast: true
+            )
+        }
+        .padding(Spacing.lg)
+        .background(Color.appSurface.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
+    }
+}
+
+struct TimelineStep: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let description: String
+    let isFirst: Bool
+    let isLast: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.md) {
+            // Timeline line and icon
+            VStack(spacing: 0) {
+                // Top line
+                if !isFirst {
+                    Rectangle()
+                        .fill(Color.appAccent.opacity(0.3))
+                        .frame(width: 2, height: 20)
+                } else {
+                    Color.clear
+                        .frame(width: 2, height: 20)
+                }
+
+                // Icon circle
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.15))
+                        .frame(width: 36, height: 36)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+
+                // Bottom line
+                if !isLast {
+                    Rectangle()
+                        .fill(Color.appAccent.opacity(0.3))
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                } else {
+                    Color.clear
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
                 }
             }
+            .frame(width: 36)
+
+            // Content
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(description)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(2)
+            }
+            .padding(.vertical, Spacing.sm)
+
+            Spacer()
         }
     }
 }
@@ -342,7 +408,6 @@ struct SocialProofBanner: View {
         .background(Color.appSurface)
         .clipShape(Capsule())
         .onAppear {
-            // Animate counter
             animateCounter()
         }
     }
@@ -364,8 +429,8 @@ struct SocialProofBanner: View {
 
 #Preview {
     PaywallScreen(
-        limitExceeded: true,
-        currentFileSize: "150 MB",
+        limitExceeded: false,
+        currentFileSize: nil,
         onSubscribe: { plan in
             print("Subscribe to: \(plan)")
         },
