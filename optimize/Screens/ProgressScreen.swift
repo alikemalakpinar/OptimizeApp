@@ -146,15 +146,17 @@ struct ProgressScreen: View {
     }
 
     private func startFactRotation() {
-        factTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
-            // Fade out
-            withAnimation(.easeOut(duration: 0.3)) {
-                factOpacity = 0
-            }
+        let factsCount = funFacts.count
+        factTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak factTimer] _ in
+            Task { @MainActor in
+                // Fade out
+                withAnimation(.easeOut(duration: 0.3)) {
+                    factOpacity = 0
+                }
 
-            // Change fact and fade in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                currentFactIndex = (currentFactIndex + 1) % funFacts.count
+                // Change fact and fade in
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                currentFactIndex = (currentFactIndex + 1) % factsCount
                 withAnimation(.easeIn(duration: 0.3)) {
                     factOpacity = 1
                 }
@@ -163,17 +165,19 @@ struct ProgressScreen: View {
     }
 
     private func startDetailRotation() {
-        detailTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { _ in
-            let messages = compressionService.currentStage.detailMessages
-            guard !messages.isEmpty else { return }
+        detailTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak detailTimer] _ in
+            Task { @MainActor [weak compressionService] in
+                guard let service = compressionService else { return }
+                let messages = service.currentStage.detailMessages
+                guard !messages.isEmpty else { return }
 
-            // Fade out
-            withAnimation(.easeOut(duration: 0.2)) {
-                detailOpacity = 0
-            }
+                // Fade out
+                withAnimation(.easeOut(duration: 0.2)) {
+                    detailOpacity = 0
+                }
 
-            // Change detail and fade in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                // Change detail and fade in
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
                 currentDetailIndex = (currentDetailIndex + 1) % messages.count
                 withAnimation(.easeIn(duration: 0.2)) {
                     detailOpacity = 1
