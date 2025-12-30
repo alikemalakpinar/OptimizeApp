@@ -32,7 +32,7 @@ struct PaywallScreen: View {
                     HStack(spacing: Spacing.xxs) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
+                        Text("Back")
                             .font(.appBody)
                     }
                     .foregroundStyle(Color.appAccent)
@@ -51,13 +51,13 @@ struct PaywallScreen: View {
 
                     // Title Section
                     VStack(spacing: Spacing.xs) {
-                        Text("Aboneliğin Nasıl Çalışır")
+                        Text("How Subscription Works")
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
 
                         Text(selectedPlan == .yearly ?
-                             "Yıllık ₺249,99 (aylık ₺20,83)" :
-                             "Aylık ₺49,99")
+                             "Yearly $24.99 ($2.08/month)" :
+                             "Monthly $4.99")
                             .font(.appBody)
                             .foregroundStyle(.secondary)
                     }
@@ -99,7 +99,7 @@ struct PaywallScreen: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(0.9)
                         } else {
-                            Text("Pro'ya Başla")
+                            Text("Start Pro")
                                 .font(.system(size: 17, weight: .semibold))
                         }
                     }
@@ -132,7 +132,7 @@ struct PaywallScreen: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                                 .scaleEffect(0.7)
                         }
-                        Text("Satın Alımı Geri Yükle")
+                        Text("Restore Purchase")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
@@ -199,8 +199,8 @@ struct PlanToggle: View {
         HStack(spacing: 0) {
             // Yearly Option
             PlanToggleOption(
-                title: "Yıllık",
-                subtitle: "%58 tasarruf",
+                title: "Yearly",
+                subtitle: "58% savings",
                 isSelected: selectedPlan == .yearly
             ) {
                 withAnimation(AppAnimation.spring) {
@@ -210,7 +210,7 @@ struct PlanToggle: View {
 
             // Monthly Option
             PlanToggleOption(
-                title: "Aylık",
+                title: "Monthly",
                 subtitle: nil,
                 isSelected: selectedPlan == .monthly
             ) {
@@ -269,8 +269,8 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "checkmark.circle.fill",
                 iconColor: .appAccent,
-                title: "Bugün",
-                description: "Tüm Pro özelliklere anında eriş. Sınırsız dosya boyutu, toplu işlem ve daha fazlası.",
+                title: "Today",
+                description: "Instant access to all Pro features. Unlimited file size, batch processing and more.",
                 isFirst: true,
                 isLast: false
             )
@@ -279,8 +279,8 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "bell.fill",
                 iconColor: .appAccent,
-                title: "Her zaman",
-                description: "Aboneliğini istediğin zaman App Store ayarlarından iptal edebilirsin.",
+                title: "Anytime",
+                description: "Cancel your subscription anytime from App Store settings.",
                 isFirst: false,
                 isLast: false
             )
@@ -289,10 +289,10 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "creditcard.fill",
                 iconColor: .appAccent,
-                title: selectedPlan == .yearly ? "Yıllık yenileme" : "Aylık yenileme",
+                title: selectedPlan == .yearly ? "Yearly renewal" : "Monthly renewal",
                 description: selectedPlan == .yearly ?
-                    "Her yıl ₺249,99 faturalanır. İstediğin zaman iptal et." :
-                    "Her ay ₺49,99 faturalanır. İstediğin zaman iptal et.",
+                    "Billed $24.99 annually. Cancel anytime." :
+                    "Billed $4.99 monthly. Cancel anytime.",
                 isFirst: false,
                 isLast: true
             )
@@ -398,7 +398,7 @@ struct SocialProofBanner: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
 
-                Text("dosya optimize edildi")
+                Text("files optimized")
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
             }

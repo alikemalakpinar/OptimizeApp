@@ -21,17 +21,17 @@ struct AnalyzeScreen: View {
 
     // User-friendly analysis messages
     private let analysisMessages = [
-        "Görseller taranıyor...",
-        "Metin alanları inceleniyor...",
-        "Gereksiz veriler tespit ediliyor...",
-        "En iyi sıkıştırma stratejisi belirleniyor...",
-        "Dosya haritası çıkarılıyor..."
+        "Scanning images...",
+        "Examining text areas...",
+        "Detecting unnecessary data...",
+        "Determining best compression strategy...",
+        "Mapping file structure..."
     ]
 
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Analiz", onBack: onBack)
+            NavigationHeader("Analysis", onBack: onBack)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.md) {
@@ -40,7 +40,7 @@ struct AnalyzeScreen: View {
                         name: file.name,
                         sizeText: file.sizeFormatted,
                         typeIcon: file.fileType.icon,
-                        subtitle: file.pageCount != nil ? "\(file.pageCount!) sayfa" : nil,
+                        subtitle: file.pageCount != nil ? "\(file.pageCount!) pages" : nil,
                         onReplace: onReplace
                     )
 
@@ -69,7 +69,7 @@ struct AnalyzeScreen: View {
                         if result.isAlreadyOptimized {
                             InfoBanner(
                                 type: .warning,
-                                message: "Bu dosya zaten optimize edilmiş olabilir. Beklenen kazanç düşük olabilir.",
+                                message: "This file may already be optimized. Expected savings might be low.",
                                 dismissable: true
                             )
                         }
@@ -84,7 +84,7 @@ struct AnalyzeScreen: View {
             // Bottom CTA
             VStack(spacing: Spacing.sm) {
                 PrimaryButton(
-                    title: isAnalyzing ? "Analiz Ediliyor..." : "Devam",
+                    title: isAnalyzing ? "Analyzing..." : "Continue",
                     icon: isAnalyzing ? nil : "arrow.right",
                     isLoading: isAnalyzing,
                     isDisabled: isAnalyzing || analysisResult == nil
@@ -244,7 +244,7 @@ struct AnalysisResultCard: View {
             VStack(spacing: Spacing.md) {
                 // Section header
                 HStack {
-                    Text("Analiz Sonuçları")
+                    Text("Analysis Results")
                         .font(.appSection)
                         .foregroundStyle(.primary)
                     Spacer()
@@ -259,13 +259,13 @@ struct AnalysisResultCard: View {
 
                 // Key-value rows
                 KeyValueRow(
-                    key: "Sayfa",
+                    key: "Pages",
                     value: "\(result.pageCount)",
                     icon: "doc.text"
                 )
 
                 KeyValueRow(
-                    key: "Görsel sayısı",
+                    key: "Image count",
                     value: "\(result.imageCount)",
                     icon: "photo"
                 )
@@ -275,7 +275,7 @@ struct AnalysisResultCard: View {
 
                 if let dpi = result.originalDPI {
                     KeyValueRow(
-                        key: "Orijinal DPI",
+                        key: "Original DPI",
                         value: "\(dpi)",
                         icon: "viewfinder"
                     )
@@ -323,7 +323,7 @@ struct ImageDensityGauge: View {
                 .foregroundStyle(Color.appAccent)
                 .frame(width: 24)
 
-            Text("Görsel yoğunluğu")
+            Text("Image density")
                 .font(.appBody)
                 .foregroundStyle(.secondary)
 
@@ -390,13 +390,13 @@ struct SavingsPotentialView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack {
-                Text("Tahmini Tasarruf")
+                Text("Estimated Savings")
                     .font(.appBodyMedium)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
-                Text("~%\(percentage)")
+                Text("~\(percentage)%")
                     .font(.system(.title3, design: .rounded).monospacedDigit())
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.appMint)
@@ -430,7 +430,7 @@ struct SavingsPotentialView: View {
                     Circle()
                         .fill(Color.statusError.opacity(0.7))
                         .frame(width: 8, height: 8)
-                    Text("Optimize edilebilir")
+                    Text("Can be optimized")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -439,7 +439,7 @@ struct SavingsPotentialView: View {
                     Circle()
                         .fill(Color.secondary.opacity(0.2))
                         .frame(width: 8, height: 8)
-                    Text("Korunacak veri")
+                    Text("Data to keep")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }

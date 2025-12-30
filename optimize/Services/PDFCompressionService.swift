@@ -333,49 +333,49 @@ enum CompressionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessDenied:
-            return "Dosyaya erisim izni reddedildi. Lutfen dosyayi tekrar secin."
+            return "File access denied. Please select the file again."
         case .invalidPDF:
-            return "Gecersiz veya bozuk PDF dosyasi. Dosyanin zarar gormediginden emin olun."
+            return "Invalid or corrupted PDF file. Please ensure the file is not damaged."
         case .emptyPDF:
-            return "PDF dosyasi bos veya okunamiyor."
+            return "PDF file is empty or cannot be read."
         case .contextCreationFailed:
-            return "PDF isleme baslatılamiyor. Cihazinizda yeterli bellek olmayabilir."
+            return "Unable to start PDF processing. Your device may be low on memory."
         case .saveFailed:
-            return "Dosya kaydedilemedi. Depolama alanini kontrol edin."
+            return "Could not save file. Please check your storage space."
         case .cancelled:
-            return "Islem kullanici tarafindan iptal edildi."
+            return "Operation cancelled by user."
         case .memoryPressure:
-            return "Yetersiz bellek. Lutfen bazi uygulamalari kapatip tekrar deneyin."
+            return "Insufficient memory. Please close some apps and try again."
         case .fileTooLarge:
-            return "Dosya cok buyuk. 500 sayfadan kucuk dosyalari deneyin."
+            return "File too large. Please try files with less than 500 pages."
         case .pageProcessingFailed(let page):
-            return "Sayfa \(page + 1) islenemedi. Dosya bozuk olabilir."
+            return "Page \(page + 1) could not be processed. The file may be corrupted."
         case .timeout:
-            return "Islem zaman asimina ugradi. Daha kucuk bir dosya deneyin."
+            return "Operation timed out. Please try a smaller file."
         case .unknown(let underlying):
             if let error = underlying {
-                return "Beklenmeyen hata: \(error.localizedDescription)"
+                return "Unexpected error: \(error.localizedDescription)"
             }
-            return "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin."
+            return "An unexpected error occurred. Please try again."
         }
     }
 
     var recoverySuggestion: String? {
         switch self {
         case .accessDenied:
-            return "Dosyayi yeniden secmeyi deneyin."
+            return "Try selecting the file again."
         case .invalidPDF, .emptyPDF:
-            return "Farkli bir PDF dosyasi secin."
+            return "Select a different PDF file."
         case .contextCreationFailed, .memoryPressure:
-            return "Diger uygulamalari kapatin ve tekrar deneyin."
+            return "Close other apps and try again."
         case .saveFailed:
-            return "Depolama alanini bosaltin."
+            return "Free up storage space."
         case .fileTooLarge:
-            return "Dosyayi bolmeyi veya daha kucuk bir dosya secmeyi deneyin."
+            return "Try splitting the file or select a smaller file."
         case .pageProcessingFailed:
-            return "Baska bir PDF dosyasi deneyin."
+            return "Try a different PDF file."
         case .timeout:
-            return "Daha kucuk bir dosya veya daha dusuk kalite ayari deneyin."
+            return "Try a smaller file or lower quality setting."
         default:
             return nil
         }

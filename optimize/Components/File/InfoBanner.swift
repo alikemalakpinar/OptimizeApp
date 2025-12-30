@@ -79,9 +79,9 @@ struct InfoBanner: View {
 struct PrivacyBadge: View {
     var body: some View {
         HStack(spacing: Spacing.md) {
-            PrivacyItem(icon: "link.badge.plus", text: "Link yok", crossed: true)
-            PrivacyItem(icon: "trash", text: "Otomatik silinir")
-            PrivacyItem(icon: "lock.shield", text: "Şifreli transfer")
+            PrivacyItem(icon: "link.badge.plus", text: "No links", crossed: true)
+            PrivacyItem(icon: "trash", text: "Auto deleted")
+            PrivacyItem(icon: "lock.shield", text: "Encrypted")
         }
         .padding(Spacing.sm)
         .frame(maxWidth: .infinity)
@@ -120,23 +120,23 @@ struct PrivacyItem: View {
     VStack(spacing: Spacing.md) {
         InfoBanner(
             type: .info,
-            message: "Bu işlem birkaç dakika sürebilir."
+            message: "This operation may take a few minutes."
         )
 
         InfoBanner(
             type: .warning,
-            message: "Bu dosya zaten optimize edilmiş olabilir.",
+            message: "This file may already be optimized.",
             dismissable: true
         )
 
         InfoBanner(
             type: .error,
-            message: "Dosya yüklenirken bir hata oluştu."
+            message: "An error occurred while loading the file."
         )
 
         InfoBanner(
             type: .success,
-            message: "Dosya başarıyla optimize edildi!"
+            message: "File optimized successfully!"
         )
 
         PrivacyBadge()

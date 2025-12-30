@@ -142,7 +142,7 @@ struct RestoreButton: View {
                         .scaleEffect(0.8)
                 }
 
-                Text("Satın alımı geri yükle")
+                Text("Restore purchase")
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
             }
@@ -158,14 +158,14 @@ struct PaywallFooterLinks: View {
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            Button("Gizlilik Politikası") {
+            Button("Privacy Policy") {
                 onPrivacy()
             }
 
             Text("•")
                 .foregroundStyle(.tertiary)
 
-            Button("Kullanım Koşulları") {
+            Button("Terms of Service") {
                 onTerms()
             }
         }
@@ -222,11 +222,11 @@ struct LimitExceededBanner: View {
                 .font(.system(size: 32))
                 .foregroundStyle(Color.statusWarning)
 
-            Text("Ücretsiz limit aşıldı")
+            Text("Free limit exceeded")
                 .font(.appBodyMedium)
                 .foregroundStyle(.primary)
 
-            Text("Bu dosya \(currentSize). Ücretsiz plan \(maxSize)'a kadar destekler.")
+            Text("This file is \(currentSize). Free plan supports up to \(maxSize).")
                 .font(.appCaption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -242,42 +242,42 @@ struct LimitExceededBanner: View {
     ScrollView {
         VStack(spacing: Spacing.lg) {
             PaywallHeader(
-                title: "Sınırları kaldır",
-                subtitle: "Pro ile büyük dosyaları anında optimize et"
+                title: "Remove limits",
+                subtitle: "Optimize large files instantly with Pro"
             )
 
             LimitExceededBanner(currentSize: "150 MB", maxSize: "50 MB")
 
             GlassCard {
                 FeatureList(features: [
-                    "1 GB'a kadar büyük dosyalar",
-                    "Hedef boyut modu",
-                    "Batch işlemler",
-                    "Öncelikli sıkıştırma"
+                    "Large files up to 1 GB",
+                    "Target size mode",
+                    "Batch processing",
+                    "Priority compression"
                 ])
             }
 
             HStack(spacing: Spacing.sm) {
                 PlanCard(
-                    title: "Aylık",
-                    price: "₺49,99",
-                    period: "ay",
+                    title: "Monthly",
+                    price: "$4.99",
+                    period: "month",
                     isSelected: false,
                     onTap: {}
                 )
 
                 PlanCard(
-                    title: "Yıllık",
-                    price: "₺249,99",
-                    period: "yıl",
-                    badge: "En avantajlı",
-                    savings: "%58 tasarruf",
+                    title: "Yearly",
+                    price: "$24.99",
+                    period: "year",
+                    badge: "Best Value",
+                    savings: "58% savings",
                     isSelected: true,
                     onTap: {}
                 )
             }
 
-            PrimaryButton(title: "Pro'ya Geç") {}
+            PrimaryButton(title: "Go Pro") {}
 
             RestoreButton {}
 

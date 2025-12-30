@@ -66,18 +66,18 @@ struct KeyValueSection: View {
     VStack(spacing: Spacing.lg) {
         GlassCard {
             VStack(spacing: 0) {
-                KeyValueRow(key: "Sayfa", value: "84", icon: "doc.text")
+                KeyValueRow(key: "Pages", value: "84", icon: "doc.text")
                 Divider()
-                KeyValueRow(key: "Tür", value: "PDF", icon: "doc.fill")
+                KeyValueRow(key: "Type", value: "PDF", icon: "doc.fill")
                 Divider()
-                KeyValueRow(key: "Görsel sayısı", value: "42", icon: "photo")
+                KeyValueRow(key: "Image count", value: "42", icon: "photo")
             }
         }
 
         GlassCard {
             KeyValueSection([
-                ("Sayfa", "84", "doc.text"),
-                ("Görsel yoğunluğu", "Yüksek", "photo.stack"),
+                ("Pages", "84", "doc.text"),
+                ("Image density", "High", "photo.stack"),
                 ("DPI", "300", "viewfinder")
             ])
         }

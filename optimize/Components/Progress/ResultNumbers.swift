@@ -28,7 +28,7 @@ struct ResultNumbers: View {
                         .foregroundStyle(.secondary)
                         .contentTransition(.numericText())
 
-                    Text("Orijinal")
+                    Text("Original")
                         .font(.appCaption)
                         .foregroundStyle(.tertiary)
                 }
@@ -58,7 +58,7 @@ struct ResultNumbers: View {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 18))
 
-                Text("%\(animatedPercent) tasarruf")
+                Text("\(animatedPercent)% saved")
                     .font(.appBodyMedium)
                     .contentTransition(.numericText())
             }
@@ -175,7 +175,7 @@ struct OutputFileInfo: View {
                     .foregroundStyle(Color.appAccent)
 
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text("Sıkıştırılan dosya")
+                    Text("Compressed file")
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
 
@@ -205,7 +205,7 @@ struct OutputFileInfo: View {
 
 #Preview {
     VStack(spacing: Spacing.xl) {
-        SuccessHeader(title: "Hazır!")
+        SuccessHeader(title: "Ready!")
 
         ResultNumbers(
             fromSizeMB: 300,

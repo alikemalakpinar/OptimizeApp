@@ -18,22 +18,22 @@ struct OnboardingScreen: View {
             icon: "doc.zipper",
             iconAnimation: .compress,
             accentColor: .appAccent,
-            title: "Dosyalar Artık\nEngel Değil",
-            subtitle: "GB'larca veriyi kaliteden ödün vermeden MB'lara dönüştür. E-posta ve WhatsApp sınırlarına takılma."
+            title: "Files Are No\nLonger a Barrier",
+            subtitle: "Convert GBs of data to MBs without compromising quality. No more email or WhatsApp limits."
         ),
         OnboardingPage(
             icon: "lock.shield.fill",
             iconAnimation: .shield,
             accentColor: .appMint,
-            title: "Tamamen Cihazında,\nTamamen Güvende",
-            subtitle: "Dosyaların asla sunuculara gönderilmez. İnternet olmasa bile güvenle çalışır."
+            title: "Fully On-Device,\nFully Secure",
+            subtitle: "Your files never leave your device. Works safely even without internet."
         ),
         OnboardingPage(
             icon: "bolt.fill",
             iconAnimation: .bolt,
             accentColor: .appTeal,
-            title: "Tek Dokunuşla\nÖzgürleş",
-            subtitle: "Karmaşık ayarlar yok. Dosyanı seç, küçült ve anında paylaş."
+            title: "One Tap\nFreedom",
+            subtitle: "No complex settings. Select your file, compress it, and share instantly."
         )
     ]
 
@@ -63,7 +63,7 @@ struct OnboardingScreen: View {
 
                 // Continue button with shimmer
                 ShimmerButton(
-                    title: currentPage == pages.count - 1 ? "Hadi Başlayalım" : "Devam",
+                    title: currentPage == pages.count - 1 ? "Let's Get Started" : "Continue",
                     accentColor: pages[currentPage].accentColor,
                     showShimmer: currentPage == pages.count - 1
                 ) {
@@ -85,7 +85,7 @@ struct OnboardingScreen: View {
                         Haptics.selection()
                         onComplete()
                     }) {
-                        Text("Şimdilik Geç")
+                        Text("Skip for Now")
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }

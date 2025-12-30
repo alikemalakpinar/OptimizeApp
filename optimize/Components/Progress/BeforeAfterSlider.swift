@@ -207,7 +207,7 @@ private struct OverlayLabels: View {
         VStack {
             HStack {
                 // Original label
-                Text("Orijinal")
+                Text("Original")
                     .font(.caption2.bold())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -236,7 +236,7 @@ private struct OverlayLabels: View {
                 HStack {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(Color.appMint)
-                    Text("Kalite korunuyor")
+                    Text("Quality preserved")
                         .font(.caption.bold())
                 }
                 .padding(.horizontal, 12)
