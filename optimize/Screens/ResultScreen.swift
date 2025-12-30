@@ -192,7 +192,9 @@ struct VisualComparisonCard: View {
     let animate: Bool
 
     private var compressedRatio: CGFloat {
-        CGFloat(compressedSize / originalSize)
+        guard originalSize > 0 else { return 0 }
+        let ratio = compressedSize / originalSize
+        return CGFloat(min(max(ratio, 0), 1))
     }
 
     var body: some View {
@@ -284,13 +286,19 @@ struct EnhancedResultNumbers: View {
     }
 
     private func animatePercentage() {
+        guard percentSaved > 0 else {
+            displayedPercent = 0
+            return
+        }
+
         let duration: Double = 1.0
-        let steps = min(percentSaved, 50) // Cap at 50 steps for performance
-        let increment = percentSaved / steps
+        let steps = min(max(percentSaved, 1), 50) // Cap at 50 steps for performance
+        let stepValue = Double(percentSaved) / Double(steps)
 
         for step in 0...steps {
             DispatchQueue.main.asyncAfter(deadline: .now() + (duration / Double(steps)) * Double(step)) {
-                displayedPercent = min(step * increment, percentSaved)
+                let value = Int(round(stepValue * Double(step)))
+                displayedPercent = min(value, percentSaved)
             }
         }
     }
