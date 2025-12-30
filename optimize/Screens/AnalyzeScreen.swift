@@ -30,39 +30,11 @@ struct AnalyzeScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back button
-            HStack {
-                Button(action: {
-                    Haptics.selection()
-                    onBack()
-                }) {
-                    HStack(spacing: Spacing.xxs) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
-                            .font(.appBody)
-                    }
-                    .foregroundStyle(Color.appAccent)
-                }
-                .buttonStyle(.pressable)
+            // Compact Navigation Header
+            NavigationHeader("Analiz", onBack: onBack)
 
-                Spacer()
-
-                Text("Analiz")
-                    .font(.appSection)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                // Placeholder for alignment
-                Color.clear
-                    .frame(width: 60)
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Spacing.md) {
                     // File Card
                     FileCard(
                         name: file.name,
@@ -97,10 +69,10 @@ struct AnalyzeScreen: View {
                         }
                     }
 
-                    Spacer(minLength: Spacing.xl)
+                    Spacer(minLength: Spacing.lg)
                 }
                 .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.md)
+                .padding(.top, Spacing.sm)
             }
 
             // Bottom CTA

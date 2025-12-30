@@ -36,39 +36,11 @@ struct PresetScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back button
-            HStack {
-                Button(action: {
-                    Haptics.selection()
-                    onBack()
-                }) {
-                    HStack(spacing: Spacing.xxs) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
-                            .font(.appBody)
-                    }
-                    .foregroundStyle(Color.appAccent)
-                }
-                .buttonStyle(.pressable)
+            // Compact Navigation Header
+            NavigationHeader("Hedef", onBack: onBack)
 
-                Spacer()
-
-                Text("Hedef")
-                    .font(.appSection)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                // Placeholder for alignment
-                Color.clear
-                    .frame(width: 60)
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Spacing.md) {
                     // Quality Preview Card
                     QualityPreviewCard(selectedPresetId: selectedPresetId)
 
@@ -119,10 +91,10 @@ struct PresetScreen: View {
                         }
                     }
 
-                    Spacer(minLength: Spacing.xl)
+                    Spacer(minLength: Spacing.lg)
                 }
                 .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.md)
+                .padding(.top, Spacing.sm)
             }
 
             // Bottom CTA

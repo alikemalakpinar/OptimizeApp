@@ -56,6 +56,70 @@ struct ScreenHeader: View {
     }
 }
 
+// MARK: - Navigation Header (with back button and centered title)
+struct NavigationHeader: View {
+    let title: String
+    let onBack: () -> Void
+    var trailingButton: AnyView? = nil
+
+    init(
+        _ title: String,
+        onBack: @escaping () -> Void
+    ) {
+        self.title = title
+        self.onBack = onBack
+        self.trailingButton = nil
+    }
+
+    init<TrailingButton: View>(
+        _ title: String,
+        onBack: @escaping () -> Void,
+        @ViewBuilder trailing: () -> TrailingButton
+    ) {
+        self.title = title
+        self.onBack = onBack
+        self.trailingButton = AnyView(trailing())
+    }
+
+    var body: some View {
+        ZStack {
+            // Centered title
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+
+            // Leading back button
+            HStack {
+                Button(action: {
+                    Haptics.selection()
+                    onBack()
+                }) {
+                    HStack(spacing: Spacing.xxs) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Geri")
+                            .font(.system(size: 17))
+                    }
+                    .foregroundStyle(Color.appAccent)
+                }
+                .buttonStyle(.pressable)
+
+                Spacer()
+
+                // Trailing button (invisible placeholder if none)
+                if let trailingButton = trailingButton {
+                    trailingButton
+                } else {
+                    Color.clear
+                        .frame(width: 60)
+                }
+            }
+        }
+        .frame(height: 44)
+        .padding(.horizontal, Spacing.md)
+    }
+}
+
 // MARK: - Header Button Styles
 struct HeaderIconButton: View {
     let systemName: String

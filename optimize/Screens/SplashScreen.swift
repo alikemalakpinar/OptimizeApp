@@ -43,26 +43,13 @@ struct SplashScreen: View {
                             .blur(radius: CGFloat(index) * 8 + 10)
                     }
 
-                    // Icon container
-                    ZStack {
-                        // Background shape with gradient
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.appAccent, Color.appAccent.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 100, height: 100)
-                            .shadow(color: Color.appAccent.opacity(0.3), radius: 20, x: 0, y: 10)
-
-                        // Icon with subtle animation
-                        Image(systemName: "doc.zipper")
-                            .font(.system(size: 44, weight: .medium))
-                            .foregroundStyle(.white)
-                            .symbolPulse(isActive: !isAnimationComplete)
-                    }
+                    // App Icon
+                    Image("AppIcon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 100, height: 100)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
                 }
                 .scaleEffect(logoScale)
                 .opacity(logoOpacity)
