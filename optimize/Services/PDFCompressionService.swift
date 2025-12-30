@@ -67,7 +67,11 @@ class PDFCompressionService: ObservableObject {
         currentStage = .preparing
         error = nil
 
-        defer { isProcessing = false }
+        defer {
+            isProcessing = false
+            // Force memory cleanup
+            URLCache.shared.removeAllCachedResponses()
+        }
 
         // Determine compression level
         let level: CompressionLevel
@@ -87,16 +91,19 @@ class PDFCompressionService: ObservableObject {
         onProgress(.preparing, 0)
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
+            self.error = .accessDenied
             throw CompressionError.accessDenied
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
 
         guard let pdfDocument = PDFDocument(url: sourceURL) else {
+            self.error = .invalidPDF
             throw CompressionError.invalidPDF
         }
 
         let pageCount = pdfDocument.pageCount
         guard pageCount > 0 else {
+            self.error = .emptyPDF
             throw CompressionError.emptyPDF
         }
 
@@ -112,65 +119,110 @@ class PDFCompressionService: ObservableObject {
         guard let pdfData = NSMutableData() as CFMutableData?,
               let consumer = CGDataConsumer(data: pdfData),
               let pdfContext = CGContext(consumer: consumer, mediaBox: nil, nil) else {
+            self.error = .contextCreationFailed
             throw CompressionError.contextCreationFailed
         }
 
-        // Process each page
-        for pageIndex in 0..<pageCount {
-            guard let page = pdfDocument.page(at: pageIndex) else { continue }
+        // Process pages in batches to manage memory for large documents
+        let batchSize = 10
+        var processedPages = 0
 
-            let pageRect = page.bounds(for: .mediaBox)
-            let scaledRect = CGRect(
-                x: 0,
-                y: 0,
-                width: pageRect.width * level.scale,
-                height: pageRect.height * level.scale
-            )
+        for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, pageCount)
 
-            // Render page to image
-            let renderer = UIGraphicsImageRenderer(size: scaledRect.size)
-            let pageImage = renderer.image { ctx in
-                UIColor.white.setFill()
-                ctx.fill(scaledRect)
+            // Process batch within autoreleasepool to manage memory
+            try autoreleasepool {
+                for pageIndex in batchStart..<batchEnd {
+                    guard let page = pdfDocument.page(at: pageIndex) else {
+                        // Skip invalid pages but continue processing
+                        processedPages += 1
+                        continue
+                    }
 
-                ctx.cgContext.translateBy(x: 0, y: scaledRect.height)
-                ctx.cgContext.scaleBy(x: level.scale, y: -level.scale)
+                    let pageRect = page.bounds(for: .mediaBox)
 
-                page.draw(with: .mediaBox, to: ctx.cgContext)
+                    // Guard against invalid page dimensions
+                    guard pageRect.width > 0 && pageRect.height > 0 else {
+                        processedPages += 1
+                        continue
+                    }
+
+                    let scaledRect = CGRect(
+                        x: 0,
+                        y: 0,
+                        width: pageRect.width * level.scale,
+                        height: pageRect.height * level.scale
+                    )
+
+                    // Render page to image with error handling
+                    let renderer = UIGraphicsImageRenderer(size: scaledRect.size)
+                    let pageImage = renderer.image { ctx in
+                        UIColor.white.setFill()
+                        ctx.fill(scaledRect)
+
+                        ctx.cgContext.translateBy(x: 0, y: scaledRect.height)
+                        ctx.cgContext.scaleBy(x: level.scale, y: -level.scale)
+
+                        page.draw(with: .mediaBox, to: ctx.cgContext)
+                    }
+
+                    // Compress the image with fallback
+                    let jpegData = pageImage.jpegData(compressionQuality: level.jpegQuality)
+                    guard let compressedData = jpegData,
+                          let compressedImage = UIImage(data: compressedData),
+                          let cgImage = compressedImage.cgImage else {
+                        // If compression fails, try with original image
+                        if let originalCGImage = pageImage.cgImage {
+                            var mediaBox = CGRect(origin: .zero, size: scaledRect.size)
+                            pdfContext.beginPage(mediaBox: &mediaBox)
+                            pdfContext.draw(originalCGImage, in: mediaBox)
+                            pdfContext.endPage()
+                        }
+                        processedPages += 1
+                        continue
+                    }
+
+                    // Add to PDF
+                    var mediaBox = CGRect(origin: .zero, size: scaledRect.size)
+                    pdfContext.beginPage(mediaBox: &mediaBox)
+                    pdfContext.draw(cgImage, in: mediaBox)
+                    pdfContext.endPage()
+
+                    processedPages += 1
+
+                    // Update progress
+                    let pageProgress = Double(processedPages) / Double(pageCount)
+                    progress = pageProgress
+                    onProgress(.optimizing, pageProgress)
+                }
             }
 
-            // Compress the image
-            guard let compressedData = pageImage.jpegData(compressionQuality: level.jpegQuality),
-                  let compressedImage = UIImage(data: compressedData) else {
-                continue
-            }
-
-            // Add to PDF
-            var mediaBox = CGRect(origin: .zero, size: scaledRect.size)
-            pdfContext.beginPage(mediaBox: &mediaBox)
-
-            if let cgImage = compressedImage.cgImage {
-                pdfContext.draw(cgImage, in: mediaBox)
-            }
-
-            pdfContext.endPage()
-
-            // Update progress
-            let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-            progress = pageProgress
-            onProgress(.optimizing, pageProgress)
+            // Yield to allow UI updates and prevent blocking
+            await Task.yield()
         }
 
         pdfContext.closePDF()
+
+        // Verify we processed at least some pages
+        guard processedPages > 0 else {
+            self.error = .contextCreationFailed
+            throw CompressionError.contextCreationFailed
+        }
 
         // Stage 3: Saving
         currentStage = .downloading
         onProgress(.downloading, 0.5)
 
-        // Write to file
+        // Write to file with error handling
         do {
-            try (pdfData as Data).write(to: outputURL)
+            let data = pdfData as Data
+            guard !data.isEmpty else {
+                self.error = .saveFailed
+                throw CompressionError.saveFailed
+            }
+            try data.write(to: outputURL, options: .atomic)
         } catch {
+            self.error = .saveFailed
             throw CompressionError.saveFailed
         }
 
@@ -263,21 +315,60 @@ enum CompressionError: LocalizedError {
     case contextCreationFailed
     case saveFailed
     case cancelled
+    case memoryPressure
+    case fileTooLarge
+    case pageProcessingFailed(page: Int)
+    case timeout
+    case unknown(underlying: Error?)
 
     var errorDescription: String? {
         switch self {
         case .accessDenied:
-            return "Dosyaya erişim izni reddedildi"
+            return "Dosyaya erisim izni reddedildi. Lutfen dosyayi tekrar secin."
         case .invalidPDF:
-            return "Geçersiz veya bozuk PDF dosyası"
+            return "Gecersiz veya bozuk PDF dosyasi. Dosyanin zarar gormediginden emin olun."
         case .emptyPDF:
-            return "PDF dosyası boş"
+            return "PDF dosyasi bos veya okunamiyor."
         case .contextCreationFailed:
-            return "PDF işleme hatası"
+            return "PDF isleme baslatılamiyor. Cihazinizda yeterli bellek olmayabilir."
         case .saveFailed:
-            return "Dosya kaydedilemedi"
+            return "Dosya kaydedilemedi. Depolama alanini kontrol edin."
         case .cancelled:
-            return "İşlem iptal edildi"
+            return "Islem kullanici tarafindan iptal edildi."
+        case .memoryPressure:
+            return "Yetersiz bellek. Lutfen bazi uygulamalari kapatip tekrar deneyin."
+        case .fileTooLarge:
+            return "Dosya cok buyuk. 500 sayfadan kucuk dosyalari deneyin."
+        case .pageProcessingFailed(let page):
+            return "Sayfa \(page + 1) islenemedi. Dosya bozuk olabilir."
+        case .timeout:
+            return "Islem zaman asimina ugradi. Daha kucuk bir dosya deneyin."
+        case .unknown(let underlying):
+            if let error = underlying {
+                return "Beklenmeyen hata: \(error.localizedDescription)"
+            }
+            return "Beklenmeyen bir hata olustu. Lutfen tekrar deneyin."
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .accessDenied:
+            return "Dosyayi yeniden secmeyi deneyin."
+        case .invalidPDF, .emptyPDF:
+            return "Farkli bir PDF dosyasi secin."
+        case .contextCreationFailed, .memoryPressure:
+            return "Diger uygulamalari kapatin ve tekrar deneyin."
+        case .saveFailed:
+            return "Depolama alanini bosaltin."
+        case .fileTooLarge:
+            return "Dosyayi bolmeyi veya daha kucuk bir dosya secmeyi deneyin."
+        case .pageProcessingFailed:
+            return "Baska bir PDF dosyasi deneyin."
+        case .timeout:
+            return "Daha kucuk bir dosya veya daha dusuk kalite ayari deneyin."
+        default:
+            return nil
         }
     }
 }

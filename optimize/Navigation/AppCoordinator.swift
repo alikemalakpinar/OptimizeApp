@@ -173,6 +173,16 @@ class AppCoordinator: ObservableObject {
     }
 
     func performCompression(file: FileInfo, preset: CompressionPreset) async {
+        // Check for extremely large files (500+ pages)
+        if let pageCount = file.pageCount, pageCount > 500 {
+            let error = CompressionError.fileTooLarge
+            lastError = error
+            analytics.trackCompressionFailed(error: error, presetId: preset.id)
+            showError(message: error.errorDescription ?? "Dosya cok buyuk")
+            goHome()
+            return
+        }
+
         do {
             let outputURL = try await compressionService.compressPDF(
                 at: file.url,
@@ -209,6 +219,23 @@ class AppCoordinator: ObservableObject {
             withAnimation(AppAnimation.standard) {
                 currentScreen = .result(result)
             }
+        } catch let compressionError as CompressionError {
+            lastError = compressionError
+            analytics.trackCompressionFailed(error: compressionError, presetId: preset.id)
+
+            // Build error message with recovery suggestion
+            var message = compressionError.errorDescription ?? "Sikistirma basarisiz"
+            if let suggestion = compressionError.recoverySuggestion {
+                message += "\n\n\(suggestion)"
+            }
+
+            if retryCount < maxRetries && shouldAllowRetry(for: compressionError) {
+                showRetryAlert = true
+            } else {
+                retryCount = 0
+                showError(message: message)
+                goHome()
+            }
         } catch {
             lastError = error
             analytics.trackCompressionFailed(error: error, presetId: preset.id)
@@ -217,9 +244,21 @@ class AppCoordinator: ObservableObject {
                 showRetryAlert = true
             } else {
                 retryCount = 0
-                showError(message: "Sıkıştırma başarısız: \(error.localizedDescription)")
+                showError(message: "Sikistirma basarisiz: \(error.localizedDescription)")
                 goHome()
             }
+        }
+    }
+
+    /// Determines if retry should be allowed for specific error types
+    private func shouldAllowRetry(for error: CompressionError) -> Bool {
+        switch error {
+        case .accessDenied, .invalidPDF, .emptyPDF, .fileTooLarge:
+            // These errors won't be fixed by retry
+            return false
+        case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled:
+            // These might be fixed by retry
+            return true
         }
     }
 
