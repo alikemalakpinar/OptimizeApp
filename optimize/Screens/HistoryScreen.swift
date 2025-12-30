@@ -17,31 +17,8 @@ struct HistoryScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back button
-            HStack {
-                Button(action: {
-                    Haptics.selection()
-                    onBack()
-                }) {
-                    HStack(spacing: Spacing.xxs) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
-                            .font(.appBody)
-                    }
-                    .foregroundStyle(Color.appAccent)
-                }
-                .buttonStyle(.pressable)
-
-                Spacer()
-
-                Text("Geçmiş")
-                    .font(.appSection)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                // Clear all button
+            // Compact Navigation Header
+            NavigationHeader("Geçmiş", onBack: onBack) {
                 if !historyManager.items.isEmpty {
                     Button(action: {
                         Haptics.warning()
@@ -55,8 +32,6 @@ struct HistoryScreen: View {
                     Color.clear.frame(width: 60)
                 }
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
 
             if historyManager.items.isEmpty {
                 // Empty state

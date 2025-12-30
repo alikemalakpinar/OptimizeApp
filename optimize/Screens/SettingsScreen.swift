@@ -19,38 +19,10 @@ struct SettingsScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back button
-            HStack {
-                Button(action: {
-                    Haptics.selection()
-                    onBack()
-                }) {
-                    HStack(spacing: Spacing.xxs) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
-                            .font(.appBody)
-                    }
-                    .foregroundStyle(Color.appAccent)
-                }
-                .buttonStyle(.pressable)
+            // Compact Navigation Header
+            NavigationHeader("Ayarlar", onBack: onBack)
 
-                Spacer()
-
-                Text("Ayarlar")
-                    .font(.appSection)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                // Placeholder for alignment
-                Color.clear
-                    .frame(width: 60)
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.lg) {
                     // Compression Settings
                     SettingsSection(title: "Sıkıştırma") {
@@ -168,7 +140,7 @@ struct SettingsScreen: View {
                     .padding(.bottom, Spacing.xl)
                 }
                 .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.md)
+                .padding(.top, Spacing.sm)
             }
         }
         .appBackgroundLayered()
