@@ -2,10 +2,11 @@
 //  AppCoordinator.swift
 //  optimize
 //
-//  Main navigation coordinator
+//  Main navigation coordinator with real file operations
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - App State
 enum AppScreen: Equatable {
@@ -18,6 +19,27 @@ enum AppScreen: Equatable {
     case result(CompressionResult)
     case history
     case settings
+
+    static func == (lhs: AppScreen, rhs: AppScreen) -> Bool {
+        switch (lhs, rhs) {
+        case (.splash, .splash),
+             (.onboarding, .onboarding),
+             (.home, .home),
+             (.history, .history),
+             (.settings, .settings):
+            return true
+        case (.analyze(let lFile), .analyze(let rFile)):
+            return lFile.id == rFile.id
+        case (.preset(let lFile, _), .preset(let rFile, _)):
+            return lFile.id == rFile.id
+        case (.progress(let lFile, _), .progress(let rFile, _)):
+            return lFile.id == rFile.id
+        case (.result(let lResult), .result(let rResult)):
+            return lResult.id == rResult.id
+        default:
+            return false
+        }
+    }
 }
 
 // MARK: - App Coordinator
@@ -25,7 +47,21 @@ enum AppScreen: Equatable {
 class AppCoordinator: ObservableObject {
     @Published var currentScreen: AppScreen = .splash
     @Published var showPaywall = false
-    @Published var navigationPath: [AppScreen] = []
+    @Published var showDocumentPicker = false
+    @Published var showShareSheet = false
+    @Published var showFileSaver = false
+    @Published var showError = false
+    @Published var errorMessage = ""
+
+    // Current processing data
+    @Published var currentFile: FileInfo?
+    @Published var currentAnalysis: AnalysisResult?
+    @Published var currentResult: CompressionResult?
+    @Published var selectedPreset: CompressionPreset?
+
+    // Services
+    let compressionService = PDFCompressionService.shared
+    let historyManager = HistoryManager.shared
 
     // User defaults keys
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
@@ -53,28 +89,108 @@ class AppCoordinator: ObservableObject {
         }
     }
 
-    func selectFile(_ file: FileInfo) {
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .analyze(file)
+    func requestFilePicker() {
+        showDocumentPicker = true
+    }
+
+    func handlePickedFile(_ url: URL) {
+        showDocumentPicker = false
+
+        Task {
+            do {
+                let fileInfo = try FileInfo.from(url: url)
+                currentFile = fileInfo
+                withAnimation(AppAnimation.standard) {
+                    currentScreen = .analyze(fileInfo)
+                }
+
+                // Start analysis
+                await performAnalysis(for: fileInfo)
+            } catch {
+                showError(message: "Dosya okunamadı: \(error.localizedDescription)")
+            }
         }
     }
 
-    func analyzeComplete(file: FileInfo, result: AnalysisResult) {
+    func performAnalysis(for file: FileInfo) async {
+        do {
+            let result = try await compressionService.analyzePDF(at: file.url)
+            currentAnalysis = result
+        } catch {
+            // Use default analysis on error
+            currentAnalysis = AnalysisResult(
+                pageCount: file.pageCount ?? 1,
+                imageCount: 0,
+                imageDensity: .medium,
+                estimatedSavings: .medium,
+                isAlreadyOptimized: false,
+                originalDPI: nil
+            )
+        }
+    }
+
+    func analyzeComplete() {
+        guard let file = currentFile, let result = currentAnalysis else { return }
         withAnimation(AppAnimation.standard) {
             currentScreen = .preset(file, result)
         }
     }
 
-    func startCompression(file: FileInfo, preset: CompressionPreset) {
+    func startCompression(preset: CompressionPreset) {
+        guard let file = currentFile else { return }
+        selectedPreset = preset
+
         withAnimation(AppAnimation.standard) {
             currentScreen = .progress(file, preset)
         }
+
+        // Start actual compression
+        Task {
+            await performCompression(file: file, preset: preset)
+        }
     }
 
-    func compressionComplete(result: CompressionResult) {
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .result(result)
+    func performCompression(file: FileInfo, preset: CompressionPreset) async {
+        do {
+            let outputURL = try await compressionService.compressPDF(
+                at: file.url,
+                preset: preset
+            ) { stage, progress in
+                // Progress updates handled by service
+            }
+
+            // Get compressed file size
+            let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
+            let compressedSize = attributes[.size] as? Int64 ?? 0
+
+            let result = CompressionResult(
+                originalFile: file,
+                compressedURL: outputURL,
+                compressedSize: compressedSize
+            )
+
+            currentResult = result
+
+            // Add to history
+            historyManager.addFromResult(result, presetId: preset.id)
+
+            withAnimation(AppAnimation.standard) {
+                currentScreen = .result(result)
+            }
+        } catch {
+            showError(message: "Sıkıştırma başarısız: \(error.localizedDescription)")
+            goHome()
         }
+    }
+
+    func shareResult() {
+        guard currentResult != nil else { return }
+        showShareSheet = true
+    }
+
+    func saveResult() {
+        guard currentResult != nil else { return }
+        showFileSaver = true
     }
 
     func openHistory() {
@@ -96,6 +212,11 @@ class AppCoordinator: ObservableObject {
     }
 
     func goHome() {
+        currentFile = nil
+        currentAnalysis = nil
+        currentResult = nil
+        selectedPreset = nil
+
         withAnimation(AppAnimation.standard) {
             currentScreen = .home
         }
@@ -108,6 +229,17 @@ class AppCoordinator: ObservableObject {
     func dismissPaywall() {
         showPaywall = false
     }
+
+    // MARK: - Error Handling
+    func showError(message: String) {
+        errorMessage = message
+        showError = true
+    }
+
+    func dismissError() {
+        showError = false
+        errorMessage = ""
+    }
 }
 
 // MARK: - Root View
@@ -116,141 +248,39 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            switch coordinator.currentScreen {
-            case .splash:
-                SplashScreen {
-                    coordinator.splashComplete()
+            screenContent
+        }
+        .sheet(isPresented: $coordinator.showDocumentPicker) {
+            DocumentPicker(
+                allowedTypes: [.pdf],
+                onPick: { url in
+                    coordinator.handlePickedFile(url)
+                },
+                onCancel: {
+                    coordinator.showDocumentPicker = false
                 }
-                .transition(.opacity)
-
-            case .onboarding:
-                OnboardingScreen {
-                    coordinator.onboardingComplete()
+            )
+        }
+        .sheet(isPresented: $coordinator.showShareSheet) {
+            if let result = coordinator.currentResult {
+                ShareSheet(items: [result.compressedURL]) {
+                    coordinator.showShareSheet = false
                 }
-                .transition(.opacity)
-
-            case .home:
-                HomeScreen(
-                    onSelectFile: {
-                        // Demo: Create sample file
-                        let sampleFile = FileInfo(
-                            name: "Rapor_2024.pdf",
-                            url: URL(fileURLWithPath: "/sample.pdf"),
-                            size: 300_000_000,
-                            pageCount: 84,
-                            fileType: .pdf
-                        )
-                        coordinator.selectFile(sampleFile)
-                    },
-                    onOpenHistory: {
-                        coordinator.openHistory()
-                    },
-                    onOpenSettings: {
-                        coordinator.openSettings()
-                    }
-                )
-                .transition(.opacity)
-
-            case .analyze(let file):
-                AnalyzeScreen(
-                    file: file,
-                    analysisResult: AnalysisResult(
-                        pageCount: file.pageCount ?? 84,
-                        imageCount: 42,
-                        imageDensity: .high,
-                        estimatedSavings: .high,
-                        isAlreadyOptimized: false,
-                        originalDPI: 300
-                    ),
-                    onContinue: {
-                        let result = AnalysisResult(
-                            pageCount: file.pageCount ?? 84,
-                            imageCount: 42,
-                            imageDensity: .high,
-                            estimatedSavings: .high,
-                            isAlreadyOptimized: false,
-                            originalDPI: 300
-                        )
-                        coordinator.analyzeComplete(file: file, result: result)
-                    },
-                    onBack: {
-                        coordinator.goBack()
-                    },
-                    onReplace: {
-                        coordinator.goBack()
-                    }
-                )
-                .transition(.move(edge: .trailing))
-
-            case .preset(let file, _):
-                PresetScreen(
-                    onCompress: { preset in
-                        coordinator.startCompression(file: file, preset: preset)
-                    },
-                    onBack: {
-                        coordinator.goBack()
-                    },
-                    onShowPaywall: {
-                        coordinator.presentPaywall()
-                    }
-                )
-                .transition(.move(edge: .trailing))
-
-            case .progress(let file, _):
-                ProgressScreen(
-                    onCancel: {
-                        coordinator.goBack()
-                    }
-                )
-                .transition(.opacity)
-                .onAppear {
-                    // Simulate compression completion
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-                        let result = CompressionResult(
-                            originalFile: file,
-                            compressedURL: URL(fileURLWithPath: "/compressed.pdf"),
-                            compressedSize: 92_000_000
-                        )
-                        coordinator.compressionComplete(result: result)
+            }
+        }
+        .sheet(isPresented: $coordinator.showFileSaver) {
+            if let result = coordinator.currentResult {
+                FileExporter(url: result.compressedURL) { success in
+                    coordinator.showFileSaver = false
+                    if success {
+                        Haptics.success()
                     }
                 }
-
-            case .result(let result):
-                ResultScreen(
-                    result: result,
-                    onShare: {
-                        // Share action
-                    },
-                    onSave: {
-                        // Save action
-                    },
-                    onNewFile: {
-                        coordinator.goHome()
-                    }
-                )
-                .transition(.opacity)
-
-            case .history:
-                HistoryScreen(
-                    onBack: {
-                        coordinator.goBack()
-                    }
-                )
-                .transition(.move(edge: .trailing))
-
-            case .settings:
-                SettingsScreen(
-                    onBack: {
-                        coordinator.goBack()
-                    }
-                )
-                .transition(.move(edge: .trailing))
             }
         }
         .sheet(isPresented: $coordinator.showPaywall) {
             PaywallScreen(
                 onSubscribe: { plan in
-                    // Handle subscription
                     coordinator.dismissPaywall()
                 },
                 onRestore: {
@@ -266,6 +296,118 @@ struct RootView: View {
                     // Open terms
                 }
             )
+        }
+        .alert("Hata", isPresented: $coordinator.showError) {
+            Button("Tamam", role: .cancel) {
+                coordinator.dismissError()
+            }
+        } message: {
+            Text(coordinator.errorMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var screenContent: some View {
+        switch coordinator.currentScreen {
+        case .splash:
+            SplashScreen {
+                coordinator.splashComplete()
+            }
+            .transition(.opacity)
+
+        case .onboarding:
+            OnboardingScreen {
+                coordinator.onboardingComplete()
+            }
+            .transition(.opacity)
+
+        case .home:
+            HomeScreen(
+                coordinator: coordinator,
+                onSelectFile: {
+                    coordinator.requestFilePicker()
+                },
+                onOpenHistory: {
+                    coordinator.openHistory()
+                },
+                onOpenSettings: {
+                    coordinator.openSettings()
+                }
+            )
+            .transition(.opacity)
+
+        case .analyze(let file):
+            AnalyzeScreen(
+                file: file,
+                analysisResult: coordinator.currentAnalysis,
+                onContinue: {
+                    coordinator.analyzeComplete()
+                },
+                onBack: {
+                    coordinator.goBack()
+                },
+                onReplace: {
+                    coordinator.requestFilePicker()
+                }
+            )
+            .transition(.move(edge: .trailing))
+
+        case .preset(_, _):
+            PresetScreen(
+                onCompress: { preset in
+                    coordinator.startCompression(preset: preset)
+                },
+                onBack: {
+                    coordinator.goBack()
+                },
+                onShowPaywall: {
+                    coordinator.presentPaywall()
+                }
+            )
+            .transition(.move(edge: .trailing))
+
+        case .progress(let file, let preset):
+            ProgressScreen(
+                file: file,
+                preset: preset,
+                compressionService: coordinator.compressionService,
+                onCancel: {
+                    coordinator.goHome()
+                }
+            )
+            .transition(.opacity)
+
+        case .result(let result):
+            ResultScreen(
+                result: result,
+                onShare: {
+                    coordinator.shareResult()
+                },
+                onSave: {
+                    coordinator.saveResult()
+                },
+                onNewFile: {
+                    coordinator.goHome()
+                }
+            )
+            .transition(.opacity)
+
+        case .history:
+            HistoryScreen(
+                historyManager: coordinator.historyManager,
+                onBack: {
+                    coordinator.goBack()
+                }
+            )
+            .transition(.move(edge: .trailing))
+
+        case .settings:
+            SettingsScreen(
+                onBack: {
+                    coordinator.goBack()
+                }
+            )
+            .transition(.move(edge: .trailing))
         }
     }
 }

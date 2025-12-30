@@ -2,22 +2,19 @@
 //  ProgressScreen.swift
 //  optimize
 //
-//  Processing progress screen with fun facts and haptic feedback
+//  Processing progress screen with real compression feedback
 //
 
 import SwiftUI
 
 struct ProgressScreen: View {
-    @State private var currentStage: ProcessingStage = .preparing
-    @State private var completedStages: Set<ProcessingStage> = []
-    @State private var progress: Double = 0
-    @State private var currentFactIndex = 0
-    @State private var factOpacity: Double = 1
-
+    let file: FileInfo
+    let preset: CompressionPreset
+    @ObservedObject var compressionService: PDFCompressionService
     let onCancel: () -> Void
 
-    // Simulated progress for demo
-    @State private var timer: Timer?
+    @State private var currentFactIndex = 0
+    @State private var factOpacity: Double = 1
     @State private var factTimer: Timer?
 
     // Fun facts / "Did you know" messages
@@ -31,6 +28,24 @@ struct ProgressScreen: View {
         "Görünmez metadata'ları avlıyoruz..."
     ]
 
+    private var completedStages: Set<ProcessingStage> {
+        var stages: Set<ProcessingStage> = []
+        switch compressionService.currentStage {
+        case .preparing:
+            break
+        case .uploading:
+            stages.insert(.preparing)
+        case .optimizing:
+            stages.insert(.preparing)
+            stages.insert(.uploading)
+        case .downloading:
+            stages.insert(.preparing)
+            stages.insert(.uploading)
+            stages.insert(.optimizing)
+        }
+        return stages
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -40,16 +55,37 @@ struct ProgressScreen: View {
 
             VStack(spacing: Spacing.xl) {
                 // Animated processing visual
-                ProcessingAnimation(stage: currentStage, progress: progress)
+                ProcessingAnimation(
+                    stage: compressionService.currentStage,
+                    progress: compressionService.progress
+                )
+
+                // File being processed
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "doc.fill")
+                        .foregroundStyle(Color.appAccent)
+                    Text(file.name)
+                        .font(.appBodyMedium)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, Spacing.md)
 
                 // Stage Timeline
                 GlassCard {
                     StageTimeline(
-                        currentStage: currentStage,
+                        currentStage: compressionService.currentStage,
                         completedStages: completedStages
                     )
                 }
                 .padding(.horizontal, Spacing.md)
+
+                // Progress percentage
+                if compressionService.currentStage == .optimizing {
+                    Text("\(Int(compressionService.progress * 100))%")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.appMint)
+                }
 
                 // Fun fact card
                 FunFactCard(
@@ -65,6 +101,7 @@ struct ProgressScreen: View {
             VStack(spacing: Spacing.sm) {
                 SecondaryButton(title: "İptal", icon: "xmark") {
                     Haptics.warning()
+                    factTimer?.invalidate()
                     onCancel()
                 }
             }
@@ -73,60 +110,10 @@ struct ProgressScreen: View {
         }
         .appBackgroundLayered()
         .onAppear {
-            startSimulatedProgress()
             startFactRotation()
         }
         .onDisappear {
-            timer?.invalidate()
             factTimer?.invalidate()
-        }
-    }
-
-    // MARK: - Simulated Progress (Demo)
-    private func startSimulatedProgress() {
-        var elapsed: Double = 0
-        var lastStage: ProcessingStage?
-
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            elapsed += 0.1
-
-            withAnimation(AppAnimation.standard) {
-                // Stage transitions
-                if elapsed < 1.5 {
-                    currentStage = .preparing
-                    progress = 0
-                } else if elapsed < 4 {
-                    if currentStage == .preparing && lastStage != .uploading {
-                        completedStages.insert(.preparing)
-                        Haptics.success() // Haptic on stage complete
-                    }
-                    currentStage = .uploading
-                    progress = min((elapsed - 1.5) / 2.5, 1.0)
-                } else if elapsed < 7 {
-                    if currentStage == .uploading && lastStage != .optimizing {
-                        completedStages.insert(.uploading)
-                        Haptics.success()
-                    }
-                    currentStage = .optimizing
-                    progress = 0
-                } else if elapsed < 9 {
-                    if currentStage == .optimizing && lastStage != .downloading {
-                        completedStages.insert(.optimizing)
-                        Haptics.success()
-                    }
-                    currentStage = .downloading
-                    progress = min((elapsed - 7) / 2, 1.0)
-                } else {
-                    if !completedStages.contains(.downloading) {
-                        completedStages.insert(.downloading)
-                        Haptics.success()
-                        SoundManager.shared.playSuccessSound()
-                    }
-                    timer?.invalidate()
-                }
-
-                lastStage = currentStage
-            }
         }
     }
 
@@ -169,8 +156,8 @@ struct ProcessingAnimation: View {
                     .rotationEffect(.degrees(rotation + Double(index) * 30))
             }
 
-            // Progress ring (for upload/download stages)
-            if stage == .uploading || stage == .downloading {
+            // Progress ring (for optimizing stage)
+            if stage == .optimizing {
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
@@ -244,5 +231,16 @@ struct FunFactCard: View {
 }
 
 #Preview {
-    ProgressScreen(onCancel: {})
+    ProgressScreen(
+        file: FileInfo(
+            name: "Test.pdf",
+            url: URL(fileURLWithPath: "/test.pdf"),
+            size: 100_000_000,
+            pageCount: 10,
+            fileType: .pdf
+        ),
+        preset: CompressionPreset.defaultPresets[0],
+        compressionService: PDFCompressionService.shared,
+        onCancel: {}
+    )
 }
