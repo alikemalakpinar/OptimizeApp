@@ -33,6 +33,23 @@ struct HomeScreen: View {
         coordinator.historyManager.recentItems(limit: 3)
     }
 
+    private var totalSavedMB: Double {
+        coordinator.historyManager.items.reduce(0) { partial, item in
+            partial + max(0, Double(item.originalSize - item.compressedSize) / 1_000_000)
+        }
+    }
+
+    private var averageSavings: Int {
+        let savings = coordinator.historyManager.items.map(\.savingsPercent)
+        guard !savings.isEmpty else { return 68 }
+        let total = savings.reduce(0, +)
+        return Int(Double(total) / Double(savings.count))
+    }
+
+    private var bestSavings: Int? {
+        coordinator.historyManager.items.map(\.savingsPercent).max()
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -74,6 +91,13 @@ struct HomeScreen: View {
                     }
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)
+
+                    ConversionHighlights(
+                        totalSavedMB: totalSavedMB,
+                        averageSaving: averageSavings,
+                        bestSaving: bestSavings
+                    )
+                    .padding(.horizontal, Spacing.md)
 
                     // Recent History Section or Empty State
                     if recentHistory.isEmpty {
@@ -197,6 +221,94 @@ struct BreathingCTACard: View {
             breathScale = 1.08
             ringOpacity = 0.5
         }
+    }
+}
+
+// MARK: - Conversion Highlights
+struct ConversionHighlights: View {
+    let totalSavedMB: Double
+    let averageSaving: Int
+    let bestSaving: Int?
+
+    private var formattedTotal: String {
+        if totalSavedMB >= 1000 {
+            return String(format: "%.1f GB", totalSavedMB / 1000)
+        }
+        return String(format: "%.0f MB", totalSavedMB)
+    }
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
+                        Text("Optimize performansı")
+                            .font(.appBodyMedium)
+                            .foregroundStyle(.primary)
+                        Text("Gerçek tasarruflara göre öneriler")
+                            .font(.appCaption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Label("Yeni", systemImage: "sparkles")
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(Color.appAccent)
+                        .padding(.horizontal, Spacing.xs)
+                        .padding(.vertical, Spacing.xxs)
+                        .background(Color.appAccent.opacity(Opacity.subtle))
+                        .clipShape(Capsule())
+                }
+
+                HStack(spacing: Spacing.sm) {
+                    HighlightCard(
+                        icon: "arrow.down.to.line",
+                        title: "Toplam kazanç",
+                        value: formattedTotal
+                    )
+
+                    HighlightCard(
+                        icon: "percent",
+                        title: "Ortalama tasarruf",
+                        value: "%\(averageSaving)"
+                    )
+
+                    HighlightCard(
+                        icon: "rosette",
+                        title: "En iyi sonuç",
+                        value: bestSaving.map { "%\($0)" } ?? "%75"
+                    )
+                }
+            }
+        }
+    }
+}
+
+struct HighlightCard: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            HStack(spacing: Spacing.xxs) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                Text(title)
+                    .font(.appCaption)
+            }
+            .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, Spacing.sm)
+        .background(Color.appSurface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
     }
 }
 

@@ -8,28 +8,41 @@
 import SwiftUI
 
 struct PresetScreen: View {
-    @State private var selectedPresetId: String? = "whatsapp"
+    let file: FileInfo
+    let analysisResult: AnalysisResult
+
+    @State private var selectedPresetId: String
     @State private var wifiOnly = true
     @State private var deleteAfterProcess = false
-    @State private var showPaywall = false
-    @State private var customTargetMB: Double = 10 // Custom preset slider value
-    @State private var showCustomSlider = false
+    @State private var customTargetMB: Double
 
     let presets: [CompressionPreset]
     let onCompress: (CompressionPreset) -> Void
     let onBack: () -> Void
     let onShowPaywall: () -> Void
 
+    private let recommendedPresetId: String
+
     init(
+        file: FileInfo,
+        analysisResult: AnalysisResult,
         presets: [CompressionPreset] = CompressionPreset.defaultPresets,
         onCompress: @escaping (CompressionPreset) -> Void,
         onBack: @escaping () -> Void,
         onShowPaywall: @escaping () -> Void
     ) {
+        self.file = file
+        self.analysisResult = analysisResult
         self.presets = presets
         self.onCompress = onCompress
         self.onBack = onBack
         self.onShowPaywall = onShowPaywall
+
+        let defaultPreset = PresetScreen.recommendedPresetId(for: analysisResult)
+        let suggestedTargetMB = max(5, min(50, file.sizeMB * 0.6))
+        self.recommendedPresetId = defaultPreset
+        _selectedPresetId = State(initialValue: defaultPreset)
+        _customTargetMB = State(initialValue: suggestedTargetMB)
     }
 
     var selectedPreset: CompressionPreset? {
@@ -48,6 +61,70 @@ struct PresetScreen: View {
         return presets.first { $0.id == selectedPresetId }
     }
 
+    private var recommendedPreset: CompressionPreset? {
+        presets.first { $0.id == recommendedPresetId }
+    }
+
+    private var estimatedSavingsPercent: Int {
+        guard let preset = selectedPreset else { return 0 }
+        return PresetScreen.estimatedSavingsPercent(
+            for: preset,
+            analysis: analysisResult
+        )
+    }
+
+    private var estimatedOutputSizeText: String {
+        guard let preset = selectedPreset else { return "-" }
+        let estimatedMB = PresetScreen.estimatedOutputSizeMB(
+            for: preset,
+            file: file,
+            analysis: analysisResult
+        )
+        let estimatedBytes = Int64(estimatedMB * 1_000_000)
+        return ByteCountFormatter.string(fromByteCount: estimatedBytes, countStyle: .file)
+    }
+
+    private static func recommendedPresetId(for analysis: AnalysisResult) -> String {
+        if analysis.estimatedSavings == .high || analysis.imageDensity == .high {
+            return "mail"
+        } else if analysis.imageDensity == .medium {
+            return "whatsapp"
+        } else {
+            return "quality"
+        }
+    }
+
+    private static func estimatedSavingsPercent(for preset: CompressionPreset, analysis: AnalysisResult) -> Int {
+        let base: Double
+        switch analysis.estimatedSavings {
+        case .high: base = 0.65
+        case .medium: base = 0.45
+        case .low: base = 0.28
+        }
+
+        let presetAdjustment: Double
+        switch preset.quality {
+        case .low: presetAdjustment = 0.12
+        case .medium: presetAdjustment = 0.05
+        case .high: presetAdjustment = 0.0
+        case .custom: presetAdjustment = 0.08
+        }
+
+        let combined = max(0.15, min(0.9, base + presetAdjustment))
+        return Int(combined * 100)
+    }
+
+    private static func estimatedOutputSizeMB(for preset: CompressionPreset, file: FileInfo, analysis: AnalysisResult) -> Double {
+        let savingsPercent = Double(estimatedSavingsPercent(for: preset, analysis: analysis)) / 100
+        let reduced = max(1, file.sizeMB * (1 - savingsPercent))
+
+        if let target = preset.targetSizeMB {
+            return max(1, min(Double(target), reduced))
+        }
+
+        return reduced
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
@@ -55,8 +132,20 @@ struct PresetScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.md) {
+                    OutcomeSummaryCard(
+                        file: file,
+                        analysis: analysisResult,
+                        selectedPreset: selectedPreset,
+                        recommendedPresetId: recommendedPresetId,
+                        recommendedPreset: recommendedPreset,
+                        estimatedSavingsPercent: estimatedSavingsPercent,
+                        estimatedOutputText: estimatedOutputSizeText
+                    )
+
                     // Quality Preview Card
                     QualityPreviewCard(selectedPresetId: selectedPresetId)
+
+                    ValuePropGrid()
 
                     // Preset Grid
                     LazyVGrid(
@@ -139,6 +228,196 @@ struct PresetScreen: View {
             .background(Color.appBackground)
         }
         .appBackgroundLayered()
+    }
+}
+
+// MARK: - Outcome Summary Card
+struct OutcomeSummaryCard: View {
+    let file: FileInfo
+    let analysis: AnalysisResult
+    let selectedPreset: CompressionPreset?
+    let recommendedPresetId: String
+    let recommendedPreset: CompressionPreset?
+    let estimatedSavingsPercent: Int
+    let estimatedOutputText: String
+
+    private var badgeLabel: String {
+        if let preset = selectedPreset {
+            return preset.id == recommendedPresetId ? "Önerilen ayar" : "Seçili"
+        }
+        if let recommendedPreset {
+            return "Önerilen: \(recommendedPreset.name)"
+        }
+        return "Önerilen"
+    }
+
+    private var badgeColor: Color {
+        if let preset = selectedPreset, preset.id == recommendedPresetId {
+            return .appMint
+        }
+        return .appAccent
+    }
+
+    var body: some View {
+        GlassCard {
+            VStack(spacing: Spacing.md) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
+                        Text(selectedPreset?.name ?? "Doğru hedefi seç")
+                            .font(.appBodyMedium)
+                            .foregroundStyle(.primary)
+
+                        Text("\(analysis.imageDensity.rawValue) içerik • \(file.sizeFormatted)")
+                            .font(.appCaption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text(badgeLabel)
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(badgeColor)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xxs)
+                        .background(badgeColor.opacity(Opacity.subtle))
+                        .clipShape(Capsule())
+                }
+
+                EstimatedSavings(
+                    originalSize: file.sizeFormatted,
+                    estimatedSize: estimatedOutputText,
+                    savingsPercent: estimatedSavingsPercent
+                )
+
+                HStack(spacing: Spacing.sm) {
+                    BenefitRow(
+                        icon: "sparkles",
+                        title: "Akıllı optimizasyon",
+                        subtitle: "Görsel yoğunluğuna göre ayarlandı"
+                    )
+
+                    BenefitRow(
+                        icon: "bolt.fill",
+                        title: "Anlık ilerleme",
+                        subtitle: "Sıkıştırma başlar başlamaz izleyin"
+                    )
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Value Prop Grid
+struct ValuePropGrid: View {
+    private let items: [ValuePropItemModel] = [
+        .init(
+            icon: "lock.shield",
+            title: "Cihaz içi güvenlik",
+            subtitle: "Dosyaların buluta çıkmadan işlenir"
+        ),
+        .init(
+            icon: "hand.thumbsup",
+            title: "Kalite garantisi",
+            subtitle: "Yazılar net, renkler dengeli kalır"
+        ),
+        .init(
+            icon: "clock.arrow.2.circlepath",
+            title: "Zaman kazancı",
+            subtitle: "Tek dokunuşla hazır paylaşım boyutları"
+        ),
+        .init(
+            icon: "arrow.uturn.backward",
+            title: "Geri dönüş kalkanı",
+            subtitle: "Başarısız olursa hızlıca yeniden dene"
+        )
+    ]
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Daha yüksek başarı için ince ayar")
+                    .font(.appBodyMedium)
+                    .foregroundStyle(.primary)
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: Spacing.sm),
+                        GridItem(.flexible(), spacing: Spacing.sm)
+                    ],
+                    spacing: Spacing.sm
+                ) {
+                    ForEach(items) { item in
+                        ValuePropItem(item: item)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct ValuePropItemModel: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let subtitle: String
+}
+
+struct ValuePropItem: View {
+    let item: ValuePropItemModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.appAccent.opacity(Opacity.subtle))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: item.icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.appAccent)
+            }
+
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(item.title)
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(.primary)
+
+                Text(item.subtitle)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+struct BenefitRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Circle()
+                .fill(Color.appMint.opacity(Opacity.subtle))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color.appMint)
+                )
+
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(title)
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
@@ -558,6 +837,21 @@ struct SizeChip: View {
 
 #Preview {
     PresetScreen(
+        file: FileInfo(
+            name: "Demo.pdf",
+            url: URL(fileURLWithPath: "/demo.pdf"),
+            size: 32_000_000,
+            pageCount: 12,
+            fileType: .pdf
+        ),
+        analysisResult: AnalysisResult(
+            pageCount: 12,
+            imageCount: 24,
+            imageDensity: .medium,
+            estimatedSavings: .medium,
+            isAlreadyOptimized: false,
+            originalDPI: 300
+        ),
         onCompress: { preset in
             print("Selected: \(preset.name)")
         },
