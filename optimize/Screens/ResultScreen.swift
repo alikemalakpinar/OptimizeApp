@@ -36,6 +36,13 @@ struct ResultScreen: View {
                         )
                         .padding(.horizontal, Spacing.md)
 
+                        // Before/After visual comparison slider
+                        BeforeAfterSlider(
+                            originalURL: result.originalFile.url,
+                            compressedURL: result.compressedURL
+                        )
+                        .padding(.horizontal, Spacing.md)
+
                         // Result numbers
                         EnhancedResultNumbers(
                             fromSizeMB: result.originalFile.sizeMB,

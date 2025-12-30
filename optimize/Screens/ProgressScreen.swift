@@ -17,6 +17,12 @@ struct ProgressScreen: View {
     @State private var factOpacity: Double = 1
     @State private var factTimer: Timer?
 
+    // Detailed progress state
+    @State private var currentDetailIndex = 0
+    @State private var detailOpacity: Double = 1
+    @State private var detailTimer: Timer?
+    @State private var lastHapticProgress: Double = 0
+
     // Fun facts / "Did you know" messages
     private let funFacts = [
         "Biliyor muydun? PDF'lerin %40'ı insan gözünün görmediği verilerden oluşur.",
@@ -81,12 +87,21 @@ struct ProgressScreen: View {
                 }
                 .padding(.horizontal, Spacing.md)
 
+                // Detailed progress card
+                DetailedProgressCard(
+                    stage: compressionService.currentStage,
+                    progress: compressionService.progress,
+                    currentDetailIndex: currentDetailIndex,
+                    detailOpacity: detailOpacity
+                )
+                .padding(.horizontal, Spacing.md)
+
                 // Progress percentage
                 if compressionService.currentStage == .optimizing {
                     Text("\(Int(compressionService.progress * 100))%")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.appMint)
-                        .accessibilityLabel("Sıkıştırma ilerleme durumu: yüzde \(Int(compressionService.progress * 100))")
+                        .accessibilityLabel("Sikistirma ilerleme durumu: yuzde \(Int(compressionService.progress * 100))")
                 }
 
                 // Fun fact card
@@ -113,9 +128,20 @@ struct ProgressScreen: View {
         .appBackgroundLayered()
         .onAppear {
             startFactRotation()
+            startDetailRotation()
+            Haptics.impact(style: .light) // Initial haptic on screen appear
         }
         .onDisappear {
             factTimer?.invalidate()
+            detailTimer?.invalidate()
+        }
+        .onChange(of: compressionService.progress) { _, newProgress in
+            triggerProgressHaptic(progress: newProgress)
+        }
+        .onChange(of: compressionService.currentStage) { _, newStage in
+            // Reset detail index when stage changes
+            currentDetailIndex = 0
+            Haptics.impact(style: .medium) // Haptic on stage change
         }
     }
 
@@ -134,6 +160,97 @@ struct ProgressScreen: View {
                 }
             }
         }
+    }
+
+    private func startDetailRotation() {
+        detailTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { _ in
+            let messages = compressionService.currentStage.detailMessages
+            guard !messages.isEmpty else { return }
+
+            // Fade out
+            withAnimation(.easeOut(duration: 0.2)) {
+                detailOpacity = 0
+            }
+
+            // Change detail and fade in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                currentDetailIndex = (currentDetailIndex + 1) % messages.count
+                withAnimation(.easeIn(duration: 0.2)) {
+                    detailOpacity = 1
+                }
+            }
+        }
+    }
+
+    private func triggerProgressHaptic(progress: Double) {
+        // Trigger haptic every 25%
+        let milestones: [Double] = [0.25, 0.50, 0.75, 1.0]
+
+        for milestone in milestones {
+            if lastHapticProgress < milestone && progress >= milestone {
+                Haptics.impact(style: .soft)
+                lastHapticProgress = progress
+                break
+            }
+        }
+    }
+}
+
+// MARK: - Detailed Progress Card
+struct DetailedProgressCard: View {
+    let stage: ProcessingStage
+    let progress: Double
+    let currentDetailIndex: Int
+    let detailOpacity: Double
+
+    private var currentMessage: String {
+        let messages = stage.detailMessages
+        guard !messages.isEmpty else { return "" }
+        let safeIndex = currentDetailIndex % messages.count
+        return messages[safeIndex]
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // Animated dots indicator
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.appAccent)
+                        .frame(width: 6, height: 6)
+                        .scaleEffect(animationScale(for: index))
+                }
+            }
+            .frame(width: 30)
+
+            // Detail message
+            Text(currentMessage)
+                .font(.appCaption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .opacity(detailOpacity)
+
+            Spacer()
+
+            // Stage indicator badge
+            Text(stage.rawValue)
+                .font(.caption2.bold())
+                .foregroundStyle(Color.appAccent)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.appAccent.opacity(0.1))
+                .clipShape(Capsule())
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(Color.appSurface.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+    }
+
+    private func animationScale(for index: Int) -> CGFloat {
+        let phase = (Date().timeIntervalSince1970 * 3).truncatingRemainder(dividingBy: 3)
+        let currentIndex = Int(phase)
+        return currentIndex == index ? 1.3 : 0.8
     }
 }
 

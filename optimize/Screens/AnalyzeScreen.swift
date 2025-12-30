@@ -44,6 +44,12 @@ struct AnalyzeScreen: View {
                         onReplace: onReplace
                     )
 
+                    // File Preview Thumbnail (Quick Look)
+                    FilePreviewCard(
+                        url: file.url,
+                        pageCount: file.pageCount
+                    )
+
                     // Analysis Animation or Results
                     if isAnalyzing || analysisResult == nil {
                         AnalysisScanView(

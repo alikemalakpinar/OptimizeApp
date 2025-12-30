@@ -233,25 +233,6 @@ struct AppSettings: Equatable {
 }
 
 // MARK: - FileInfo Extension for URL Initialization
-extension FileInfo {
-    static func from(url: URL) throws -> FileInfo {
-        guard url.startAccessingSecurityScopedResource() else {
-            throw NSError(domain: "FileAccess", code: 1, userInfo: [NSLocalizedDescriptionKey: "Dosyaya erişim izni yok"])
-        }
-
-        defer { url.stopAccessingSecurityScopedResource() }
-
-        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-        let fileSize = attributes[.size] as? Int64 ?? 0
-        let fileName = url.lastPathComponent
-
-        return FileInfo(
-            name: fileName,
-            url: url,
-            size: fileSize,
-            pageCount: nil,
-            fileType: .pdf
-        )
-    }
-}
+// Note: The main from(url:) implementation is in PDFCompressionService.swift
+// which provides more complete functionality including page count for PDFs
 

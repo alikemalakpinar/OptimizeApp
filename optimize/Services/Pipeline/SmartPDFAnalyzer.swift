@@ -243,14 +243,14 @@ final class SmartPDFAnalyzer {
                     try handler.perform(requests)
 
                     // Sonuçları Topla
-                    let imageRects = (rectRequest.results as? [VNRectangleObservation])?.map { $0.boundingBox } ?? []
+                    let imageRects = rectRequest.results?.map { $0.boundingBox } ?? []
 
                     var textRects: [CGRect] = []
                     var ocrElements: [OCRTextElement] = []
 
                     if let textReq = textRequest {
-                        textRects = (textReq.results as? [VNRecognizedTextObservation])?.map { $0.boundingBox } ?? []
-                        ocrElements = (textReq.results as? [VNRecognizedTextObservation])?.compactMap { observation -> OCRTextElement? in
+                        textRects = textReq.results?.map { $0.boundingBox } ?? []
+                        ocrElements = textReq.results?.compactMap { observation -> OCRTextElement? in
                             guard let candidate = observation.topCandidates(1).first else { return nil }
                             return OCRTextElement(text: candidate.string, normalizedRect: observation.boundingBox)
                         } ?? []
