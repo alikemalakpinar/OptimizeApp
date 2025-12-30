@@ -112,32 +112,3 @@ struct FileExporter: UIViewControllerRepresentable {
         }
     }
 }
-
-// MARK: - Output File Info Component
-struct OutputFileInfo: View {
-    let fileName: String
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "doc.fill")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color.appAccent)
-
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text("Çıktı Dosyası")
-                    .font(.appCaption)
-                    .foregroundStyle(.secondary)
-
-                Text(fileName)
-                    .font(.appBodyMedium)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-        }
-        .padding(Spacing.md)
-        .background(Color.appSurface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-    }
-}
