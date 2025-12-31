@@ -24,23 +24,12 @@ struct PaywallScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back/close button
+            // Header with close button (X icon - modern modal style)
             HStack {
-                Button(action: {
-                    Haptics.selection()
-                    onDismiss()
-                }) {
-                    HStack(spacing: Spacing.xxs) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Back")
-                            .font(.appBody)
-                    }
-                    .foregroundStyle(Color.appAccent)
-                }
-                .buttonStyle(.pressable)
-
                 Spacer()
+                CloseButton {
+                    onDismiss()
+                }
             }
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.sm)
@@ -102,39 +91,24 @@ struct PaywallScreen: View {
             }
 
             // Bottom CTA Section
-            VStack(spacing: Spacing.md) {
-                // Main CTA Button
-                Button(action: {
-                    Haptics.impact(style: .medium)
+            VStack(spacing: Spacing.sm) {
+                // Main CTA Button (Shimmer effect)
+                ShimmerButton(
+                    title: "Start Pro",
+                    icon: "crown.fill",
+                    isLoading: isLoading
+                ) {
                     isLoading = true
                     onSubscribe(selectedPlan)
-                }) {
-                    HStack(spacing: Spacing.xs) {
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.9)
-                        } else {
-                            Text("Start Pro")
-                                .font(.system(size: 17, weight: .semibold))
-                        }
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.appAccent, Color.appAccent.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .shadow(color: Color.appAccent.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
-                .buttonStyle(.pressable)
-                .disabled(isLoading)
                 .padding(.horizontal, Spacing.md)
+
+                // Trust badges
+                HStack(spacing: Spacing.md) {
+                    TrustBadge(icon: "lock.shield.fill", text: "Secure with Apple")
+                    TrustBadge(icon: "arrow.uturn.backward", text: "Cancel anytime")
+                }
+                .padding(.top, Spacing.xxs)
 
                 // Restore button
                 Button(action: {
@@ -154,6 +128,7 @@ struct PaywallScreen: View {
                     }
                 }
                 .disabled(isRestoring)
+                .padding(.top, Spacing.xs)
 
                 // Footer links
                 PaywallFooterLinks(
@@ -169,6 +144,22 @@ struct PaywallScreen: View {
             )
         }
         .appBackgroundLayered()
+    }
+}
+
+// MARK: - Trust Badge
+struct TrustBadge: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .medium))
+            Text(text)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(.secondary)
     }
 }
 

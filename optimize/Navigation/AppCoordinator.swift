@@ -437,12 +437,33 @@ struct RootView: View {
             PaywallScreen(
                 context: coordinator.paywallContext,
                 onSubscribe: { plan in
-                    coordinator.subscriptionManager.startPro(plan: plan)
-                    coordinator.dismissPaywall()
+                    // Use StoreKit 2 purchase
+                    Task {
+                        do {
+                            try await coordinator.subscriptionManager.purchase(plan: plan)
+                            await MainActor.run {
+                                coordinator.dismissPaywall()
+                                Haptics.notification(type: .success)
+                            }
+                        } catch SubscriptionError.userCancelled {
+                            // User cancelled - do nothing
+                        } catch {
+                            await MainActor.run {
+                                coordinator.showError(message: error.localizedDescription)
+                            }
+                        }
+                    }
                 },
                 onRestore: {
-                    coordinator.subscriptionManager.restore()
-                    coordinator.dismissPaywall()
+                    Task {
+                        await coordinator.subscriptionManager.restore()
+                        await MainActor.run {
+                            if coordinator.subscriptionManager.status.isPro {
+                                coordinator.dismissPaywall()
+                                Haptics.notification(type: .success)
+                            }
+                        }
+                    }
                 },
                 onDismiss: {
                     coordinator.dismissPaywall()

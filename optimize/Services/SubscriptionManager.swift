@@ -3,10 +3,12 @@
 //  optimize
 //
 //  Central place for handling free/pro logic, usage limits and paywall context
+//  UPDATED: StoreKit 2 integration for real In-App Purchases
 //
 
 import Combine
 import Foundation
+import StoreKit
 
 // MARK: - Paywall Context
 struct PaywallContext: Equatable {
@@ -35,6 +37,14 @@ final class SubscriptionManager: ObservableObject {
 
     // Published status for UI
     @Published private(set) var status: SubscriptionStatus
+    @Published private(set) var products: [Product] = []
+    @Published private(set) var purchaseError: String?
+
+    // StoreKit Product IDs - Update these with your App Store Connect IDs
+    private let productIds = [
+        "com.optimize.pro.monthly",
+        "com.optimize.pro.yearly"
+    ]
 
     // Storage keys
     private let planKey = "subscription.plan"
@@ -44,6 +54,9 @@ final class SubscriptionManager: ObservableObject {
     // Free-plan limits
     private let freeMaxFileSizeMB: Double = 50
     private let freeDailyLimit: Int = 1
+
+    // Transaction listener task
+    private var transactionListener: Task<Void, Error>?
 
     private init() {
         let storedPlan = UserDefaults.standard.string(forKey: planKey)
@@ -60,6 +73,153 @@ final class SubscriptionManager: ObservableObject {
         )
 
         refreshDailyUsage(lastDate: lastDate)
+
+        // Start listening for transactions
+        transactionListener = listenForTransactions()
+
+        // Load products and check subscription status
+        Task {
+            await loadProducts()
+            await updateSubscriptionStatus()
+        }
+    }
+
+    deinit {
+        transactionListener?.cancel()
+    }
+
+    // MARK: - StoreKit 2 Methods
+
+    /// Load products from App Store
+    func loadProducts() async {
+        do {
+            products = try await Product.products(for: productIds)
+            products.sort { $0.price < $1.price } // Sort by price (monthly first)
+        } catch {
+            print("Failed to load products: \(error)")
+        }
+    }
+
+    /// Purchase a subscription
+    func purchase(plan: SubscriptionPlan) async throws {
+        let productId = plan == .yearly ? "com.optimize.pro.yearly" : "com.optimize.pro.monthly"
+
+        guard let product = products.first(where: { $0.id == productId }) else {
+            // Fallback: Try to fetch product directly
+            guard let product = try await Product.products(for: [productId]).first else {
+                purchaseError = "Product not found"
+                throw SubscriptionError.productNotFound
+            }
+            try await performPurchase(product: product)
+            return
+        }
+
+        try await performPurchase(product: product)
+    }
+
+    private func performPurchase(product: Product) async throws {
+        purchaseError = nil
+
+        let result = try await product.purchase()
+
+        switch result {
+        case .success(let verification):
+            let transaction = try checkVerified(verification)
+            await transaction.finish()
+            await updateSubscriptionStatus()
+
+        case .userCancelled:
+            throw SubscriptionError.userCancelled
+
+        case .pending:
+            purchaseError = "Purchase pending approval"
+            throw SubscriptionError.pending
+
+        @unknown default:
+            throw SubscriptionError.unknown
+        }
+    }
+
+    /// Restore purchases
+    func restore() async {
+        do {
+            try await AppStore.sync()
+            await updateSubscriptionStatus()
+        } catch {
+            purchaseError = "Failed to restore: \(error.localizedDescription)"
+        }
+    }
+
+    /// Check current subscription status from StoreKit
+    func updateSubscriptionStatus() async {
+        var foundActiveSubscription = false
+        var activePlan: SubscriptionPlan = .free
+        var expirationDate: Date?
+
+        // Check current entitlements
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                // Check if this is one of our subscription products
+                if productIds.contains(transaction.productID) {
+                    // Check if subscription is still valid
+                    if transaction.revocationDate == nil {
+                        foundActiveSubscription = true
+                        expirationDate = transaction.expirationDate
+
+                        // Determine plan type
+                        if transaction.productID.contains("yearly") {
+                            activePlan = .yearly
+                        } else {
+                            activePlan = .monthly
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update status
+        if foundActiveSubscription {
+            status = SubscriptionStatus(
+                plan: activePlan,
+                isActive: true,
+                expiresAt: expirationDate,
+                dailyUsageCount: 0,
+                dailyUsageLimit: .max
+            )
+            UserDefaults.standard.set(activePlan.rawValue, forKey: planKey)
+        } else {
+            // Check if we had a cached plan that's no longer valid
+            let dailyCount = UserDefaults.standard.integer(forKey: dailyCountKey)
+            status = SubscriptionStatus(
+                plan: .free,
+                isActive: false,
+                expiresAt: nil,
+                dailyUsageCount: dailyCount,
+                dailyUsageLimit: freeDailyLimit
+            )
+            UserDefaults.standard.set(SubscriptionPlan.free.rawValue, forKey: planKey)
+        }
+    }
+
+    /// Listen for transaction updates (purchases made on other devices, subscription renewals, etc.)
+    private func listenForTransactions() -> Task<Void, Error> {
+        return Task.detached {
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    await transaction.finish()
+                    await self.updateSubscriptionStatus()
+                }
+            }
+        }
+    }
+
+    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+        switch result {
+        case .unverified:
+            throw SubscriptionError.verificationFailed
+        case .verified(let safe):
+            return safe
+        }
     }
 
     // MARK: - Public API
@@ -124,6 +284,8 @@ final class SubscriptionManager: ObservableObject {
         }
     }
 
+    /// Start Pro - for legacy compatibility and testing
+    /// In production, use purchase(plan:) instead
     func startPro(plan: SubscriptionPlan) {
         status = SubscriptionStatus(
             plan: plan,
@@ -136,9 +298,11 @@ final class SubscriptionManager: ObservableObject {
         UserDefaults.standard.set(0, forKey: dailyCountKey)
     }
 
-    func restore() {
-        // In a real app, call StoreKit restore. Here we mirror a success path.
-        startPro(plan: .yearly)
+    /// Synchronous restore wrapper for UI
+    func restoreSync() {
+        Task {
+            await restore()
+        }
     }
 
     func resetToFree() {
@@ -169,5 +333,32 @@ final class SubscriptionManager: ObservableObject {
     private func persistUsage() {
         UserDefaults.standard.set(status.dailyUsageCount, forKey: dailyCountKey)
         UserDefaults.standard.set(Date(), forKey: lastUsageDateKey)
+    }
+}
+
+// MARK: - Subscription Error
+enum SubscriptionError: LocalizedError {
+    case productNotFound
+    case purchaseFailed
+    case userCancelled
+    case pending
+    case verificationFailed
+    case unknown
+
+    var errorDescription: String? {
+        switch self {
+        case .productNotFound:
+            return "Subscription product not found. Please try again later."
+        case .purchaseFailed:
+            return "Purchase failed. Please check your payment method."
+        case .userCancelled:
+            return "Purchase was cancelled."
+        case .pending:
+            return "Purchase is pending approval."
+        case .verificationFailed:
+            return "Could not verify purchase. Please contact support."
+        case .unknown:
+            return "An unknown error occurred. Please try again."
+        }
     }
 }
