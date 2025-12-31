@@ -62,7 +62,7 @@ struct OnboardingScreen: View {
                 }
 
                 // Continue button with shimmer
-                ShimmerButton(
+                OnboardingShimmerButton(
                     title: currentPage == pages.count - 1 ? "Let's Get Started" : "Continue",
                     accentColor: pages[currentPage].accentColor,
                     showShimmer: currentPage == pages.count - 1
@@ -354,8 +354,8 @@ struct BoltAnimationIcon: View {
     }
 }
 
-// MARK: - Shimmer Button
-struct ShimmerButton: View {
+// MARK: - Onboarding Shimmer Button
+struct OnboardingShimmerButton: View {
     let title: String
     let accentColor: Color
     let showShimmer: Bool

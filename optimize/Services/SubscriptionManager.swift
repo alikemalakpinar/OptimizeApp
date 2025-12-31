@@ -251,7 +251,7 @@ final class SubscriptionManager: ObservableObject {
                     "Loss-aware profiles for scans & photos",
                     "Batch-ready pipeline with no ads"
                 ],
-                limitDescription: "\(file.name) is \(String(format: \"%.0f\", file.sizeMB)) MB"
+                limitDescription: "\(file.name) is \(Int(file.sizeMB)) MB"
             )
         }
 
