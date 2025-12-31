@@ -79,10 +79,10 @@ struct PaywallScreen: View {
 
                     GlassCard {
                         FeatureList(features: [
-                            "Reklam yok, temiz arayüz",
-                            "PDF, görsel, video ve ofis dosyaları",
-                            "Akıllı hedef boyutlar ve kalite profilleri",
-                            "Öncelikli ve dayanıklı sıkıştırma"
+                            "No ads, clean interface",
+                            "PDF, image, video and office files",
+                            "Smart target sizes & quality profiles",
+                            "Priority compression engine"
                         ])
                     }
                     .padding(.horizontal, Spacing.md)

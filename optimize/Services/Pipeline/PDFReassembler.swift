@@ -13,6 +13,13 @@ import UIKit
 enum ReconstructionError: Error {
     case writeFailed
     case emptyDocument
+    case cancelled
+}
+
+/// Orijinal sayfa bilgisi - Vektör metin sayfaları için kullanılır
+struct OriginalPageReference {
+    let pageIndex: Int
+    let page: PDFPage
 }
 
 final class PDFReassembler {
@@ -21,8 +28,73 @@ final class PDFReassembler {
     /// - Parameters:
     ///   - segmentationMap: Analizörden gelen sayfa bilgileri (Boyutlar vb.)
     ///   - assetMap: Her sayfa index'ine karşılık gelen çıkarılmış varlıklar
+    ///   - originalPages: Vektör koruma için orijinal sayfalar (mainlyText sayfaları için)
     ///   - outputURL: Dosyanın kaydedileceği yer
+    ///   - onProgress: İlerleme callback'i
     func reassemble(
+        segmentationMap: PDFAnalysisSummary,
+        assetMap: [Int: [ExtractedAsset]],
+        originalPages: [Int: OriginalPageReference] = [:],
+        to outputURL: URL,
+        onProgress: ((Double) -> Void)? = nil
+    ) throws {
+        let totalPages = segmentationMap.totalPageCount
+
+        // Hybrid yaklaşım: Hem asset tabanlı rendering hem de orijinal sayfa kopyalama
+        // PDFDocument kullanarak hibrit çıktı oluştur
+        let outputDocument = PDFDocument()
+
+        for pageIndex in 0..<totalPages {
+            try Task.checkCancellation()
+
+            // Önce orijinal sayfayı kontrol et (vektör koruma)
+            if let originalRef = originalPages[pageIndex] {
+                // Vektör metin sayfası - orijinali koru
+                if let copiedPage = originalRef.page.copy() as? PDFPage {
+                    outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                    onProgress?(Double(pageIndex + 1) / Double(totalPages))
+                    continue
+                }
+            }
+
+            // Asset tabanlı sayfa bulundu mu?
+            let pageInfo = segmentationMap.pages.first { $0.pageIndex == pageIndex }
+
+            if let pageInfo = pageInfo, let assets = assetMap[pageIndex], !assets.isEmpty {
+                // Asset tabanlı render
+                let pageData = try renderAssetPage(
+                    pageInfo: pageInfo,
+                    assets: assets
+                )
+
+                if let tempDoc = PDFDocument(data: pageData),
+                   let renderedPage = tempDoc.page(at: 0) {
+                    outputDocument.insert(renderedPage, at: outputDocument.pageCount)
+                }
+            } else if let pageInfo = pageInfo {
+                // Boş sayfa (fallback)
+                let emptyPageData = try renderEmptyPage(size: pageInfo.pageSize)
+                if let tempDoc = PDFDocument(data: emptyPageData),
+                   let emptyPage = tempDoc.page(at: 0) {
+                    outputDocument.insert(emptyPage, at: outputDocument.pageCount)
+                }
+            }
+
+            onProgress?(Double(pageIndex + 1) / Double(totalPages))
+        }
+
+        // Dosyaya yaz
+        guard outputDocument.pageCount > 0 else {
+            throw ReconstructionError.emptyDocument
+        }
+
+        guard outputDocument.write(to: outputURL) else {
+            throw ReconstructionError.writeFailed
+        }
+    }
+
+    /// Eski API uyumluluğu için wrapper (orijinal sayfa desteği olmadan)
+    func reassembleLegacy(
         segmentationMap: PDFAnalysisSummary,
         assetMap: [Int: [ExtractedAsset]],
         to outputURL: URL
@@ -80,6 +152,52 @@ final class PDFReassembler {
                     )
                 }
             }
+        }
+    }
+
+    // MARK: - Private Rendering Helpers
+
+    private func renderAssetPage(pageInfo: PDFPageSegmentation, assets: [ExtractedAsset]) throws -> Data {
+        let format = UIGraphicsPDFRendererFormat()
+        format.documentInfo = [
+            kCGPDFContextCreator as String: "Optimize App",
+        ]
+
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageInfo.pageSize), format: format)
+
+        return renderer.pdfData { context in
+            context.beginPage()
+            let cgContext = context.cgContext
+
+            // Katmanlama (Layering): Önce arka plan, sonra metin maskeleri
+            let sortedAssets = assets.sorted { a1, a2 in
+                return a1.layerType == .backgroundBase && a2.layerType != .backgroundBase
+            }
+
+            for asset in sortedAssets {
+                drawAsset(asset, in: cgContext)
+            }
+
+            // OCR Katmanını Enjekte Et
+            if !pageInfo.ocrData.isEmpty {
+                injectInvisibleText(
+                    data: pageInfo.ocrData,
+                    pageSize: pageInfo.pageSize,
+                    context: cgContext
+                )
+            }
+        }
+    }
+
+    private func renderEmptyPage(size: CGSize) throws -> Data {
+        let format = UIGraphicsPDFRendererFormat()
+        let renderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: size), format: format)
+
+        return renderer.pdfData { context in
+            context.beginPage()
+            // Boş beyaz sayfa
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
         }
     }
 

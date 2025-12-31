@@ -3,6 +3,7 @@
 //  optimize
 //
 //  Real PDF compression service using CoreGraphics and PDFKit
+//  UPDATED: Now uses Advanced Pipeline (SmartPDFAnalyzer, AssetExtractor, PDFReassembler)
 //
 
 import Foundation
@@ -11,6 +12,13 @@ import UIKit
 import CoreGraphics
 import AVFoundation
 import Compression
+
+// MARK: - Compression Mode
+enum PDFCompressionMode {
+    case smart      // Akıllı pipeline: SmartPDFAnalyzer -> AssetExtractor -> PDFReassembler
+    case legacy     // Eski usul: Her sayfayı JPEG'e çevir
+    case hybrid     // Hibrit: Vektör metni koru, resimleri sıkıştır
+}
 
 // MARK: - Compression Service
 @MainActor
@@ -21,6 +29,11 @@ class PDFCompressionService: ObservableObject {
     @Published var progress: Double = 0
     @Published var currentStage: ProcessingStage = .preparing
     @Published var error: CompressionError?
+
+    // Advanced Pipeline components
+    private let smartAnalyzer = SmartPDFAnalyzer()
+    private let assetExtractor = AssetExtractor()
+    private let reassembler = PDFReassembler()
 
     private init() {}
 
@@ -100,7 +113,9 @@ class PDFCompressionService: ObservableObject {
         }
     }
 
-    // MARK: - Compress PDF
+    // MARK: - Compress PDF (Smart Pipeline)
+    /// Ana PDF sıkıştırma fonksiyonu - Akıllı pipeline kullanır
+    /// Vektör metinleri korur, resimleri akıllıca sıkıştırır
     func compressPDF(
         at sourceURL: URL,
         preset: CompressionPreset,
@@ -113,14 +128,10 @@ class PDFCompressionService: ObservableObject {
 
         defer {
             isProcessing = false
-            // Force memory cleanup
             URLCache.shared.removeAllCachedResponses()
         }
 
-        // Determine compression level
-        let level = compressionLevel(for: preset)
-
-        // Stage 1: Preparing - Read the PDF
+        // Stage 1: Preparing - PDF'i oku ve doğrula
         currentStage = .preparing
         onProgress(.preparing, 0)
 
@@ -135,21 +146,263 @@ class PDFCompressionService: ObservableObject {
             throw CompressionError.invalidPDF
         }
 
+        // Şifreli PDF kontrolü
+        if pdfDocument.isEncrypted && pdfDocument.isLocked {
+            self.error = .encryptedPDF
+            throw CompressionError.encryptedPDF
+        }
+
         let pageCount = pdfDocument.pageCount
         guard pageCount > 0 else {
             self.error = .emptyPDF
             throw CompressionError.emptyPDF
         }
 
-        onProgress(.preparing, 1.0)
+        onProgress(.preparing, 0.5)
 
-        // Stage 2: Processing each page
+        // İptal kontrolü
+        try Task.checkCancellation()
+
+        let outputURL = getOutputURL(for: sourceURL)
+        let level = compressionLevel(for: preset)
+
+        // Dosya boyutuna göre strateji seç
+        // Küçük dosyalar (<5 sayfa) için hybrid, büyük dosyalar için smart pipeline
+        let useSmartPipeline = pageCount >= 5 && preset.quality != .low
+
+        if useSmartPipeline {
+            return try await compressPDFSmart(
+                document: pdfDocument,
+                sourceURL: sourceURL,
+                outputURL: outputURL,
+                level: level,
+                preset: preset,
+                onProgress: onProgress
+            )
+        } else {
+            return try await compressPDFHybrid(
+                document: pdfDocument,
+                outputURL: outputURL,
+                level: level,
+                onProgress: onProgress
+            )
+        }
+    }
+
+    // MARK: - Smart Pipeline Compression
+    /// Akıllı sıkıştırma: SmartPDFAnalyzer -> AssetExtractor -> PDFReassembler
+    private func compressPDFSmart(
+        document: PDFDocument,
+        sourceURL: URL,
+        outputURL: URL,
+        level: CompressionLevel,
+        preset: CompressionPreset,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        let totalPages = document.pageCount
+
+        // Stage 2: Analyzing - Sayfa içeriklerini analiz et
+        currentStage = .uploading // "Analyzing" olarak gösterilecek
+        onProgress(.uploading, 0)
+
+        let analysis: PDFAnalysisSummary
+        do {
+            analysis = try await smartAnalyzer.analyzeFullDocument(documentAt: sourceURL) { analysisProgress in
+                Task { @MainActor in
+                    self.progress = analysisProgress * 0.3 // %30'a kadar analiz
+                    onProgress(.uploading, analysisProgress)
+                }
+            }
+        } catch is CancellationError {
+            throw CompressionError.cancelled
+        }
+
+        try Task.checkCancellation()
+
+        // Stage 3: Optimizing - Asset'leri çıkar ve işle
+        currentStage = .optimizing
+        onProgress(.optimizing, 0)
+
+        var assetMap: [Int: [ExtractedAsset]] = [:]
+        var originalPages: [Int: OriginalPageReference] = [:]
+
+        for (index, pageInfo) in analysis.pages.enumerated() {
+            try Task.checkCancellation()
+
+            guard let page = document.page(at: pageInfo.pageIndex) else { continue }
+
+            // Vektör metin koruması: mainlyText sayfalarını olduğu gibi koru
+            if pageInfo.classification == .mainlyText && pageInfo.hasVectorTextLayer {
+                // Bu sayfa vektör metin içeriyor - orijinali koru
+                originalPages[pageInfo.pageIndex] = OriginalPageReference(
+                    pageIndex: pageInfo.pageIndex,
+                    page: page
+                )
+            } else {
+                // Asset extraction gerekli
+                let assets = await assetExtractor.extractAssets(from: page, segmentation: pageInfo)
+                if !assets.isEmpty {
+                    assetMap[pageInfo.pageIndex] = assets
+                } else {
+                    // Asset çıkarılamadı - orijinali koru
+                    originalPages[pageInfo.pageIndex] = OriginalPageReference(
+                        pageIndex: pageInfo.pageIndex,
+                        page: page
+                    )
+                }
+            }
+
+            let extractionProgress = Double(index + 1) / Double(analysis.pages.count)
+            progress = 0.3 + (extractionProgress * 0.4) // %30-%70 arası extraction
+            onProgress(.optimizing, extractionProgress)
+        }
+
+        try Task.checkCancellation()
+
+        // Stage 4: Reassembling - PDF'i yeniden oluştur
+        currentStage = .downloading
+        onProgress(.downloading, 0)
+
+        do {
+            try reassembler.reassemble(
+                segmentationMap: analysis,
+                assetMap: assetMap,
+                originalPages: originalPages,
+                to: outputURL
+            ) { reassembleProgress in
+                Task { @MainActor in
+                    self.progress = 0.7 + (reassembleProgress * 0.3) // %70-%100 arası reassembly
+                    onProgress(.downloading, reassembleProgress)
+                }
+            }
+        } catch is CancellationError {
+            throw CompressionError.cancelled
+        } catch {
+            // Smart pipeline başarısız olursa legacy'ye düş
+            return try await compressPDFLegacy(
+                document: document,
+                outputURL: outputURL,
+                level: level,
+                onProgress: onProgress
+            )
+        }
+
+        onProgress(.downloading, 1.0)
+        return outputURL
+    }
+
+    // MARK: - Hybrid Compression
+    /// Hibrit sıkıştırma: Vektör metinleri koru, resimleri sıkıştır
+    private func compressPDFHybrid(
+        document: PDFDocument,
+        outputURL: URL,
+        level: CompressionLevel,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        currentStage = .optimizing
+        let pageCount = document.pageCount
+
+        let outputDocument = PDFDocument()
+
+        for pageIndex in 0..<pageCount {
+            try Task.checkCancellation()
+
+            guard let page = document.page(at: pageIndex) else { continue }
+
+            // Sayfa içeriğini kontrol et
+            let hasText = (page.string?.count ?? 0) > 50
+
+            if hasText {
+                // Vektör metin var - orijinal sayfayı kopyala
+                if let copiedPage = page.copy() as? PDFPage {
+                    outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                }
+            } else {
+                // Resim ağırlıklı sayfa - sıkıştır
+                if let compressedPage = try compressPageToImage(page, level: level) {
+                    outputDocument.insert(compressedPage, at: outputDocument.pageCount)
+                } else if let copiedPage = page.copy() as? PDFPage {
+                    outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                }
+            }
+
+            let pageProgress = Double(pageIndex + 1) / Double(pageCount)
+            progress = pageProgress
+            onProgress(.optimizing, pageProgress)
+
+            await Task.yield()
+        }
+
+        currentStage = .downloading
+        onProgress(.downloading, 0.5)
+
+        guard outputDocument.pageCount > 0 else {
+            self.error = .contextCreationFailed
+            throw CompressionError.contextCreationFailed
+        }
+
+        guard outputDocument.write(to: outputURL) else {
+            self.error = .saveFailed
+            throw CompressionError.saveFailed
+        }
+
+        onProgress(.downloading, 1.0)
+        return outputURL
+    }
+
+    /// Tek bir sayfayı sıkıştırılmış resme çevirip PDFPage olarak döndür
+    private func compressPageToImage(_ page: PDFPage, level: CompressionLevel) throws -> PDFPage? {
+        let pageRect = page.bounds(for: .mediaBox)
+        guard pageRect.width > 0 && pageRect.height > 0 else { return nil }
+
+        let scaledRect = CGRect(
+            x: 0,
+            y: 0,
+            width: pageRect.width * level.scale,
+            height: pageRect.height * level.scale
+        )
+
+        let renderer = UIGraphicsImageRenderer(size: scaledRect.size)
+        let pageImage = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(scaledRect)
+            ctx.cgContext.translateBy(x: 0, y: scaledRect.height)
+            ctx.cgContext.scaleBy(x: level.scale, y: -level.scale)
+            page.draw(with: .mediaBox, to: ctx.cgContext)
+        }
+
+        guard let jpegData = pageImage.jpegData(compressionQuality: level.jpegQuality),
+              let compressedImage = UIImage(data: jpegData) else {
+            return nil
+        }
+
+        // PDF sayfası oluştur
+        let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: scaledRect.size))
+        let pdfData = pdfRenderer.pdfData { context in
+            context.beginPage()
+            compressedImage.draw(in: CGRect(origin: .zero, size: scaledRect.size))
+        }
+
+        guard let tempDoc = PDFDocument(data: pdfData),
+              let resultPage = tempDoc.page(at: 0) else {
+            return nil
+        }
+
+        return resultPage
+    }
+
+    // MARK: - Legacy Compression (Fallback)
+    /// Eski usul sıkıştırma - Her sayfayı JPEG'e çevirir (vektör metinler kaybolur)
+    private func compressPDFLegacy(
+        document: PDFDocument,
+        outputURL: URL,
+        level: CompressionLevel,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
         currentStage = .optimizing
 
-        // Create output directory
-        let outputURL = getOutputURL(for: sourceURL)
+        let pageCount = document.pageCount
 
-        // Create new PDF context
         guard let pdfData = NSMutableData() as CFMutableData?,
               let consumer = CGDataConsumer(data: pdfData),
               let pdfContext = CGContext(consumer: consumer, mediaBox: nil, nil) else {
@@ -157,25 +410,23 @@ class PDFCompressionService: ObservableObject {
             throw CompressionError.contextCreationFailed
         }
 
-        // Process pages in batches to manage memory for large documents
         let batchSize = 10
         var processedPages = 0
 
         for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
+            try Task.checkCancellation()
+
             let batchEnd = min(batchStart + batchSize, pageCount)
 
-            // Process batch within autoreleasepool to manage memory
             try autoreleasepool {
                 for pageIndex in batchStart..<batchEnd {
-                    guard let page = pdfDocument.page(at: pageIndex) else {
-                        // Skip invalid pages but continue processing
+                    guard let page = document.page(at: pageIndex) else {
                         processedPages += 1
                         continue
                     }
 
                     let pageRect = page.bounds(for: .mediaBox)
 
-                    // Guard against invalid page dimensions
                     guard pageRect.width > 0 && pageRect.height > 0 else {
                         processedPages += 1
                         continue
@@ -188,24 +439,19 @@ class PDFCompressionService: ObservableObject {
                         height: pageRect.height * level.scale
                     )
 
-                    // Render page to image with error handling
                     let renderer = UIGraphicsImageRenderer(size: scaledRect.size)
                     let pageImage = renderer.image { ctx in
                         UIColor.white.setFill()
                         ctx.fill(scaledRect)
-
                         ctx.cgContext.translateBy(x: 0, y: scaledRect.height)
                         ctx.cgContext.scaleBy(x: level.scale, y: -level.scale)
-
                         page.draw(with: .mediaBox, to: ctx.cgContext)
                     }
 
-                    // Compress the image with fallback
                     let jpegData = pageImage.jpegData(compressionQuality: level.jpegQuality)
                     guard let compressedData = jpegData,
                           let compressedImage = UIImage(data: compressedData),
                           let cgImage = compressedImage.cgImage else {
-                        // If compression fails, try with original image
                         if let originalCGImage = pageImage.cgImage {
                             var mediaBox = CGRect(origin: .zero, size: scaledRect.size)
                             pdfContext.beginPage(mediaBox: &mediaBox)
@@ -216,7 +462,6 @@ class PDFCompressionService: ObservableObject {
                         continue
                     }
 
-                    // Add to PDF
                     var mediaBox = CGRect(origin: .zero, size: scaledRect.size)
                     pdfContext.beginPage(mediaBox: &mediaBox)
                     pdfContext.draw(cgImage, in: mediaBox)
@@ -224,30 +469,25 @@ class PDFCompressionService: ObservableObject {
 
                     processedPages += 1
 
-                    // Update progress
                     let pageProgress = Double(processedPages) / Double(pageCount)
                     progress = pageProgress
                     onProgress(.optimizing, pageProgress)
                 }
             }
 
-            // Yield to allow UI updates and prevent blocking
             await Task.yield()
         }
 
         pdfContext.closePDF()
 
-        // Verify we processed at least some pages
         guard processedPages > 0 else {
             self.error = .contextCreationFailed
             throw CompressionError.contextCreationFailed
         }
 
-        // Stage 3: Saving
         currentStage = .downloading
         onProgress(.downloading, 0.5)
 
-        // Write to file with error handling
         do {
             let data = pdfData as Data
             guard !data.isEmpty else {
@@ -261,7 +501,6 @@ class PDFCompressionService: ObservableObject {
         }
 
         onProgress(.downloading, 1.0)
-
         return outputURL
     }
 
@@ -636,6 +875,7 @@ enum CompressionError: LocalizedError {
     case invalidPDF
     case invalidFile
     case emptyPDF
+    case encryptedPDF          // Yeni: Şifreli PDF
     case contextCreationFailed
     case saveFailed
     case cancelled
@@ -657,6 +897,8 @@ enum CompressionError: LocalizedError {
             return "This file could not be read."
         case .emptyPDF:
             return "PDF file is empty or cannot be read."
+        case .encryptedPDF:
+            return "This PDF is password protected. Please unlock it first."
         case .contextCreationFailed:
             return "Unable to start PDF processing. Your device may be low on memory."
         case .saveFailed:
@@ -689,6 +931,8 @@ enum CompressionError: LocalizedError {
             return "Try selecting the file again."
         case .invalidPDF, .emptyPDF, .invalidFile:
             return "Select a different file."
+        case .encryptedPDF:
+            return "Open the PDF with the password, then export an unlocked copy."
         case .contextCreationFailed, .memoryPressure:
             return "Close other apps and try again."
         case .saveFailed:
