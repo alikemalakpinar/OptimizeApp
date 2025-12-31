@@ -285,7 +285,7 @@ class AppCoordinator: ObservableObject {
     /// Determines if retry should be allowed for specific error types
     private func shouldAllowRetry(for error: CompressionError) -> Bool {
         switch error {
-        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .fileTooLarge, .unsupportedType:
+        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType:
             // These errors won't be fixed by retry
             return false
         case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled, .exportFailed:
@@ -448,10 +448,16 @@ struct RootView: View {
                     coordinator.dismissPaywall()
                 },
                 onPrivacy: {
-                    // Open privacy policy
+                    // Open privacy policy - Replace with your actual URL
+                    if let url = URL(string: "https://optimize-app.com/privacy") {
+                        UIApplication.shared.open(url)
+                    }
                 },
                 onTerms: {
-                    // Open terms
+                    // Open terms of service - Replace with your actual URL
+                    if let url = URL(string: "https://optimize-app.com/terms") {
+                        UIApplication.shared.open(url)
+                    }
                 }
             )
         }

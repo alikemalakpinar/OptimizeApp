@@ -17,6 +17,10 @@ struct SettingsScreen: View {
 
     @State private var showPrivacy = false
     @State private var showTerms = false
+    @State private var showClearHistoryAlert = false
+    @State private var showManageSubscription = false
+
+    @ObservedObject private var historyManager = HistoryManager.shared
 
     let subscriptionStatus: SubscriptionStatus
     let onUpgrade: () -> Void
@@ -64,6 +68,21 @@ struct SettingsScreen: View {
                                 }
                             } else {
                                 InfoBanner(type: .success, message: "Öncelikli, reklamsız sıkıştırma etkin.")
+
+                                // Manage Subscription link
+                                Button(action: {
+                                    Haptics.selection()
+                                    openManageSubscription()
+                                }) {
+                                    HStack {
+                                        Image(systemName: "creditcard")
+                                            .font(.system(size: 14, weight: .medium))
+                                        Text("Manage Subscription")
+                                            .font(.appCaption)
+                                    }
+                                    .foregroundStyle(Color.appAccent)
+                                }
+                                .padding(.top, Spacing.xs)
                             }
                         }
                     }
@@ -101,13 +120,53 @@ struct SettingsScreen: View {
 
                     // History Settings
                     SettingsSection(title: "History") {
-                        PickerRow(
-                            title: "Keep history",
-                            icon: "clock.arrow.circlepath",
-                            options: retentionOptions,
-                            optionLabel: { "\($0) days" },
-                            selection: $historyRetentionDays
-                        )
+                        VStack(spacing: Spacing.md) {
+                            PickerRow(
+                                title: "Keep history",
+                                icon: "clock.arrow.circlepath",
+                                options: retentionOptions,
+                                optionLabel: { "\($0) days" },
+                                selection: $historyRetentionDays
+                            )
+
+                            Divider()
+
+                            HStack {
+                                HStack(spacing: Spacing.sm) {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 24)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Clear History")
+                                            .font(.appBody)
+                                            .foregroundStyle(.primary)
+
+                                        Text("\(historyManager.items.count) items")
+                                            .font(.appCaption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                Button(action: {
+                                    Haptics.selection()
+                                    showClearHistoryAlert = true
+                                }) {
+                                    Text("Clear")
+                                        .font(.appCaptionMedium)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, Spacing.sm)
+                                        .padding(.vertical, Spacing.xxs)
+                                        .background(Color.red.opacity(0.8))
+                                        .clipShape(Capsule())
+                                }
+                                .disabled(historyManager.items.isEmpty)
+                                .opacity(historyManager.items.isEmpty ? 0.5 : 1.0)
+                            }
+                        }
                     }
 
                     // Privacy Settings
@@ -126,7 +185,7 @@ struct SettingsScreen: View {
                                 title: "Privacy Policy",
                                 icon: "hand.raised"
                             ) {
-                                showPrivacy = true
+                                openPrivacyPolicy()
                             }
 
                             Divider()
@@ -135,7 +194,7 @@ struct SettingsScreen: View {
                                 title: "Terms of Service",
                                 icon: "doc.text"
                             ) {
-                                showTerms = true
+                                openTermsOfService()
                             }
                         }
                     }
@@ -147,7 +206,7 @@ struct SettingsScreen: View {
                                 title: "Help & FAQ",
                                 icon: "questionmark.circle"
                             ) {
-                                // Open help
+                                openHelp()
                             }
 
                             Divider()
@@ -156,7 +215,7 @@ struct SettingsScreen: View {
                                 title: "Send Feedback",
                                 icon: "envelope"
                             ) {
-                                // Open feedback
+                                sendFeedback()
                             }
 
                             Divider()
@@ -165,7 +224,7 @@ struct SettingsScreen: View {
                                 title: "Rate the App",
                                 icon: "star"
                             ) {
-                                // Open App Store review
+                                rateApp()
                             }
                         }
                     }
@@ -188,6 +247,60 @@ struct SettingsScreen: View {
             }
         }
         .appBackgroundLayered()
+        .alert("Clear History", isPresented: $showClearHistoryAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear All", role: .destructive) {
+                historyManager.clearAll()
+                Haptics.success()
+            }
+        } message: {
+            Text("This will permanently delete all \(historyManager.items.count) compression history items. This action cannot be undone.")
+        }
+    }
+
+    // MARK: - Helper Functions
+    private func openManageSubscription() {
+        // Opens the iOS subscription management page
+        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func openPrivacyPolicy() {
+        // Replace with your actual Privacy Policy URL
+        if let url = URL(string: "https://optimize-app.com/privacy") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func openTermsOfService() {
+        // Replace with your actual Terms of Service URL
+        if let url = URL(string: "https://optimize-app.com/terms") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func openHelp() {
+        // Replace with your actual Help/FAQ URL
+        if let url = URL(string: "https://optimize-app.com/help") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func sendFeedback() {
+        // Opens Mail app with feedback email
+        let email = "support@optimize-app.com"
+        let subject = "Optimize App Feedback"
+        if let url = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    private func rateApp() {
+        // Replace YOUR_APP_ID with actual App Store ID
+        if let url = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review") {
+            UIApplication.shared.open(url)
+        }
     }
 
     private func presetName(_ id: String) -> String {

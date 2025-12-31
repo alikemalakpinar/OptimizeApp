@@ -90,32 +90,71 @@ final class SmartPDFAnalyzer {
     /// Maksimum analiz edilecek örnek sayfa sayısı
     private let maxSamplePages = 10
 
-    /// Ana Analiz Fonksiyonu
+    /// Hızlı analiz için kullanılır (UI preview ve karar verme)
     func analyze(documentAt url: URL, tileSize: CGSize = CGSize(width: 512, height: 512)) async throws -> PDFAnalysisSummary {
+        return try await analyzeInternal(documentAt: url, tileSize: tileSize, fullScan: false)
+    }
+
+    /// Tam sayfa analizi - Reassembly için tüm sayfaların detaylı haritasını çıkarır
+    func analyzeFullDocument(
+        documentAt url: URL,
+        tileSize: CGSize = CGSize(width: 512, height: 512),
+        onProgress: ((Double) -> Void)? = nil
+    ) async throws -> PDFAnalysisSummary {
+        return try await analyzeInternal(documentAt: url, tileSize: tileSize, fullScan: true, onProgress: onProgress)
+    }
+
+    /// Ana Analiz Fonksiyonu (Internal)
+    private func analyzeInternal(
+        documentAt url: URL,
+        tileSize: CGSize,
+        fullScan: Bool,
+        onProgress: ((Double) -> Void)? = nil
+    ) async throws -> PDFAnalysisSummary {
         guard let document = PDFDocument(url: url) else { throw PDFAnalysisError.invalidDocument }
         let totalPageCount = document.pageCount
 
-        // Örnekleme Stratejisi: Baş, Orta ve Son kısımlardan al
-        let pagesToAnalyze = determineSampleIndices(total: totalPageCount)
+        // Örnekleme Stratejisi: fullScan ise tüm sayfalar, değilse sample al
+        let pagesToAnalyze = fullScan ? Array(0..<totalPageCount) : determineSampleIndices(total: totalPageCount)
+        let totalToProcess = pagesToAnalyze.count
 
-        // CONCURRENCY: Sadece seçili sayfaları işle
-        let results = try await withThrowingTaskGroup(of: PDFPageSegmentation.self) { group in
-            for index in pagesToAnalyze {
-                group.addTask {
-                    guard let page = document.page(at: index) else { throw PDFAnalysisError.renderFailed }
-                    return try await self.analyzePage(page, index: index, tileSize: tileSize)
+        // CONCURRENCY: Sayfaları batch'ler halinde işle (bellek yönetimi için)
+        var allSegments: [PDFPageSegmentation] = []
+        let batchSize = fullScan ? 5 : 10 // Full scan'de daha küçük batch'ler
+
+        for batchStart in stride(from: 0, to: pagesToAnalyze.count, by: batchSize) {
+            try Task.checkCancellation() // İptal kontrolü
+
+            let batchEnd = min(batchStart + batchSize, pagesToAnalyze.count)
+            let batchIndices = Array(pagesToAnalyze[batchStart..<batchEnd])
+
+            let results = try await withThrowingTaskGroup(of: PDFPageSegmentation.self) { group in
+                for index in batchIndices {
+                    group.addTask {
+                        try Task.checkCancellation()
+                        guard let page = document.page(at: index) else { throw PDFAnalysisError.renderFailed }
+                        return try await self.analyzePage(page, index: index, tileSize: tileSize)
+                    }
                 }
+
+                var segments: [PDFPageSegmentation] = []
+                for try await result in group {
+                    segments.append(result)
+                }
+                return segments
             }
 
-            var segments: [PDFPageSegmentation] = []
-            for try await result in group {
-                segments.append(result)
-            }
+            allSegments.append(contentsOf: results)
 
-            return segments.sorted { $0.pageIndex < $1.pageIndex }
+            // İlerleme raporu
+            let progress = Double(batchEnd) / Double(totalToProcess)
+            onProgress?(progress)
+
+            // Bellek temizliği için yield
+            await Task.yield()
         }
 
-        return PDFAnalysisSummary(totalPageCount: totalPageCount, sampledPages: results)
+        return PDFAnalysisSummary(totalPageCount: totalPageCount, sampledPages: allSegments.sorted { $0.pageIndex < $1.pageIndex })
     }
 
     private func determineSampleIndices(total: Int) -> [Int] {
