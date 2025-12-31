@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import Combine
 
 // MARK: - App State
 enum AppScreen: Equatable {
@@ -52,6 +53,7 @@ class AppCoordinator: ObservableObject {
     @Published var showFileSaver = false
     @Published var showError = false
     @Published var errorMessage = ""
+    @Published var paywallContext: PaywallContext?
 
     // Current processing data
     @Published var currentFile: FileInfo?
@@ -69,9 +71,24 @@ class AppCoordinator: ObservableObject {
     let compressionService = PDFCompressionService.shared
     let historyManager = HistoryManager.shared
     let analytics = AnalyticsService.shared
+    let subscriptionManager = SubscriptionManager.shared
+    @Published var subscriptionStatus: SubscriptionStatus
 
     // User defaults keys
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
+
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        subscriptionStatus = subscriptionManager.status
+
+        subscriptionManager.$status
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                self?.subscriptionStatus = status
+            }
+            .store(in: &cancellables)
+    }
 
     var hasSeenOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: hasSeenOnboardingKey) }
@@ -109,6 +126,12 @@ class AppCoordinator: ObservableObject {
                 let fileInfo = try FileInfo.from(url: url)
                 currentFile = fileInfo
 
+                if let paywall = subscriptionManager.paywallContext(for: fileInfo) {
+                    presentPaywall(context: paywall)
+                    analytics.track(.paywallViewed)
+                    return
+                }
+
                 // Track file selection
                 analytics.trackFileSelected(fileName: fileInfo.name, fileSize: fileInfo.size)
 
@@ -129,7 +152,7 @@ class AppCoordinator: ObservableObject {
 
     func performAnalysis(for file: FileInfo) async {
         do {
-            let result = try await compressionService.analyzePDF(at: file.url)
+            let result = try await compressionService.analyze(file: file)
             currentAnalysis = result
         } catch {
             // Use default analysis on error
@@ -154,6 +177,11 @@ class AppCoordinator: ObservableObject {
     func startCompression(preset: CompressionPreset) {
         guard let file = currentFile else { return }
         selectedPreset = preset
+
+        if let paywall = subscriptionManager.paywallContext(for: file, preset: preset) {
+            presentPaywall(context: paywall)
+            return
+        }
 
         // Track preset selection and compression start
         analytics.trackPresetSelected(presetId: preset.id, isCustom: preset.quality == .custom)
@@ -187,7 +215,7 @@ class AppCoordinator: ObservableObject {
         }
 
         do {
-            let outputURL = try await compressionService.compressPDF(
+            let outputURL = try await compressionService.compressFile(
                 at: file.url,
                 preset: preset
             ) { stage, progress in
@@ -218,6 +246,7 @@ class AppCoordinator: ObservableObject {
 
             // Add to history
             historyManager.addFromResult(result, presetId: preset.id)
+            subscriptionManager.recordSuccessfulCompression()
 
             withAnimation(AppAnimation.standard) {
                 currentScreen = .result(result)
@@ -256,10 +285,10 @@ class AppCoordinator: ObservableObject {
     /// Determines if retry should be allowed for specific error types
     private func shouldAllowRetry(for error: CompressionError) -> Bool {
         switch error {
-        case .accessDenied, .invalidPDF, .emptyPDF, .fileTooLarge:
+        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .fileTooLarge, .unsupportedType:
             // These errors won't be fixed by retry
             return false
-        case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled:
+        case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled, .exportFailed:
             // These might be fixed by retry
             return true
         }
@@ -345,13 +374,15 @@ class AppCoordinator: ObservableObject {
         }
     }
 
-    func presentPaywall() {
+    func presentPaywall(context: PaywallContext? = nil) {
         analytics.track(.paywallViewed)
+        paywallContext = context ?? PaywallContext.proRequired
         showPaywall = true
     }
 
     func dismissPaywall() {
         showPaywall = false
+        paywallContext = nil
     }
 
     // MARK: - Error Handling
@@ -376,7 +407,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $coordinator.showDocumentPicker) {
             DocumentPicker(
-                allowedTypes: [.pdf],
+                allowedTypes: [.pdf, .image, .movie, .text, .data],
                 onPick: { url in
                     coordinator.handlePickedFile(url)
                 },
@@ -404,11 +435,14 @@ struct RootView: View {
         }
         .sheet(isPresented: $coordinator.showPaywall) {
             PaywallScreen(
+                context: coordinator.paywallContext,
                 onSubscribe: { plan in
+                    coordinator.subscriptionManager.startPro(plan: plan)
                     coordinator.dismissPaywall()
                 },
                 onRestore: {
-                    // Handle restore
+                    coordinator.subscriptionManager.restore()
+                    coordinator.dismissPaywall()
                 },
                 onDismiss: {
                     coordinator.dismissPaywall()
@@ -458,6 +492,7 @@ struct RootView: View {
         case .home:
             HomeScreen(
                 coordinator: coordinator,
+                subscriptionStatus: coordinator.subscriptionStatus,
                 onSelectFile: {
                     coordinator.requestFilePicker()
                 },
@@ -466,6 +501,9 @@ struct RootView: View {
                 },
                 onOpenSettings: {
                     coordinator.openSettings()
+                },
+                onUpgrade: {
+                    coordinator.presentPaywall()
                 }
             )
             .transition(.opacity)
@@ -474,6 +512,8 @@ struct RootView: View {
             AnalyzeScreen(
                 file: file,
                 analysisResult: coordinator.currentAnalysis,
+                subscriptionStatus: coordinator.subscriptionStatus,
+                paywallContext: coordinator.paywallContext,
                 onContinue: {
                     coordinator.analyzeComplete()
                 },
@@ -482,6 +522,9 @@ struct RootView: View {
                 },
                 onReplace: {
                     coordinator.requestFilePicker()
+                },
+                onUpgrade: {
+                    coordinator.presentPaywall(context: coordinator.paywallContext)
                 }
             )
             .transition(.move(edge: .trailing))
@@ -490,6 +533,7 @@ struct RootView: View {
             PresetScreen(
                 file: file,
                 analysisResult: analysis,
+                isProUser: coordinator.subscriptionStatus.isPro,
                 onCompress: { preset in
                     coordinator.startCompression(preset: preset)
                 },
@@ -545,6 +589,10 @@ struct RootView: View {
 
         case .settings:
             SettingsScreen(
+                subscriptionStatus: coordinator.subscriptionStatus,
+                onUpgrade: {
+                    coordinator.presentPaywall()
+                },
                 onBack: {
                     coordinator.goBack()
                 }

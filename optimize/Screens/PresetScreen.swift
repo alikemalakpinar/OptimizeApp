@@ -10,6 +10,7 @@ import SwiftUI
 struct PresetScreen: View {
     let file: FileInfo
     let analysisResult: AnalysisResult
+    let isProUser: Bool
 
     @State private var selectedPresetId: String
     @State private var wifiOnly = true
@@ -26,6 +27,7 @@ struct PresetScreen: View {
     init(
         file: FileInfo,
         analysisResult: AnalysisResult,
+        isProUser: Bool = false,
         presets: [CompressionPreset] = CompressionPreset.defaultPresets,
         onCompress: @escaping (CompressionPreset) -> Void,
         onBack: @escaping () -> Void,
@@ -33,6 +35,7 @@ struct PresetScreen: View {
     ) {
         self.file = file
         self.analysisResult = analysisResult
+        self.isProUser = isProUser
         self.presets = presets
         self.onCompress = onCompress
         self.onBack = onBack
@@ -146,6 +149,14 @@ struct PresetScreen: View {
                     QualityPreviewCard(selectedPresetId: selectedPresetId)
 
                     ValuePropGrid()
+
+                    if !isProUser {
+                        InfoBanner(
+                            type: .info,
+                            message: "Özel hedefler, 50 MB üzeri dosyalar ve sınırsız kullanım için Pro'ya geç.",
+                            dismissable: false
+                        )
+                    }
 
                     // Preset Grid
                     LazyVGrid(

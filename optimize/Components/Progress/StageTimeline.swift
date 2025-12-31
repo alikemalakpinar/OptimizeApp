@@ -29,29 +29,28 @@ enum ProcessingStage: String, CaseIterable, Identifiable {
         switch self {
         case .preparing:
             return [
-                "Reading file...",
-                "Analyzing page structure...",
-                "Checking security permissions..."
+                "Dosya okunuyor...",
+                "Format ve yapısı inceleniyor...",
+                "İzinler kontrol ediliyor..."
             ]
         case .uploading:
             return [
-                "Scanning images...",
-                "Detecting text layers...",
-                "Determining optimization strategy..."
+                "İçeriği tarıyor...",
+                "Çözünürlük ve kodlama inceleniyor...",
+                "En iyi profil seçiliyor..."
             ]
         case .optimizing:
             return [
-                "Cleaning unnecessary metadata...",
-                "Compressing images...",
-                "Optimizing page sizes...",
-                "Organizing font data...",
-                "Repackaging PDF..."
+                "Gereksiz metadata siliniyor...",
+                "Kalite dengeleniyor...",
+                "Görüntü ve kareler yeniden kodlanıyor...",
+                "Hedef boyut doğrulanıyor..."
             ]
         case .downloading:
             return [
-                "Final checks...",
-                "Saving file...",
-                "Completing process..."
+                "Son kontroller...",
+                "Dosya kaydediliyor...",
+                "İşlem tamamlanıyor..."
             ]
         }
     }

@@ -197,6 +197,10 @@ struct SubscriptionStatus {
     let dailyUsageCount: Int
     let dailyUsageLimit: Int
 
+    var isPro: Bool {
+        plan != .free && isActive
+    }
+
     var canProcess: Bool {
         if plan != .free { return true }
         return dailyUsageCount < dailyUsageLimit
@@ -235,4 +239,3 @@ struct AppSettings: Equatable {
 // MARK: - FileInfo Extension for URL Initialization
 // Note: The main from(url:) implementation is in PDFCompressionService.swift
 // which provides more complete functionality including page count for PDFs
-

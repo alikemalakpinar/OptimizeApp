@@ -18,6 +18,8 @@ struct SettingsScreen: View {
     @State private var showPrivacy = false
     @State private var showTerms = false
 
+    let subscriptionStatus: SubscriptionStatus
+    let onUpgrade: () -> Void
     let onBack: () -> Void
 
     private let presetOptions = ["mail", "whatsapp", "quality"]
@@ -30,6 +32,42 @@ struct SettingsScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.lg) {
+                    SettingsSection(title: "Membership") {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                                    Text(subscriptionStatus.isPro ? "Pro aktif" : "Ücretsiz plan")
+                                        .font(.appBodyMedium)
+                                        .foregroundStyle(.primary)
+                                    Text(subscriptionStatus.isPro ? "Reklamsız, sınırsız sıkıştırma açık." : "Günlük \(subscriptionStatus.dailyUsageLimit) ücretsiz kullanım, \(subscriptionStatus.remainingUsage) kaldı.")
+                                        .font(.appCaption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Text(subscriptionStatus.isPro ? "PRO" : "FREE")
+                                    .font(.appCaptionMedium)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, Spacing.sm)
+                                    .padding(.vertical, Spacing.xxs)
+                                    .background(subscriptionStatus.isPro ? Color.appMint : Color.appAccent)
+                                    .clipShape(Capsule())
+                            }
+
+                            if !subscriptionStatus.isPro {
+                                PrimaryButton(
+                                    title: "Pro'ya yükselt",
+                                    icon: "crown.fill"
+                                ) {
+                                    onUpgrade()
+                                }
+                            } else {
+                                InfoBanner(type: .success, message: "Öncelikli, reklamsız sıkıştırma etkin.")
+                            }
+                        }
+                    }
+
                     // Compression Settings
                     SettingsSection(title: "Compression") {
                         VStack(spacing: Spacing.md) {
@@ -219,5 +257,9 @@ struct SettingsLinkRow: View {
 }
 
 #Preview {
-    SettingsScreen(onBack: {})
+    SettingsScreen(
+        subscriptionStatus: .free,
+        onUpgrade: {},
+        onBack: {}
+    )
 }

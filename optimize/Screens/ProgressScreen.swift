@@ -69,7 +69,7 @@ struct ProgressScreen: View {
 
                 // File being processed
                 HStack(spacing: Spacing.sm) {
-                    Image(systemName: "doc.fill")
+                    Image(systemName: file.fileType.icon)
                         .foregroundStyle(Color.appAccent)
                     Text(file.name)
                         .font(.appBodyMedium)

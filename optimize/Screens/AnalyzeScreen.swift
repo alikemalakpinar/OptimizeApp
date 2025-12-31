@@ -10,10 +10,13 @@ import SwiftUI
 struct AnalyzeScreen: View {
     let file: FileInfo
     let analysisResult: AnalysisResult?
+    let subscriptionStatus: SubscriptionStatus
+    let paywallContext: PaywallContext?
 
     let onContinue: () -> Void
     let onBack: () -> Void
     let onReplace: () -> Void
+    let onUpgrade: () -> Void
 
     @State private var isAnalyzing = true
     @State private var statusIndex = 0
@@ -43,6 +46,14 @@ struct AnalyzeScreen: View {
                         subtitle: file.pageCount != nil ? "\(file.pageCount!) pages" : nil,
                         onReplace: onReplace
                     )
+
+                    if !subscriptionStatus.isPro {
+                        UpgradeHintCard(
+                            title: paywallContext?.title ?? "Pro ile sınırları kaldır",
+                            message: paywallContext?.limitDescription ?? "Bugünkü ücretsiz hakkın sınırlı, büyük dosyalar ve hedef boyutlar için Pro'ya geç.",
+                            onUpgrade: onUpgrade
+                        )
+                    }
 
                     // File Preview Thumbnail (Quick Look)
                     FilePreviewCard(
@@ -134,6 +145,38 @@ struct AnalyzeScreen: View {
             showResults = true
         }
         Haptics.success()
+    }
+}
+
+// MARK: - Upgrade Hint
+struct UpgradeHintCard: View {
+    let title: String
+    let message: String
+    let onUpgrade: () -> Void
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "crown.fill")
+                        .foregroundStyle(Color.goldAccent)
+                    Text(title)
+                        .font(.appBodyMedium)
+                        .foregroundStyle(.primary)
+                }
+
+                Text(message)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+
+                PrimaryButton(
+                    title: "Pro'ya geç",
+                    icon: "sparkles"
+                ) {
+                    onUpgrade()
+                }
+            }
+        }
     }
 }
 
@@ -465,8 +508,11 @@ struct SavingsPotentialView: View {
             isAlreadyOptimized: false,
             originalDPI: 300
         ),
+        subscriptionStatus: .free,
+        paywallContext: .proRequired,
         onContinue: {},
         onBack: {},
-        onReplace: {}
+        onReplace: {},
+        onUpgrade: {}
     )
 }
