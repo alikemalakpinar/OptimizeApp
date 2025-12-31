@@ -9,6 +9,8 @@ import Foundation
 import PDFKit
 import UIKit
 import CoreGraphics
+import AVFoundation
+import Compression
 
 // MARK: - Compression Service
 @MainActor
@@ -65,6 +67,39 @@ class PDFCompressionService: ObservableObject {
         }
     }
 
+    private func compressionLevel(for preset: CompressionPreset) -> CompressionLevel {
+        switch preset.quality {
+        case .low:
+            return .mail
+        case .medium:
+            return .whatsapp
+        case .high:
+            return .quality
+        case .custom:
+            return .custom(targetMB: preset.targetSizeMB ?? 25)
+        }
+    }
+
+    // MARK: - Universal Compression Entrypoint
+    func compressFile(
+        at sourceURL: URL,
+        preset: CompressionPreset,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        let fileType = FileType.from(extension: sourceURL.pathExtension)
+
+        switch fileType {
+        case .pdf:
+            return try await compressPDF(at: sourceURL, preset: preset, onProgress: onProgress)
+        case .image:
+            return try await compressImageFile(at: sourceURL, preset: preset, onProgress: onProgress)
+        case .video:
+            return try await compressVideoFile(at: sourceURL, preset: preset, onProgress: onProgress)
+        case .document, .unknown:
+            return try compressBinaryFile(at: sourceURL, preset: preset, onProgress: onProgress)
+        }
+    }
+
     // MARK: - Compress PDF
     func compressPDF(
         at sourceURL: URL,
@@ -83,17 +118,7 @@ class PDFCompressionService: ObservableObject {
         }
 
         // Determine compression level
-        let level: CompressionLevel
-        switch preset.quality {
-        case .low:
-            level = .mail
-        case .medium:
-            level = .whatsapp
-        case .high:
-            level = .quality
-        case .custom:
-            level = .custom(targetMB: preset.targetSizeMB ?? 25)
-        }
+        let level = compressionLevel(for: preset)
 
         // Stage 1: Preparing - Read the PDF
         currentStage = .preparing
@@ -240,6 +265,202 @@ class PDFCompressionService: ObservableObject {
         return outputURL
     }
 
+    // MARK: - Compress Images
+    private func compressImageFile(
+        at sourceURL: URL,
+        preset: CompressionPreset,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        isProcessing = true
+        progress = 0
+        currentStage = .preparing
+        error = nil
+
+        defer {
+            isProcessing = false
+        }
+
+        guard sourceURL.startAccessingSecurityScopedResource() else {
+            error = .accessDenied
+            throw CompressionError.accessDenied
+        }
+        defer { sourceURL.stopAccessingSecurityScopedResource() }
+
+        guard let image = UIImage(contentsOfFile: sourceURL.path) else {
+            error = .invalidFile
+            throw CompressionError.invalidFile
+        }
+
+        onProgress(.preparing, 1.0)
+
+        currentStage = .optimizing
+        let level = compressionLevel(for: preset)
+        let targetSize = CGSize(
+            width: image.size.width * level.scale,
+            height: image.size.height * level.scale
+        )
+
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let renderedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+
+        guard let compressedData = renderedImage.jpegData(compressionQuality: level.jpegQuality) else {
+            error = .saveFailed
+            throw CompressionError.saveFailed
+        }
+
+        currentStage = .downloading
+        onProgress(.downloading, 0.4)
+
+        let ext = sourceURL.pathExtension.isEmpty ? "jpg" : sourceURL.pathExtension
+        let outputURL = getOutputURL(for: sourceURL, preferredExtension: ext)
+        try compressedData.write(to: outputURL, options: .atomic)
+
+        onProgress(.downloading, 1.0)
+        return outputURL
+    }
+
+    // MARK: - Compress Video
+    private func compressVideoFile(
+        at sourceURL: URL,
+        preset: CompressionPreset,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        isProcessing = true
+        progress = 0
+        currentStage = .preparing
+        error = nil
+
+        defer {
+            isProcessing = false
+        }
+
+        let level = compressionLevel(for: preset)
+        guard sourceURL.startAccessingSecurityScopedResource() else {
+            error = .accessDenied
+            throw CompressionError.accessDenied
+        }
+        defer { sourceURL.stopAccessingSecurityScopedResource() }
+
+        let asset = AVURLAsset(url: sourceURL, options: nil)
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: exportPresetName(for: level)
+        ) else {
+            error = .contextCreationFailed
+            throw CompressionError.contextCreationFailed
+        }
+
+        let outputURL = getOutputURL(for: sourceURL, preferredExtension: "mp4")
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+
+        currentStage = .optimizing
+        onProgress(.optimizing, 0.05)
+
+        let progressTask = Task {
+            while exportSession.status == .waiting || exportSession.status == .exporting {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                await MainActor.run {
+                    let current = Double(exportSession.progress)
+                    self.progress = current
+                    onProgress(.optimizing, current)
+                }
+            }
+        }
+
+        try await withCheckedThrowingContinuation { continuation in
+            exportSession.exportAsynchronously {
+                progressTask.cancel()
+
+                switch exportSession.status {
+                case .completed:
+                    continuation.resume(returning: ())
+                case .failed:
+                    continuation.resume(throwing: CompressionError.exportFailed)
+                case .cancelled:
+                    continuation.resume(throwing: CompressionError.cancelled)
+                default:
+                    continuation.resume(throwing: CompressionError.unknown(underlying: exportSession.error))
+                }
+            }
+        }
+
+        currentStage = .downloading
+        onProgress(.downloading, 1.0)
+
+        return outputURL
+    }
+
+    // MARK: - Compress Generic Binary/Document
+    private func compressBinaryFile(
+        at sourceURL: URL,
+        preset: CompressionPreset,
+        onProgress: @escaping (ProcessingStage, Double) -> Void
+    ) throws -> URL {
+        isProcessing = true
+        progress = 0
+        currentStage = .preparing
+        error = nil
+
+        defer { isProcessing = false }
+
+        guard sourceURL.startAccessingSecurityScopedResource() else {
+            error = .accessDenied
+            throw CompressionError.accessDenied
+        }
+        defer { sourceURL.stopAccessingSecurityScopedResource() }
+
+        let data = try Data(contentsOf: sourceURL)
+        onProgress(.preparing, 1.0)
+
+        currentStage = .optimizing
+        progress = 0.5
+        onProgress(.optimizing, 0.5)
+
+        let compressedData = try compressData(data, algorithm: COMPRESSION_LZFSE)
+
+        currentStage = .downloading
+        onProgress(.downloading, 0.8)
+
+        let baseExtension = sourceURL.pathExtension.isEmpty ? "bin" : "\(sourceURL.pathExtension).lzfse"
+        let outputURL = getOutputURL(for: sourceURL, preferredExtension: baseExtension)
+        try compressedData.write(to: outputURL, options: .atomic)
+
+        onProgress(.downloading, 1.0)
+        return outputURL
+    }
+
+    private func exportPresetName(for level: CompressionLevel) -> String {
+        switch level {
+        case .mail:
+            return AVAssetExportPreset640x480
+        case .whatsapp:
+            return AVAssetExportPresetMediumQuality
+        case .quality:
+            return AVAssetExportPresetHighestQuality
+        case .custom(let targetMB):
+            return targetMB < 20 ? AVAssetExportPresetLowQuality : AVAssetExportPresetMediumQuality
+        }
+    }
+
+    // MARK: - Analyze
+    func analyze(file: FileInfo) async throws -> AnalysisResult {
+        switch file.fileType {
+        case .pdf:
+            return try await analyzePDF(at: file.url)
+        case .image:
+            return try analyzeImage(file: file)
+        case .video:
+            return analyzeVideo(file: file)
+        case .document, .unknown:
+            return analyzeGeneric(file: file)
+        }
+    }
+
     // MARK: - Analyze PDF
     func analyzePDF(at url: URL) async throws -> AnalysisResult {
         guard url.startAccessingSecurityScopedResource() else {
@@ -306,13 +527,106 @@ class PDFCompressionService: ObservableObject {
         )
     }
 
+    private func analyzeImage(file: FileInfo) throws -> AnalysisResult {
+        guard file.url.startAccessingSecurityScopedResource() else {
+            throw CompressionError.accessDenied
+        }
+        defer { file.url.stopAccessingSecurityScopedResource() }
+
+        guard let image = UIImage(contentsOfFile: file.url.path) else {
+            throw CompressionError.invalidFile
+        }
+
+        let megapixels = (image.size.width * image.scale) * (image.size.height * image.scale) / 1_000_000
+        let density: AnalysisResult.ImageDensity = megapixels > 3 ? .high : .medium
+        let savings: SavingsLevel = file.sizeMB > 15 ? .high : .medium
+
+        return AnalysisResult(
+            pageCount: 1,
+            imageCount: 1,
+            imageDensity: density,
+            estimatedSavings: savings,
+            isAlreadyOptimized: file.sizeMB < 2,
+            originalDPI: Int(image.scale * 72)
+        )
+    }
+
+    private func analyzeVideo(file: FileInfo) -> AnalysisResult {
+        if file.url.startAccessingSecurityScopedResource() {
+            defer { file.url.stopAccessingSecurityScopedResource() }
+        }
+
+        let asset = AVURLAsset(url: file.url)
+        let duration = CMTimeGetSeconds(asset.duration)
+        let isLarge = file.sizeMB > 80 || duration > 120
+
+        return AnalysisResult(
+            pageCount: 1,
+            imageCount: 0,
+            imageDensity: isLarge ? .high : .medium,
+            estimatedSavings: isLarge ? .high : .medium,
+            isAlreadyOptimized: false,
+            originalDPI: nil
+        )
+    }
+
+    private func analyzeGeneric(file: FileInfo) -> AnalysisResult {
+        if file.url.startAccessingSecurityScopedResource() {
+            defer { file.url.stopAccessingSecurityScopedResource() }
+        }
+
+        let highSavings = file.sizeMB > 20
+
+        return AnalysisResult(
+            pageCount: 1,
+            imageCount: 0,
+            imageDensity: highSavings ? .high : .medium,
+            estimatedSavings: highSavings ? .high : .medium,
+            isAlreadyOptimized: file.sizeMB < 5,
+            originalDPI: nil
+        )
+    }
+
     // MARK: - Helper Methods
-    private func getOutputURL(for sourceURL: URL) -> URL {
+    private func getOutputURL(for sourceURL: URL, preferredExtension: String? = nil) -> URL {
         let fileName = sourceURL.deletingPathExtension().lastPathComponent
-        let outputName = "\(fileName)_optimized.pdf"
+        let ext = preferredExtension ?? sourceURL.pathExtension
+        let safeExtension = ext.isEmpty ? "file" : ext
+        let outputName = "\(fileName)_optimized.\(safeExtension)"
 
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return documentsPath.appendingPathComponent(outputName)
+    }
+
+    private func compressData(_ data: Data, algorithm: compression_algorithm) throws -> Data {
+        let destinationBufferSize = compression_encode_scratch_buffer_size(algorithm)
+        let scratchBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: destinationBufferSize)
+        defer { scratchBuffer.deallocate() }
+
+        let destinationCapacity = max(data.count, 1) * 2
+        let destinationPointer = UnsafeMutablePointer<UInt8>.allocate(capacity: destinationCapacity)
+        defer { destinationPointer.deallocate() }
+
+        let compressedSize = data.withUnsafeBytes { (sourcePointer: UnsafeRawBufferPointer) -> Int in
+            guard let baseAddress = sourcePointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                return 0
+            }
+
+            return compression_encode_buffer(
+                destinationPointer,
+                destinationCapacity,
+                baseAddress,
+                data.count,
+                scratchBuffer,
+                algorithm
+            )
+        }
+
+        guard compressedSize > 0 else {
+            throw CompressionError.saveFailed
+        }
+
+        return Data(bytes: destinationPointer, count: compressedSize)
     }
 }
 
@@ -320,6 +634,7 @@ class PDFCompressionService: ObservableObject {
 enum CompressionError: LocalizedError {
     case accessDenied
     case invalidPDF
+    case invalidFile
     case emptyPDF
     case contextCreationFailed
     case saveFailed
@@ -328,6 +643,8 @@ enum CompressionError: LocalizedError {
     case fileTooLarge
     case pageProcessingFailed(page: Int)
     case timeout
+    case exportFailed
+    case unsupportedType
     case unknown(underlying: Error?)
 
     var errorDescription: String? {
@@ -336,6 +653,8 @@ enum CompressionError: LocalizedError {
             return "File access denied. Please select the file again."
         case .invalidPDF:
             return "Invalid or corrupted PDF file. Please ensure the file is not damaged."
+        case .invalidFile:
+            return "This file could not be read."
         case .emptyPDF:
             return "PDF file is empty or cannot be read."
         case .contextCreationFailed:
@@ -352,6 +671,10 @@ enum CompressionError: LocalizedError {
             return "Page \(page + 1) could not be processed. The file may be corrupted."
         case .timeout:
             return "Operation timed out. Please try a smaller file."
+        case .exportFailed:
+            return "Video export failed. Please try a lower quality preset."
+        case .unsupportedType:
+            return "This file type is not supported yet."
         case .unknown(let underlying):
             if let error = underlying {
                 return "Unexpected error: \(error.localizedDescription)"
@@ -364,8 +687,8 @@ enum CompressionError: LocalizedError {
         switch self {
         case .accessDenied:
             return "Try selecting the file again."
-        case .invalidPDF, .emptyPDF:
-            return "Select a different PDF file."
+        case .invalidPDF, .emptyPDF, .invalidFile:
+            return "Select a different file."
         case .contextCreationFailed, .memoryPressure:
             return "Close other apps and try again."
         case .saveFailed:
@@ -376,6 +699,10 @@ enum CompressionError: LocalizedError {
             return "Try a different PDF file."
         case .timeout:
             return "Try a smaller file or lower quality setting."
+        case .exportFailed:
+            return "Try a lower resolution export."
+        case .unsupportedType:
+            return "Pick a PDF, image, video or document file."
         default:
             return nil
         }

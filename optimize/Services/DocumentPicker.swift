@@ -16,7 +16,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
     let onCancel: () -> Void
 
     init(
-        allowedTypes: [UTType] = [.pdf],
+        allowedTypes: [UTType] = [.pdf, .image, .movie, .text, .data],
         onPick: @escaping (URL) -> Void,
         onCancel: @escaping () -> Void = {}
     ) {

@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct PaywallScreen: View {
+    var context: PaywallContext? = nil
     @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var isLoading = false
     @State private var isRestoring = false
@@ -49,6 +50,11 @@ struct PaywallScreen: View {
                     // App Icon Header
                     AppIconHeader()
 
+                    if let context {
+                        PaywallContextView(context: context)
+                            .padding(.horizontal, Spacing.md)
+                    }
+
                     // Title Section
                     VStack(spacing: Spacing.xs) {
                         Text("How Subscription Works")
@@ -70,6 +76,16 @@ struct PaywallScreen: View {
                     // Trial Timeline
                     TrialTimeline(selectedPlan: selectedPlan)
                         .padding(.horizontal, Spacing.md)
+
+                    GlassCard {
+                        FeatureList(features: [
+                            "Reklam yok, temiz arayüz",
+                            "PDF, görsel, video ve ofis dosyaları",
+                            "Akıllı hedef boyutlar ve kalite profilleri",
+                            "Öncelikli ve dayanıklı sıkıştırma"
+                        ])
+                    }
+                    .padding(.horizontal, Spacing.md)
 
                     // Limit exceeded banner (if applicable)
                     if limitExceeded, let size = currentFileSize {
@@ -422,6 +438,30 @@ struct SocialProofBanner: View {
                 withAnimation {
                     count = min(step * increment, targetCount)
                 }
+            }
+        }
+    }
+}
+
+struct PaywallContextView: View {
+    let context: PaywallContext
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text(context.title)
+                    .font(.appBodyMedium)
+                    .foregroundStyle(.primary)
+
+                Text(context.subtitle)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+
+                if let limit = context.limitDescription {
+                    InfoBanner(type: .warning, message: limit)
+                }
+
+                FeatureList(features: context.highlights)
             }
         }
     }

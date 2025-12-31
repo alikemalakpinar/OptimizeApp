@@ -10,23 +10,29 @@ import UniformTypeIdentifiers
 
 struct HomeScreen: View {
     @ObservedObject var coordinator: AppCoordinator
+    let subscriptionStatus: SubscriptionStatus
     @State private var ctaPulse = false
     @State private var isDropTargeted = false
 
     let onSelectFile: () -> Void
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
+    let onUpgrade: () -> Void
 
     init(
         coordinator: AppCoordinator,
+        subscriptionStatus: SubscriptionStatus,
         onSelectFile: @escaping () -> Void,
         onOpenHistory: @escaping () -> Void,
-        onOpenSettings: @escaping () -> Void
+        onOpenSettings: @escaping () -> Void,
+        onUpgrade: @escaping () -> Void
     ) {
         self.coordinator = coordinator
+        self.subscriptionStatus = subscriptionStatus
         self.onSelectFile = onSelectFile
         self.onOpenHistory = onOpenHistory
         self.onOpenSettings = onOpenSettings
+        self.onUpgrade = onUpgrade
     }
 
     var recentHistory: [HistoryItem] {
@@ -61,6 +67,13 @@ struct HomeScreen: View {
 
             ScrollView {
                 VStack(spacing: Spacing.xl) {
+                    MembershipStatusCard(
+                        status: subscriptionStatus,
+                        onUpgrade: onUpgrade
+                    )
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.sm)
+
                     // Main CTA Section with Breathing Effect
                     VStack(spacing: Spacing.lg) {
                         // CTA Card with drop support
@@ -474,11 +487,99 @@ struct HistoryRow: View {
     }
 }
 
+// MARK: - Membership Status
+struct MembershipStatusCard: View {
+    let status: SubscriptionStatus
+    let onUpgrade: () -> Void
+
+    private var headline: String {
+        status.isPro ? "Pro aktif" : "Ücretsiz plan"
+    }
+
+    private var detail: String {
+        status.isPro
+            ? "Reklamsız, sınırsız ve profesyonel sıkıştırma açık."
+            : "Reklam yok. Bugün \(status.remainingUsage) ücretsiz kullanım hakkın kaldı."
+    }
+
+    private var badgeColor: Color {
+        status.isPro ? .appMint : .appAccent
+    }
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
+                        Text(headline)
+                            .font(.appBodyMedium)
+                            .foregroundStyle(.primary)
+
+                        Text(detail)
+                            .font(.appCaption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text(status.isPro ? "PRO" : "FREE")
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xxs)
+                        .background(badgeColor)
+                        .clipShape(Capsule())
+                }
+
+                HStack(spacing: Spacing.sm) {
+                    CapabilityPill(icon: "checkmark.shield.fill", text: "Reklamsız")
+                    CapabilityPill(icon: "sparkles", text: "Akıllı profil")
+                    CapabilityPill(icon: "doc.on.doc", text: "Tüm dosyalar")
+                }
+
+                if !status.isPro {
+                    PrimaryButton(
+                        title: "Pro'ya yükselt",
+                        icon: "crown.fill"
+                    ) {
+                        onUpgrade()
+                    }
+                } else {
+                    Text("Sınırsız optimizasyon, özel hedef boyutlar ve öncelikli işlem hazır.")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+struct CapabilityPill: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: Spacing.xxs) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(text)
+                .font(.appCaptionMedium)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.appSurface)
+        .clipShape(Capsule())
+    }
+}
+
 #Preview {
     HomeScreen(
         coordinator: AppCoordinator(),
+        subscriptionStatus: .free,
         onSelectFile: {},
         onOpenHistory: {},
-        onOpenSettings: {}
+        onOpenSettings: {},
+        onUpgrade: {}
     )
 }
