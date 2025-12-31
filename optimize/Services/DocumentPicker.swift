@@ -73,6 +73,22 @@ struct ShareSheet: UIViewControllerRepresentable {
         controller.completionWithItemsHandler = { _, _, _, _ in
             onComplete?()
         }
+
+        // iPad fix: Configure popover presentation to prevent crash
+        // On iPad, UIActivityViewController must be presented as a popover
+        if let popover = controller.popoverPresentationController {
+            // Create a dummy source view for iPad
+            // This will be positioned at the center-bottom of the screen
+            popover.permittedArrowDirections = []
+            popover.sourceView = UIView()
+            popover.sourceRect = CGRect(
+                x: UIScreen.main.bounds.midX,
+                y: UIScreen.main.bounds.maxY - 100,
+                width: 0,
+                height: 0
+            )
+        }
+
         return controller
     }
 
