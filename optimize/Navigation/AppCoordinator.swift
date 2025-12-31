@@ -472,7 +472,7 @@ struct RootView: View {
                             try await coordinator.subscriptionManager.purchase(plan: plan)
                             await MainActor.run {
                                 coordinator.dismissPaywall()
-                                Haptics.notification(type: .success)
+                                Haptics.success()
                             }
                         } catch SubscriptionError.userCancelled {
                             // User cancelled - do nothing
@@ -489,7 +489,7 @@ struct RootView: View {
                         await MainActor.run {
                             if coordinator.subscriptionManager.status.isPro {
                                 coordinator.dismissPaywall()
-                                Haptics.notification(type: .success)
+                                Haptics.success()
                             }
                         }
                     }
