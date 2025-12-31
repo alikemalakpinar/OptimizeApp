@@ -24,33 +24,33 @@ enum ProcessingStage: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Detailed sub-messages for each stage
+    /// Detailed sub-messages for each stage (dynamic, changes during processing)
     var detailMessages: [String] {
         switch self {
         case .preparing:
             return [
-                "Dosya okunuyor...",
-                "Format ve yapısı inceleniyor...",
-                "İzinler kontrol ediliyor..."
+                "Reading file structure...",
+                "Checking format and encoding...",
+                "Validating permissions..."
             ]
         case .uploading:
             return [
-                "İçeriği tarıyor...",
-                "Çözünürlük ve kodlama inceleniyor...",
-                "En iyi profil seçiliyor..."
+                "Analyzing content layers...",
+                "Detecting text and images...",
+                "Choosing optimal profile..."
             ]
         case .optimizing:
             return [
-                "Gereksiz metadata siliniyor...",
-                "Kalite dengeleniyor...",
-                "Görüntü ve kareler yeniden kodlanıyor...",
-                "Hedef boyut doğrulanıyor..."
+                "Removing unnecessary metadata...",
+                "Balancing quality settings...",
+                "Recompressing images...",
+                "Verifying target size..."
             ]
         case .downloading:
             return [
-                "Son kontroller...",
-                "Dosya kaydediliyor...",
-                "İşlem tamamlanıyor..."
+                "Running final checks...",
+                "Writing optimized file...",
+                "Completing process..."
             ]
         }
     }
@@ -90,8 +90,11 @@ struct StageRow: View {
     let isActive: Bool
     let isCompleted: Bool
     let isLast: Bool
+    var progress: Double = 0
 
     @State private var isPulsing = false
+    @State private var currentMessageIndex = 0
+    @State private var messageTimer: Timer?
 
     var stateColor: Color {
         if isCompleted {
@@ -101,6 +104,21 @@ struct StageRow: View {
         } else {
             return .secondary.opacity(0.3)
         }
+    }
+
+    /// Current detail message based on progress or timer rotation
+    var currentDetailMessage: String {
+        let messages = stage.detailMessages
+        guard !messages.isEmpty else { return "Processing..." }
+
+        // If progress is available, use it to determine message
+        if progress > 0 {
+            let index = min(Int(progress * Double(messages.count)), messages.count - 1)
+            return messages[index]
+        }
+
+        // Otherwise use timer-based rotation
+        return messages[currentMessageIndex % messages.count]
     }
 
     var body: some View {
@@ -148,9 +166,12 @@ struct StageRow: View {
                     .foregroundStyle(isActive || isCompleted ? .primary : .secondary)
 
                 if isActive && !isCompleted {
-                    Text("Processing...")
+                    // Dynamic message based on progress
+                    Text(currentDetailMessage)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
+                        .animation(.easeInOut(duration: 0.3), value: currentMessageIndex)
+                        .id(currentMessageIndex) // Force view update
                 }
             }
             .padding(.bottom, isLast ? 0 : Spacing.md)
@@ -159,13 +180,20 @@ struct StageRow: View {
         }
         .onAppear {
             if isActive && !isCompleted {
+                // Pulse animation
                 withAnimation(
                     Animation.easeInOut(duration: 1.2)
                         .repeatForever(autoreverses: false)
                 ) {
                     isPulsing = true
                 }
+
+                // Message rotation timer (only if no progress tracking)
+                startMessageRotation()
             }
+        }
+        .onDisappear {
+            stopMessageRotation()
         }
         .onChange(of: isActive) { _, newValue in
             if newValue && !isCompleted {
@@ -176,8 +204,29 @@ struct StageRow: View {
                 ) {
                     isPulsing = true
                 }
+                startMessageRotation()
+            } else {
+                stopMessageRotation()
             }
         }
+    }
+
+    // MARK: - Message Rotation
+
+    private func startMessageRotation() {
+        guard progress == 0 else { return } // Don't use timer if progress is being tracked
+        stopMessageRotation()
+
+        messageTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { _ in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                currentMessageIndex += 1
+            }
+        }
+    }
+
+    private func stopMessageRotation() {
+        messageTimer?.invalidate()
+        messageTimer = nil
     }
 }
 

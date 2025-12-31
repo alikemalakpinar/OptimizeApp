@@ -137,6 +137,101 @@ struct IconBadge: View {
     }
 }
 
+// MARK: - Shimmer Button (Premium CTA)
+struct ShimmerButton: View {
+    let title: String
+    var icon: String? = nil
+    var isLoading: Bool = false
+    let action: () -> Void
+
+    @State private var shimmerOffset: CGFloat = -200
+
+    var body: some View {
+        Button(action: {
+            guard !isLoading else { return }
+            Haptics.impact(style: .medium)
+            action()
+        }) {
+            ZStack {
+                // Base gradient
+                RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.appAccent, Color.appAccent.opacity(0.85)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+
+                // Shimmer effect
+                RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [.clear, .white.opacity(0.35), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .rotationEffect(.degrees(25))
+                    .offset(x: shimmerOffset)
+                    .mask(
+                        RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                    )
+
+                // Content
+                HStack(spacing: Spacing.xs) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.9)
+                    } else {
+                        if let icon = icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        Text(title)
+                            .font(.system(size: 17, weight: .bold))
+                    }
+                }
+                .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .shadow(color: Color.appAccent.opacity(0.4), radius: 12, x: 0, y: 6)
+        }
+        .buttonStyle(.pressable)
+        .disabled(isLoading)
+        .onAppear {
+            withAnimation(
+                .linear(duration: 2.5)
+                .repeatForever(autoreverses: false)
+            ) {
+                shimmerOffset = 400
+            }
+        }
+    }
+}
+
+// MARK: - Close Button (X icon for modals)
+struct CloseButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            Haptics.selection()
+            action()
+        }) {
+            Image(systemName: "xmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 32, height: 32)
+                .background(.ultraThinMaterial)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.pressable)
+    }
+}
+
 // MARK: - Action Sheet Buttons
 struct ActionSheetButtons: View {
     let primaryTitle: String
