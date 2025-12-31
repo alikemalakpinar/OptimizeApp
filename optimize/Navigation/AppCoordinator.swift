@@ -8,6 +8,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import Combine
+import StoreKit
 
 // MARK: - App State
 enum AppScreen: Equatable {
@@ -76,6 +77,7 @@ class AppCoordinator: ObservableObject {
 
     // User defaults keys
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
+    private let successCountKey = "successfulCompressionCount"
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -248,6 +250,9 @@ class AppCoordinator: ObservableObject {
             historyManager.addFromResult(result, presetId: preset.id)
             subscriptionManager.recordSuccessfulCompression()
 
+            // Smart Review Prompt: Ask for review at optimal moments
+            requestReviewIfAppropriate(savingsPercent: result.savingsPercent)
+
             withAnimation(AppAnimation.standard) {
                 currentScreen = .result(result)
             }
@@ -383,6 +388,30 @@ class AppCoordinator: ObservableObject {
     func dismissPaywall() {
         showPaywall = false
         paywallContext = nil
+    }
+
+    // MARK: - Smart Review Prompt
+    /// Requests App Store review at optimal moments (3rd, 10th, 50th successful compression)
+    /// Only triggers when savings are meaningful (>20%)
+    private func requestReviewIfAppropriate(savingsPercent: Int) {
+        // Only ask for review if user had a good experience (>20% savings)
+        guard savingsPercent > 20 else { return }
+
+        // Increment and get success count
+        let successCount = UserDefaults.standard.integer(forKey: successCountKey) + 1
+        UserDefaults.standard.set(successCount, forKey: successCountKey)
+
+        // Request review at milestone counts: 3rd, 10th, 50th successful compression
+        let reviewMilestones = [3, 10, 50]
+        guard reviewMilestones.contains(successCount) else { return }
+
+        // Delay to let the result screen render first
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if let windowScene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: windowScene)
+            }
+        }
     }
 
     // MARK: - Error Handling
