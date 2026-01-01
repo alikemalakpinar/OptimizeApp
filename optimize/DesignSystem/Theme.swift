@@ -30,6 +30,11 @@ extension Color {
     static let appSurface = Color(.secondarySystemBackground)
     static let appGroupedBackground = Color(.systemGroupedBackground)
 
+    // Bento Grid Design System
+    static let bentoBackground = Color(.secondarySystemBackground)
+    static let cardBorder = Color.primary.opacity(0.05)
+    static let signatureCardBG = Color(red: 0.98, green: 0.97, blue: 0.94) // Hafif sarımsı kağıt rengi
+
     // Text
     static let textPrimary = Color.primary
     static let textSecondary = Color.secondary
@@ -84,6 +89,26 @@ enum Opacity {
 /// - Sizes: Consistent scale for visual hierarchy
 ///
 extension Font {
+    // MARK: - Display Styles (Serif - Premium Headlines)
+    /// For paywall titles, major headlines - "Apple Design Award" feel
+    static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
+    static let displaySubtitle = Font.system(.title2, design: .serif).weight(.medium)
+    static let displayHeadline = Font.system(.title3, design: .serif).weight(.semibold)
+
+    // MARK: - UI Styles (Rounded - Friendly & Modern)
+    /// For buttons, labels, interactive elements
+    static let uiLarge = Font.system(.title, design: .rounded).weight(.bold)
+    static let uiBody = Font.system(.body, design: .rounded)
+    static let uiBodyBold = Font.system(.body, design: .rounded).weight(.semibold)
+    static let uiCaption = Font.system(.caption, design: .rounded)
+    static let uiCaptionBold = Font.system(.caption, design: .rounded).weight(.bold)
+
+    // MARK: - Data Styles (Monospaced - Engineering Dashboard)
+    /// For file sizes, percentages, GB/MB values
+    static let dataValue = Font.system(.headline, design: .monospaced).weight(.medium)
+    static let dataLarge = Font.system(.title, design: .monospaced).weight(.bold)
+    static let dataSmall = Font.system(.caption, design: .monospaced)
+
     // MARK: - Heading Styles (Serif - New York)
     /// Large headlines with editorial feel
     static let appHeadlineSerif = Font.system(.title, design: .serif).weight(.semibold)

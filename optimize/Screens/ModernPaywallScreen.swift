@@ -2,15 +2,17 @@
 //  ModernPaywallScreen.swift
 //  optimize
 //
-//  Modern paywall with glassmorphism design inspired by Retro app
+//  Clean Paywall Design - Consistent with app's Paper/Glass aesthetic
+//  Serif headlines + Light theme + Trust-building timeline
 //
 
 import SwiftUI
 
 struct ModernPaywallScreen: View {
-    @State private var selectedPlan: SubscriptionPlan = .yearly // Default to yearly (anchor pricing)
+    @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var isLoading = false
     @State private var animateContent = false
+    @Environment(\.colorScheme) private var colorScheme
 
     let onSubscribe: (SubscriptionPlan) -> Void
     let onRestore: () -> Void
@@ -20,16 +22,12 @@ struct ModernPaywallScreen: View {
 
     var body: some View {
         ZStack {
-            // MARK: - Background
-            PaywallBackground()
+            // MARK: - Clean Background
+            CleanPaywallBackground()
 
             VStack(spacing: 0) {
-                // MARK: - Header with close button
+                // MARK: - Header
                 HStack {
-                    Text(AppStrings.ModernPaywall.premiumTitle)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.9))
-
                     Spacer()
 
                     Button(action: {
@@ -37,10 +35,10 @@ struct ModernPaywallScreen: View {
                         onDismiss()
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .frame(width: 28, height: 28)
-                            .background(.ultraThinMaterial)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, height: 32)
+                            .background(Color(.secondarySystemBackground))
                             .clipShape(Circle())
                     }
                 }
@@ -49,43 +47,66 @@ struct ModernPaywallScreen: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
-                        // MARK: - Feature Preview Card
-                        FeaturePreviewImage()
+                        // MARK: - Hero Section
+                        VStack(spacing: Spacing.md) {
+                            // Icon
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.appMint.opacity(0.2), Color.appTeal.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 80, height: 80)
+
+                                Image(systemName: "bolt.shield.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [Color.appMint, Color.appTeal],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            }
                             .padding(.top, Spacing.lg)
-                            .opacity(animateContent ? 1 : 0)
-                            .offset(y: animateContent ? 0 : 20)
 
-                        // MARK: - Title Section
-                        VStack(spacing: Spacing.sm) {
-                            Text(AppStrings.ModernPaywall.featureTitle)
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
+                            // Title - Serif Font for Premium Feel
+                            Text("Limitleri Kaldır.")
+                                .font(.displayTitle)
+                                .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
 
-                            Text(AppStrings.ModernPaywall.featureDescription)
-                                .font(.system(size: 16))
-                                .foregroundStyle(.white.opacity(0.8))
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(4)
+                            Text("Profesyoneller için tasarlandı.")
+                                .font(.uiBody)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, Spacing.lg)
                         .opacity(animateContent ? 1 : 0)
+                        .offset(y: animateContent ? 0 : 20)
 
-                        Spacer(minLength: Spacing.md)
+                        // MARK: - Timeline (Trust Builder)
+                        CleanTrialTimeline()
+                            .padding(.horizontal, Spacing.md)
+                            .opacity(animateContent ? 1 : 0)
+                            .offset(y: animateContent ? 0 : 15)
+
+                        // MARK: - Features Bento Grid
+                        FeaturesBentoGrid()
+                            .padding(.horizontal, Spacing.md)
+                            .opacity(animateContent ? 1 : 0)
+                            .offset(y: animateContent ? 0 : 10)
+
+                        Spacer(minLength: Spacing.xl)
                     }
                 }
 
-                // MARK: - Bottom Panel with Glass Effect
+                // MARK: - Bottom Panel
                 VStack(spacing: Spacing.lg) {
-                    // MARK: - Trial Timeline (Trust Builder)
-                    // Shows exactly when charges happen - reduces "forgot to cancel" anxiety
-                    TrialTimelineView()
-                        .padding(.horizontal, Spacing.md)
-
                     // Plan Cards
                     HStack(spacing: Spacing.sm) {
-                        // Weekly Plan
-                        PaywallPlanCard(
+                        CleanPlanCard(
                             title: AppStrings.ModernPaywall.weeklyTitle,
                             price: AppStrings.ModernPaywall.weeklyPrice,
                             subtitle: AppStrings.ModernPaywall.weeklySubtitle,
@@ -97,8 +118,7 @@ struct ModernPaywallScreen: View {
                             }
                         }
 
-                        // Yearly Plan (Best Value)
-                        PaywallPlanCard(
+                        CleanPlanCard(
                             title: AppStrings.ModernPaywall.yearlyTitle,
                             price: AppStrings.ModernPaywall.yearlyPrice,
                             subtitle: AppStrings.ModernPaywall.yearlySubtitle,
@@ -118,72 +138,72 @@ struct ModernPaywallScreen: View {
                         isLoading = true
                         onSubscribe(selectedPlan)
                     }) {
-                        HStack {
+                        HStack(spacing: Spacing.sm) {
                             if isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.8)
                             } else {
                                 Text(AppStrings.ModernPaywall.startTrial)
-                                    .font(.system(size: 17, weight: .bold))
+                                    .font(.system(size: 17, weight: .bold, design: .rounded))
                             }
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(Color.white)
+                        .frame(height: 56)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.appMint, Color.appTeal],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
-                        .shadow(color: .white.opacity(0.3), radius: 12, x: 0, y: 0)
+                        .shadow(color: Color.appMint.opacity(0.3), radius: 12, x: 0, y: 6)
                     }
                     .buttonStyle(.pressable)
                     .disabled(isLoading)
                     .padding(.horizontal, Spacing.md)
 
                     // Footer
-                    VStack(spacing: Spacing.sm) {
+                    VStack(spacing: Spacing.xs) {
                         Button(action: {
                             Haptics.selection()
                             onRestore()
                         }) {
                             Text(AppStrings.Paywall.restore)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .font(.uiCaption)
+                                .foregroundStyle(.secondary)
                         }
 
                         HStack(spacing: Spacing.md) {
                             Button(action: onPrivacy) {
                                 Text(AppStrings.Settings.privacyPolicy)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(.white.opacity(0.5))
+                                    .foregroundStyle(.tertiary)
                             }
 
                             Text("•")
-                                .foregroundStyle(.white.opacity(0.3))
+                                .foregroundStyle(.quaternary)
 
                             Button(action: onTerms) {
                                 Text(AppStrings.Settings.termsOfService)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(.white.opacity(0.5))
+                                    .foregroundStyle(.tertiary)
                             }
                         }
 
                         Text(AppStrings.ModernPaywall.cancelAnytime)
-                            .font(.system(size: 11))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.appMint)
-                            .padding(.top, Spacing.xxs)
                     }
-                    .padding(.bottom, Spacing.xl)
+                    .padding(.bottom, Spacing.lg)
                 }
                 .padding(.top, Spacing.lg)
                 .background(
-                    // Gradient fade from transparent to glass
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.3), .black.opacity(0.5)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .background(.ultraThinMaterial.opacity(0.5))
-                    .ignoresSafeArea(edges: .bottom)
+                    Color(.systemBackground)
+                        .shadow(color: .black.opacity(0.05), radius: 20, x: 0, y: -10)
+                        .ignoresSafeArea(edges: .bottom)
                 )
             }
         }
@@ -195,84 +215,225 @@ struct ModernPaywallScreen: View {
     }
 }
 
-// MARK: - Paywall Background
-struct PaywallBackground: View {
+// MARK: - Clean Paywall Background
+struct CleanPaywallBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
-            // Base gradient
-            LinearGradient(
-                colors: [
-                    Color.purple.opacity(0.8),
-                    Color.blue.opacity(0.6),
-                    Color.pink.opacity(0.5),
-                    Color.orange.opacity(0.3)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // Base
+            Color(.systemBackground)
 
-            // Overlay blur
-            Rectangle()
-                .fill(.ultraThinMaterial.opacity(0.3))
+            // Subtle Aurora Effect
+            GeometryReader { geometry in
+                ZStack {
+                    // Top gradient blob
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.appMint.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geometry.size.width * 0.6
+                            )
+                        )
+                        .frame(width: geometry.size.width * 1.2, height: geometry.size.height * 0.5)
+                        .offset(x: -geometry.size.width * 0.1, y: -geometry.size.height * 0.1)
+
+                    // Secondary accent
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.appAccent.opacity(colorScheme == .dark ? 0.1 : 0.05),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: geometry.size.width * 0.5
+                            )
+                        )
+                        .frame(width: geometry.size.width * 0.8, height: geometry.size.height * 0.4)
+                        .offset(x: geometry.size.width * 0.3, y: geometry.size.height * 0.2)
+                }
+            }
         }
         .ignoresSafeArea()
     }
 }
 
-// MARK: - Feature Preview Image
-struct FeaturePreviewImage: View {
+// MARK: - Clean Trial Timeline
+struct CleanTrialTimeline: View {
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Preview card with glass effect
-            RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.blue.opacity(0.4),
-                            Color.purple.opacity(0.4)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: 200)
-                .overlay(
-                    // Document icon placeholder
-                    VStack(spacing: Spacing.md) {
-                        Image(systemName: "doc.zipper")
-                            .font(.system(size: 60, weight: .light))
-                            .foregroundStyle(.white.opacity(0.6))
-
-                        Text("PDF, Görsel, Video")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                        .stroke(.white.opacity(0.2), lineWidth: 1)
-                )
-
-            // Unlimited badge
-            HStack(spacing: Spacing.xxs) {
-                Image(systemName: "infinity")
-                    .font(.system(size: 12, weight: .medium))
-                Text(AppStrings.ModernPaywall.unlimitedBadge)
-                    .font(.system(size: 12, weight: .medium))
+        VStack(spacing: Spacing.sm) {
+            // Header
+            HStack {
+                Image(systemName: "calendar.badge.checkmark")
+                    .foregroundStyle(Color.appMint)
+                Text("Deneme Süreciniz")
+                    .font(.uiBodyBold)
+                Spacer()
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .padding(Spacing.md)
+
+            // Timeline Cards
+            HStack(spacing: Spacing.sm) {
+                TimelineCard(
+                    day: "Bugün",
+                    title: "Ücretsiz",
+                    icon: "lock.open.fill",
+                    iconColor: .appMint,
+                    isActive: true
+                )
+
+                // Arrow
+                Image(systemName: "arrow.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+
+                TimelineCard(
+                    day: "7. Gün",
+                    title: "Abonelik",
+                    icon: "star.fill",
+                    iconColor: .appAccent,
+                    isActive: false
+                )
+            }
+
+            // Trust message
+            HStack(spacing: Spacing.xxs) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.appMint)
+                Text("5. gün hatırlatma bildirimi göndereceğiz")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, Spacing.xxs)
         }
-        .padding(.horizontal, Spacing.xl)
+        .padding(Spacing.md)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 1)
+        )
     }
 }
 
-// MARK: - Plan Card
-struct PaywallPlanCard: View {
+struct TimelineCard: View {
+    let day: String
+    let title: String
+    let icon: String
+    let iconColor: Color
+    let isActive: Bool
+
+    var body: some View {
+        VStack(spacing: Spacing.xs) {
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(isActive ? 0.15 : 0.08))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(iconColor)
+            }
+
+            Text(day)
+                .font(.uiCaptionBold)
+                .foregroundStyle(isActive ? .primary : .secondary)
+
+            Text(title)
+                .font(.uiCaption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.sm)
+        .background(isActive ? Color(.tertiarySystemBackground) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+    }
+}
+
+// MARK: - Features Bento Grid
+struct FeaturesBentoGrid: View {
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            FeatureBentoCard(
+                icon: "infinity",
+                title: "Sınırsız",
+                description: "Dosya boyutu limiti yok",
+                color: .appMint
+            )
+
+            FeatureBentoCard(
+                icon: "wand.and.stars",
+                title: "Smart AI",
+                description: "Akıllı sıkıştırma",
+                color: .purple
+            )
+
+            FeatureBentoCard(
+                icon: "lock.shield.fill",
+                title: "Güvenli",
+                description: "Cihaz içi işlem",
+                color: .appAccent
+            )
+
+            FeatureBentoCard(
+                icon: "xmark.circle.fill",
+                title: "Reklamsız",
+                description: "Temiz deneyim",
+                color: .orange
+            )
+        }
+    }
+}
+
+struct FeatureBentoCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Image(systemName: icon)
+                .font(.system(size: 22))
+                .foregroundStyle(color)
+
+            Spacer()
+
+            Text(title)
+                .font(.uiBodyBold)
+                .foregroundStyle(.primary)
+
+            Text(description)
+                .font(.uiCaption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(Spacing.md)
+        .frame(height: 110)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Clean Plan Card
+struct CleanPlanCard: View {
     let title: String
     let price: String
     let subtitle: String
@@ -280,52 +441,55 @@ struct PaywallPlanCard: View {
     let badge: String?
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: {
             Haptics.selection()
             action()
         }) {
             ZStack(alignment: .top) {
-                // Card background
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                    .fill(isSelected ? Color.white.opacity(0.15) : Color.black.opacity(0.2))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                            .stroke(
-                                isSelected ? Color.appMint : Color.white.opacity(0.1),
-                                lineWidth: isSelected ? 2 : 1
-                            )
-                    )
-
+                // Card Content
                 VStack(spacing: Spacing.xs) {
-                    // Title
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
-                        .padding(.top, badge != nil ? 28 : 20)
+                        .font(.uiBodyBold)
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .padding(.top, badge != nil ? 24 : 16)
 
                     Spacer()
 
-                    // Price
                     Text(price)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
 
-                    // Subtitle
                     Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .padding(.bottom, 16)
                 }
                 .frame(maxWidth: .infinity)
+                .frame(height: 130)
+                .background(
+                    isSelected
+                        ? Color(.tertiarySystemBackground)
+                        : Color(.secondarySystemBackground)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .stroke(
+                            isSelected ? Color.appMint : Color.cardBorder,
+                            lineWidth: isSelected ? 2 : 1
+                        )
+                )
 
                 // Badge
                 if let badge = badge {
                     Text(badge)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, Spacing.sm)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 4)
                         .background(Color.appMint)
                         .clipShape(Capsule())
@@ -338,184 +502,66 @@ struct PaywallPlanCard: View {
                         HStack {
                             Spacer()
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: 22))
                                 .foregroundStyle(Color.appMint)
-                                .background(Circle().fill(.white).frame(width: 14, height: 14))
+                                .background(
+                                    Circle()
+                                        .fill(Color(.systemBackground))
+                                        .frame(width: 16, height: 16)
+                                )
                                 .padding(Spacing.sm)
                         }
                         Spacer()
                     }
                 }
             }
-            .frame(height: 140)
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Trial Timeline View (Trust Builder)
-/// Shows users exactly when charges happen - reduces subscription anxiety
-/// Psychology: "We'll remind you before charging" builds trust
-struct TrialTimelineView: View {
-    var body: some View {
-        VStack(spacing: Spacing.xs) {
-            // Timeline header
-            HStack {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 14, weight: .medium))
-                Text("Deneme Süreciniz")
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
-            }
-            .foregroundStyle(.white.opacity(0.9))
-
-            // Timeline points
-            HStack(spacing: 0) {
-                // Day 1: Today
-                TimelinePoint(
-                    day: "Bugün",
-                    text: "Pro Başlar",
-                    icon: "lock.open.fill",
-                    iconColor: .appMint,
-                    isFirst: true
-                )
-
-                TimelineLine()
-
-                // Day 5: Reminder
-                TimelinePoint(
-                    day: "5. Gün",
-                    text: "Hatırlatma",
-                    icon: "bell.fill",
-                    iconColor: .yellow,
-                    isFirst: false
-                )
-
-                TimelineLine()
-
-                // Day 7: Subscription starts
-                TimelinePoint(
-                    day: "7. Gün",
-                    text: "Abonelik",
-                    icon: "star.fill",
-                    iconColor: .appMint,
-                    isFirst: false
-                )
-            }
-
-            // Trust message
-            Text("5. gün hatırlatma e-postası göndereceğiz")
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.top, Spacing.xxs)
-        }
-        .padding(Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(.white.opacity(0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                        .stroke(.white.opacity(0.15), lineWidth: 1)
-                )
-        )
-    }
-}
-
-struct TimelinePoint: View {
-    let day: String
-    let text: String
-    let icon: String
-    let iconColor: Color
-    let isFirst: Bool
-
-    var body: some View {
-        VStack(spacing: Spacing.xxs) {
-            // Icon circle
-            ZStack {
-                Circle()
-                    .fill(iconColor.opacity(0.2))
-                    .frame(width: 32, height: 32)
-
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(iconColor)
-            }
-
-            // Day label
-            Text(day)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white)
-
-            // Description
-            Text(text)
-                .font(.system(size: 10))
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-struct TimelineLine: View {
-    var body: some View {
-        Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(height: 2)
-            .frame(maxWidth: 40)
-            .offset(y: -12) // Align with icon center
-    }
-}
-
-// MARK: - Lifetime Plan Card (Anchor Pricing / Decoy Effect)
-/// High-priced lifetime option makes yearly plan seem like a better deal
-struct LifetimePlanBadge: View {
+// MARK: - Lifetime Plan Option
+struct CleanLifetimePlan: View {
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: Spacing.xs) {
-                // Crown icon
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color.goldAccent)
+            HStack(spacing: Spacing.md) {
+                // Crown Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.goldAccent.opacity(0.15))
+                        .frame(width: 44, height: 44)
 
-                Text("Ömür Boyu")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.goldAccent)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ömür Boyu")
+                        .font(.uiBodyBold)
+                        .foregroundStyle(.primary)
+
+                    Text("Tek seferlik ödeme")
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
 
                 Text("₺999")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                Text("Tek Ödeme")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.goldAccent.opacity(0.3),
-                                Color.orange.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
+            .padding(Spacing.md)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                     .stroke(
-                        isSelected ? Color.goldAccent : Color.white.opacity(0.2),
+                        isSelected ? Color.goldAccent : Color.cardBorder,
                         lineWidth: isSelected ? 2 : 1
                     )
             )
@@ -532,4 +578,15 @@ struct LifetimePlanBadge: View {
         onPrivacy: {},
         onTerms: {}
     )
+}
+
+#Preview("Dark Mode") {
+    ModernPaywallScreen(
+        onSubscribe: { plan in print("Subscribe: \(plan)") },
+        onRestore: {},
+        onDismiss: {},
+        onPrivacy: {},
+        onTerms: {}
+    )
+    .preferredColorScheme(.dark)
 }
