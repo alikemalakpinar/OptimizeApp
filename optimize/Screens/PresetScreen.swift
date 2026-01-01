@@ -771,11 +771,13 @@ struct CustomSizeSlider: View {
 
                 // Slider
                 VStack(spacing: Spacing.xs) {
-                    Slider(value: $targetMB, in: minMB...maxMB, step: 1)
-                        .tint(Color.purple)
-                        .onChange(of: targetMB) { _, _ in
+                    Slider(value: $targetMB, in: minMB...maxMB, step: 1) { isEditing in
+                        // Only trigger haptic when user finishes dragging
+                        if !isEditing {
                             Haptics.selection()
                         }
+                    }
+                        .tint(Color.purple)
 
                     // Labels
                     HStack {
