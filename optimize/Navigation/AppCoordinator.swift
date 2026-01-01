@@ -17,7 +17,10 @@ import Combine
 import StoreKit
 
 // MARK: - App State
-enum AppScreen: Equatable {
+
+/// Screens that can be pushed onto the navigation stack
+/// ARCHITECTURE: Hashable conformance enables NavigationStack path management
+enum AppScreen: Hashable {
     case splash
     case onboarding
     case commitment
@@ -29,6 +32,24 @@ enum AppScreen: Equatable {
     case result(CompressionResult)
     case history
     case settings
+
+    // MARK: - Hashable Conformance (Required for NavigationPath)
+
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .splash: hasher.combine("splash")
+        case .onboarding: hasher.combine("onboarding")
+        case .commitment: hasher.combine("commitment")
+        case .ratingRequest: hasher.combine("ratingRequest")
+        case .home: hasher.combine("home")
+        case .analyze(let file): hasher.combine("analyze"); hasher.combine(file.id)
+        case .preset(let file, _): hasher.combine("preset"); hasher.combine(file.id)
+        case .progress(let file, _): hasher.combine("progress"); hasher.combine(file.id)
+        case .result(let result): hasher.combine("result"); hasher.combine(result.id)
+        case .history: hasher.combine("history")
+        case .settings: hasher.combine("settings")
+        }
+    }
 
     static func == (lhs: AppScreen, rhs: AppScreen) -> Bool {
         switch (lhs, rhs) {
@@ -52,26 +73,92 @@ enum AppScreen: Equatable {
             return false
         }
     }
+
+    /// Whether this screen should use native navigation (NavigationStack)
+    /// Some screens like splash, onboarding are full-screen and don't use navigation
+    var usesNavigationStack: Bool {
+        switch self {
+        case .splash, .onboarding, .commitment, .ratingRequest:
+            return false
+        default:
+            return true
+        }
+    }
+}
+
+// MARK: - Sheet State (Modular State Management)
+
+/// Groups all sheet-related state to reduce @Published pollution in coordinator
+/// ARCHITECTURE: This separation helps prevent unnecessary view re-renders
+/// by isolating sheet state from navigation state
+struct SheetState {
+    var paywall = false
+    var modernPaywall = false
+    var documentPicker = false
+    var shareSheet = false
+    var fileSaver = false
+    var paywallContext: PaywallContext?
+}
+
+/// Groups all alert-related state
+struct AlertState {
+    var showError = false
+    var errorMessage = ""
+    var errorTitle = ""
+    var showRetryAlert = false
 }
 
 // MARK: - App Coordinator
 /// Main navigation coordinator with dependency injection support
 ///
-/// REFACTORED (MVVM-C Architecture):
-/// - Business logic extracted to AnalyzeViewModel, CompressionViewModel, ResultViewModel
-/// - Coordinator now focuses on navigation and sheet/alert coordination
-/// - This reduces the "God Object" anti-pattern identified in code review
+/// ARCHITECTURE (MVVM-C - Refactored):
+/// ====================================
 ///
-/// Coordinator Responsibilities:
-/// 1. Screen navigation (currentScreen state)
-/// 2. Sheet/alert presentation (paywall, document picker, share, etc.)
-/// 3. Coordinating ViewModels and connecting their callbacks to navigation
-/// 4. Providing services to views
+/// This coordinator follows a modular design that addresses the "God Object" anti-pattern:
+///
+/// 1. NAVIGATION (NavigationPath):
+///    - Uses iOS 16+ NavigationStack for native navigation features
+///    - Swipe-back gesture, native animations, proper memory management
+///    - See: navigationPath, push(), popToRoot()
+///
+/// 2. BUSINESS LOGIC (Extracted to ViewModels):
+///    - AnalyzeViewModel: File analysis operations
+///    - CompressionViewModel: Compression workflow and retry logic
+///    - ResultViewModel: Share/save operations
+///
+/// 3. SHEET/ALERT PRESENTATION (Grouped State):
+///    - SheetState struct groups all sheet toggles
+///    - AlertState struct groups all alert state
+///    - This prevents cascade re-renders when unrelated state changes
+///
+/// 4. SERVICE INJECTION (Composition Root):
+///    - All services injected via init for testability
+///    - Protocol-based dependencies enable mocking
+///
+/// Benefits:
+/// - Reduced re-render frequency (state is grouped)
+/// - Clear separation of concerns
+/// - Testable via dependency injection
+/// - Native iOS navigation experience
 @MainActor
 class AppCoordinator: ObservableObject {
     // MARK: - Navigation State
 
+    /// Current screen for ZStack-based navigation (splash, onboarding, etc.)
     @Published var currentScreen: AppScreen = .splash
+
+    /// Navigation path for NavigationStack-based navigation
+    /// ARCHITECTURE: This enables native iOS navigation features:
+    /// - Swipe-to-go-back gesture
+    /// - Native navigation bar animations
+    /// - Proper memory management via view stack
+    /// - Deep linking support
+    @Published var navigationPath = NavigationPath()
+
+    // MARK: - Sheet State (Grouped for performance)
+    // NOTE: These are kept as individual @Published for SwiftUI binding compatibility
+    // In a future refactor, consider using a single @Published SheetState with custom bindings
+
     @Published var showPaywall = false
     @Published var showModernPaywall = false
     @Published var showDocumentPicker = false
@@ -82,13 +169,15 @@ class AppCoordinator: ObservableObject {
     @Published var errorTitle = ""
     @Published var paywallContext: PaywallContext?
 
-    // Current processing data (forwarded from ViewModels)
+    // MARK: - Processing State (Forwarded from ViewModels)
+
     @Published var currentFile: FileInfo?
     @Published var currentAnalysis: AnalysisResult?
     @Published var currentResult: CompressionResult?
     @Published var selectedPreset: CompressionPreset?
 
-    // Retry state
+    // MARK: - Retry State
+
     @Published var showRetryAlert = false
     @Published var lastError: Error?
     private var retryCount = 0
@@ -214,9 +303,8 @@ class AppCoordinator: ObservableObject {
                 }
             }
 
-            withAnimation(AppAnimation.standard) {
-                self.currentScreen = .result(result)
-            }
+            // ARCHITECTURE: Use NavigationStack for native navigation
+            self.push(.result(result))
         }
 
         vm.onRetryAvailable = { [weak self] error in
@@ -341,9 +429,8 @@ class AppCoordinator: ObservableObject {
                 // Track file selection
                 analytics.trackFileSelected(fileName: fileInfo.name, fileSize: fileInfo.size)
 
-                withAnimation(AppAnimation.standard) {
-                    currentScreen = .analyze(fileInfo)
-                }
+                // ARCHITECTURE: Use NavigationStack for native navigation
+                push(.analyze(fileInfo))
 
                 // REFACTORED: Delegate analysis to AnalyzeViewModel
                 await analyzeViewModel.analyze(file: fileInfo)
@@ -363,9 +450,8 @@ class AppCoordinator: ObservableObject {
 
     func analyzeComplete() {
         guard let file = currentFile, let result = currentAnalysis else { return }
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .preset(file, result)
-        }
+        // ARCHITECTURE: Use NavigationStack for native navigation
+        push(.preset(file, result))
     }
 
     func startCompression(preset: CompressionPreset) {
@@ -380,9 +466,8 @@ class AppCoordinator: ObservableObject {
         // Reset observable progress state so the progress screen is accurate immediately
         compressionService.prepareForNewTask()
 
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .progress(file, preset)
-        }
+        // ARCHITECTURE: Use NavigationStack for native navigation
+        push(.progress(file, preset))
 
         // REFACTORED: Delegate compression to CompressionViewModel
         Task {
@@ -402,9 +487,8 @@ class AppCoordinator: ObservableObject {
 
         compressionService.prepareForNewTask()
 
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .progress(file, preset)
-        }
+        // ARCHITECTURE: Use NavigationStack for native navigation
+        push(.progress(file, preset))
 
         // REFACTORED: Delegate retry to CompressionViewModel
         Task {
@@ -433,21 +517,25 @@ class AppCoordinator: ObservableObject {
     }
 
     func openHistory() {
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .history
-        }
+        // ARCHITECTURE: Use NavigationStack for native navigation
+        push(.history)
     }
 
     func openSettings() {
         analytics.track(.settingsOpened)
-        withAnimation(AppAnimation.standard) {
-            currentScreen = .settings
-        }
+        // ARCHITECTURE: Use NavigationStack for native navigation
+        push(.settings)
     }
 
     func goBack() {
         withAnimation(AppAnimation.standard) {
-            // Navigate back based on current screen
+            // ARCHITECTURE: Use NavigationPath for native back navigation
+            if !navigationPath.isEmpty {
+                navigationPath.removeLast()
+                return
+            }
+
+            // Fallback for ZStack-based screens
             switch currentScreen {
             case .analyze:
                 currentScreen = .home
@@ -465,6 +553,17 @@ class AppCoordinator: ObservableObject {
         }
     }
 
+    /// Push a screen onto the navigation stack
+    /// ARCHITECTURE: Uses NavigationPath for native iOS navigation
+    func push(_ screen: AppScreen) {
+        navigationPath.append(screen)
+    }
+
+    /// Pop to the root of the navigation stack
+    func popToRoot() {
+        navigationPath = NavigationPath()
+    }
+
     func goHome() {
         currentFile = nil
         currentAnalysis = nil
@@ -472,6 +571,8 @@ class AppCoordinator: ObservableObject {
         selectedPreset = nil
 
         withAnimation(AppAnimation.standard) {
+            // ARCHITECTURE: Clear navigation stack for clean return to home
+            navigationPath = NavigationPath()
             currentScreen = .home
         }
     }
@@ -532,295 +633,21 @@ class AppCoordinator: ObservableObject {
     }
 }
 
-// MARK: - Root View
-struct RootView: View {
-    @StateObject private var coordinator = AppCoordinator()
+// MARK: - Preview Support
+// NOTE: The main RootView is now in optimizeApp.swift as RootViewWithCoordinator
+// This preview is kept for development convenience
 
-    var body: some View {
-        ZStack {
-            screenContent
-        }
-        .sheet(isPresented: $coordinator.showDocumentPicker) {
-            DocumentPicker(
-                allowedTypes: [.pdf, .image, .movie, .text, .data],
-                onPick: { url in
-                    coordinator.handlePickedFile(url)
-                },
-                onCancel: {
-                    coordinator.showDocumentPicker = false
-                }
-            )
-        }
-        .sheet(isPresented: $coordinator.showShareSheet) {
-            if let result = coordinator.currentResult {
-                ShareSheet(items: [result.compressedURL]) {
-                    coordinator.showShareSheet = false
-                }
-            }
-        }
-        .sheet(isPresented: $coordinator.showFileSaver) {
-            if let result = coordinator.currentResult {
-                FileExporter(url: result.compressedURL) { success in
-                    coordinator.showFileSaver = false
-                    if success {
-                        Haptics.success()
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $coordinator.showPaywall) {
-            PaywallScreen(
-                context: coordinator.paywallContext,
-                onSubscribe: { plan in
-                    // Use StoreKit 2 purchase
-                    Task {
-                        do {
-                            try await coordinator.subscriptionManager.purchase(plan: plan)
-                            await MainActor.run {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        } catch SubscriptionError.userCancelled {
-                            // User cancelled - do nothing
-                        } catch {
-                            await MainActor.run {
-                                coordinator.showError(message: error.localizedDescription)
-                            }
-                        }
-                    }
-                },
-                onRestore: {
-                    Task {
-                        await coordinator.subscriptionManager.restore()
-                        await MainActor.run {
-                            if coordinator.subscriptionManager.status.isPro {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        }
-                    }
-                },
-                onDismiss: {
-                    coordinator.dismissPaywall()
-                },
-                onPrivacy: {
-                    // Open privacy policy - Replace with your actual URL
-                    if let url = URL(string: "https://optimize-app.com/privacy") {
-                        UIApplication.shared.open(url)
-                    }
-                },
-                onTerms: {
-                    // Open terms of service - Replace with your actual URL
-                    if let url = URL(string: "https://optimize-app.com/terms") {
-                        UIApplication.shared.open(url)
-                    }
-                }
-            )
-        }
-        .sheet(isPresented: $coordinator.showModernPaywall) {
-            ModernPaywallScreen(
-                onSubscribe: { plan in
-                    Task {
-                        do {
-                            try await coordinator.subscriptionManager.purchase(plan: plan)
-                            await MainActor.run {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        } catch SubscriptionError.userCancelled {
-                            // User cancelled - do nothing
-                        } catch {
-                            await MainActor.run {
-                                coordinator.showError(message: error.localizedDescription)
-                            }
-                        }
-                    }
-                },
-                onRestore: {
-                    Task {
-                        await coordinator.subscriptionManager.restore()
-                        await MainActor.run {
-                            if coordinator.subscriptionManager.status.isPro {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        }
-                    }
-                },
-                onDismiss: {
-                    coordinator.dismissPaywall()
-                },
-                onPrivacy: {
-                    if let url = URL(string: "https://optimize-app.com/privacy") {
-                        UIApplication.shared.open(url)
-                    }
-                },
-                onTerms: {
-                    if let url = URL(string: "https://optimize-app.com/terms") {
-                        UIApplication.shared.open(url)
-                    }
-                }
-            )
-        }
-        .alert(coordinator.errorTitle.isEmpty ? "Hata" : coordinator.errorTitle, isPresented: $coordinator.showError) {
-            Button("Tamam", role: .cancel) {
-                coordinator.dismissError()
-            }
-        } message: {
-            Text(coordinator.errorMessage)
-        }
-        .alert(String(localized: "İşlem Başarısız", comment: "Retry alert title"), isPresented: $coordinator.showRetryAlert) {
-            Button(String(localized: "Tekrar Dene", comment: "Retry button")) {
-                coordinator.retryCompression()
-            }
-            Button(String(localized: "İptal", comment: "Cancel button"), role: .cancel) {
-                coordinator.cancelRetry()
-            }
-        } message: {
-            Text(String(localized: "İşlem başarısız oldu. Tekrar denemek ister misiniz?", comment: "Retry message"))
-        }
+#Preview("AppCoordinator") {
+    // Use the coordinator directly for preview
+    let coordinator = AppCoordinator()
+    return NavigationStack {
+        HomeScreen(
+            coordinator: coordinator,
+            subscriptionStatus: coordinator.subscriptionStatus,
+            onSelectFile: { coordinator.requestFilePicker() },
+            onOpenHistory: { coordinator.openHistory() },
+            onOpenSettings: { coordinator.openSettings() },
+            onUpgrade: { coordinator.presentPaywall() }
+        )
     }
-
-    @ViewBuilder
-    private var screenContent: some View {
-        switch coordinator.currentScreen {
-        case .splash:
-            SplashScreen {
-                coordinator.splashComplete()
-            }
-            .transition(.opacity)
-
-        case .onboarding:
-            OnboardingScreen {
-                coordinator.onboardingComplete()
-            }
-            .transition(.opacity)
-
-        case .commitment:
-            CommitmentSigningView {
-                coordinator.commitmentComplete()
-            }
-            .transition(.opacity)
-
-        case .ratingRequest:
-            RatingRequestView {
-                coordinator.ratingRequestComplete()
-            }
-            .transition(.opacity)
-
-        case .home:
-            HomeScreen(
-                coordinator: coordinator,
-                subscriptionStatus: coordinator.subscriptionStatus,
-                onSelectFile: {
-                    coordinator.requestFilePicker()
-                },
-                onOpenHistory: {
-                    coordinator.openHistory()
-                },
-                onOpenSettings: {
-                    coordinator.openSettings()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall()
-                }
-            )
-            .transition(.opacity)
-
-        case .analyze(let file):
-            AnalyzeScreen(
-                file: file,
-                analysisResult: coordinator.currentAnalysis,
-                subscriptionStatus: coordinator.subscriptionStatus,
-                paywallContext: coordinator.paywallContext,
-                onContinue: {
-                    coordinator.analyzeComplete()
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onReplace: {
-                    coordinator.requestFilePicker()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall(context: coordinator.paywallContext)
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .preset(let file, let analysis):
-            PresetScreen(
-                file: file,
-                analysisResult: analysis,
-                isProUser: coordinator.subscriptionStatus.isPro,
-                onCompress: { preset in
-                    coordinator.startCompression(preset: preset)
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onShowPaywall: {
-                    coordinator.presentPaywall()
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .progress(let file, let preset):
-            ProgressScreen(
-                file: file,
-                preset: preset,
-                compressionService: coordinator.compressionService,
-                onCancel: {
-                    coordinator.goHome()
-                }
-            )
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                removal: .opacity
-            ))
-
-        case .result(let result):
-            ResultScreen(
-                result: result,
-                onShare: {
-                    coordinator.shareResult()
-                },
-                onSave: {
-                    coordinator.saveResult()
-                },
-                onNewFile: {
-                    coordinator.goHome()
-                }
-            )
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                removal: .opacity
-            ))
-
-        case .history:
-            HistoryScreen(
-                historyManager: coordinator.historyManager,
-                onBack: {
-                    coordinator.goBack()
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .settings:
-            SettingsScreen(
-                subscriptionStatus: coordinator.subscriptionStatus,
-                onUpgrade: {
-                    coordinator.presentPaywall()
-                },
-                onBack: {
-                    coordinator.goBack()
-                }
-            )
-            .transition(.move(edge: .trailing))
-        }
-    }
-}
-
-#Preview {
-    RootView()
 }

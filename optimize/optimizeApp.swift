@@ -77,12 +77,27 @@ struct optimizeApp: App {
 /// Root view that accepts an externally created coordinator
 /// This allows the coordinator to be created at the composition root
 /// and enables dependency injection for the entire view hierarchy
+///
+/// ARCHITECTURE (iOS 16+ NavigationStack):
+/// - Uses NavigationStack for main app flow (home -> analyze -> preset -> result)
+/// - Keeps ZStack for full-screen overlays (splash, onboarding, commitment, rating)
+/// - Enables native iOS navigation features:
+///   * Swipe-to-go-back gesture
+///   * Native navigation bar animations
+///   * Proper memory management
+///   * Deep linking support
 struct RootViewWithCoordinator: View {
     @ObservedObject var coordinator: AppCoordinator
 
     var body: some View {
         ZStack {
-            screenContent
+            // Full-screen flows (onboarding, splash, etc.) are handled via ZStack
+            // Main app flow uses NavigationStack for native navigation
+            if coordinator.currentScreen.usesNavigationStack {
+                navigationContent
+            } else {
+                fullScreenContent
+            }
         }
         .sheet(isPresented: $coordinator.showDocumentPicker) {
             DocumentPicker(
@@ -224,8 +239,129 @@ struct RootViewWithCoordinator: View {
         }
     }
 
+    // MARK: - Navigation Stack Content (iOS 16+ Native Navigation)
+
+    /// Main app content with NavigationStack for native navigation features
     @ViewBuilder
-    private var screenContent: some View {
+    private var navigationContent: some View {
+        NavigationStack(path: $coordinator.navigationPath) {
+            // Root of navigation stack is HomeScreen
+            HomeScreen(
+                coordinator: coordinator,
+                subscriptionStatus: coordinator.subscriptionStatus,
+                onSelectFile: {
+                    coordinator.requestFilePicker()
+                },
+                onOpenHistory: {
+                    coordinator.push(.history)
+                },
+                onOpenSettings: {
+                    coordinator.push(.settings)
+                },
+                onUpgrade: {
+                    coordinator.presentPaywall()
+                }
+            )
+            .navigationDestination(for: AppScreen.self) { screen in
+                destinationView(for: screen)
+            }
+        }
+    }
+
+    /// Builds the destination view for each screen type
+    @ViewBuilder
+    private func destinationView(for screen: AppScreen) -> some View {
+        switch screen {
+        case .analyze(let file):
+            AnalyzeScreen(
+                file: file,
+                analysisResult: coordinator.currentAnalysis,
+                subscriptionStatus: coordinator.subscriptionStatus,
+                paywallContext: coordinator.paywallContext,
+                onContinue: {
+                    coordinator.analyzeComplete()
+                },
+                onBack: {
+                    coordinator.goBack()
+                },
+                onReplace: {
+                    coordinator.requestFilePicker()
+                },
+                onUpgrade: {
+                    coordinator.presentPaywall(context: coordinator.paywallContext)
+                }
+            )
+
+        case .preset(let file, let analysis):
+            PresetScreen(
+                file: file,
+                analysisResult: analysis,
+                isProUser: coordinator.subscriptionStatus.isPro,
+                onCompress: { preset in
+                    coordinator.startCompression(preset: preset)
+                },
+                onBack: {
+                    coordinator.goBack()
+                },
+                onShowPaywall: {
+                    coordinator.presentPaywall()
+                }
+            )
+
+        case .progress(let file, let preset):
+            ProgressScreen(
+                file: file,
+                preset: preset,
+                compressionService: coordinator.compressionService,
+                onCancel: {
+                    coordinator.goHome()
+                }
+            )
+
+        case .result(let result):
+            ResultScreen(
+                result: result,
+                onShare: {
+                    coordinator.shareResult()
+                },
+                onSave: {
+                    coordinator.saveResult()
+                },
+                onNewFile: {
+                    coordinator.goHome()
+                }
+            )
+
+        case .history:
+            HistoryScreen(
+                historyManager: coordinator.historyManager,
+                onBack: {
+                    coordinator.goBack()
+                }
+            )
+
+        case .settings:
+            SettingsScreen(
+                subscriptionStatus: coordinator.subscriptionStatus,
+                onUpgrade: {
+                    coordinator.presentPaywall()
+                },
+                onBack: {
+                    coordinator.goBack()
+                }
+            )
+
+        default:
+            // Fallback for screens that shouldn't be in NavigationStack
+            EmptyView()
+        }
+    }
+
+    // MARK: - Full Screen Content (Splash, Onboarding, etc.)
+
+    /// Full-screen overlays that don't use navigation stack
+    @ViewBuilder
+    private var fullScreenContent: some View {
         switch coordinator.currentScreen {
         case .splash:
             SplashScreen {
@@ -251,115 +387,8 @@ struct RootViewWithCoordinator: View {
             }
             .transition(.opacity)
 
-        case .home:
-            HomeScreen(
-                coordinator: coordinator,
-                subscriptionStatus: coordinator.subscriptionStatus,
-                onSelectFile: {
-                    coordinator.requestFilePicker()
-                },
-                onOpenHistory: {
-                    coordinator.openHistory()
-                },
-                onOpenSettings: {
-                    coordinator.openSettings()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall()
-                }
-            )
-            .transition(.opacity)
-
-        case .analyze(let file):
-            AnalyzeScreen(
-                file: file,
-                analysisResult: coordinator.currentAnalysis,
-                subscriptionStatus: coordinator.subscriptionStatus,
-                paywallContext: coordinator.paywallContext,
-                onContinue: {
-                    coordinator.analyzeComplete()
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onReplace: {
-                    coordinator.requestFilePicker()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall(context: coordinator.paywallContext)
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .preset(let file, let analysis):
-            PresetScreen(
-                file: file,
-                analysisResult: analysis,
-                isProUser: coordinator.subscriptionStatus.isPro,
-                onCompress: { preset in
-                    coordinator.startCompression(preset: preset)
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onShowPaywall: {
-                    coordinator.presentPaywall()
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .progress(let file, let preset):
-            ProgressScreen(
-                file: file,
-                preset: preset,
-                compressionService: coordinator.compressionService,
-                onCancel: {
-                    coordinator.goHome()
-                }
-            )
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                removal: .opacity
-            ))
-
-        case .result(let result):
-            ResultScreen(
-                result: result,
-                onShare: {
-                    coordinator.shareResult()
-                },
-                onSave: {
-                    coordinator.saveResult()
-                },
-                onNewFile: {
-                    coordinator.goHome()
-                }
-            )
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                removal: .opacity
-            ))
-
-        case .history:
-            HistoryScreen(
-                historyManager: coordinator.historyManager,
-                onBack: {
-                    coordinator.goBack()
-                }
-            )
-            .transition(.move(edge: .trailing))
-
-        case .settings:
-            SettingsScreen(
-                subscriptionStatus: coordinator.subscriptionStatus,
-                onUpgrade: {
-                    coordinator.presentPaywall()
-                },
-                onBack: {
-                    coordinator.goBack()
-                }
-            )
-            .transition(.move(edge: .trailing))
+        default:
+            EmptyView()
         }
     }
 }

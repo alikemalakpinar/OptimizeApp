@@ -87,6 +87,15 @@ struct PresetScreen: View {
         return ByteCountFormatter.string(fromByteCount: estimatedBytes, countStyle: .file)
     }
 
+    /// ACCESSIBILITY: Shows warning for presets that may lose text selectability
+    /// This happens when aggressive compression rasterizes PDF pages
+    private var showAccessibilityWarning: Bool {
+        guard let preset = selectedPreset else { return false }
+        // Show warning for low quality preset ("mail") as it uses aggressive rasterization
+        // which converts text to images, losing accessibility features
+        return preset.quality == .low && file.fileType == .pdf
+    }
+
     private static func recommendedPresetId(for analysis: AnalysisResult) -> String {
         if analysis.estimatedSavings == .high || analysis.imageDensity == .high {
             return "mail"
@@ -149,6 +158,17 @@ struct PresetScreen: View {
                     QualityPreviewCard(selectedPresetId: selectedPresetId)
 
                     ValuePropGrid()
+
+                    // ACCESSIBILITY WARNING: High compression may lose text selectability
+                    if showAccessibilityWarning {
+                        InfoBanner(
+                            type: .warning,
+                            message: "Yüksek sıkıştırma metin seçilebilirliğini kaybedebilir. VoiceOver kullanıcıları veya metni kopyalaması gerekenler için 'Best Quality' önerilir.",
+                            dismissable: true
+                        )
+                        .accessibilityLabel("Erişilebilirlik Uyarısı")
+                        .accessibilityHint("Yüksek sıkıştırma PDF'deki metinleri resme çevirir, bu da erişilebilirlik özelliklerini kaybettirir.")
+                    }
 
                     if !isProUser {
                         InfoBanner(
