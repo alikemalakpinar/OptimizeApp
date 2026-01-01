@@ -13,6 +13,8 @@ enum AnalyticsEvent: String {
     case onboardingStarted = "onboarding_started"
     case onboardingCompleted = "onboarding_completed"
     case onboardingSkipped = "onboarding_skipped"
+    case commitmentSigned = "commitment_signed"
+    case ratingRequested = "rating_requested"
 
     // File Operations
     case fileSelected = "file_selected"

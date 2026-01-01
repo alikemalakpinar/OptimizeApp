@@ -14,6 +14,8 @@ import StoreKit
 enum AppScreen: Equatable {
     case splash
     case onboarding
+    case commitment
+    case ratingRequest
     case home
     case analyze(FileInfo)
     case preset(FileInfo, AnalysisResult)
@@ -26,6 +28,8 @@ enum AppScreen: Equatable {
         switch (lhs, rhs) {
         case (.splash, .splash),
              (.onboarding, .onboarding),
+             (.commitment, .commitment),
+             (.ratingRequest, .ratingRequest),
              (.home, .home),
              (.history, .history),
              (.settings, .settings):
@@ -49,6 +53,7 @@ enum AppScreen: Equatable {
 class AppCoordinator: ObservableObject {
     @Published var currentScreen: AppScreen = .splash
     @Published var showPaywall = false
+    @Published var showModernPaywall = false
     @Published var showDocumentPicker = false
     @Published var showShareSheet = false
     @Published var showFileSaver = false
@@ -77,6 +82,8 @@ class AppCoordinator: ObservableObject {
 
     // User defaults keys
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
+    private let hasSeenCommitmentKey = "hasSeenCommitment"
+    private let hasSeenRatingRequestKey = "hasSeenRatingRequest"
     private let successCountKey = "successfulCompressionCount"
 
     private var cancellables = Set<AnyCancellable>()
@@ -97,6 +104,16 @@ class AppCoordinator: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: hasSeenOnboardingKey) }
     }
 
+    var hasSeenCommitment: Bool {
+        get { UserDefaults.standard.bool(forKey: hasSeenCommitmentKey) }
+        set { UserDefaults.standard.set(newValue, forKey: hasSeenCommitmentKey) }
+    }
+
+    var hasSeenRatingRequest: Bool {
+        get { UserDefaults.standard.bool(forKey: hasSeenRatingRequestKey) }
+        set { UserDefaults.standard.set(newValue, forKey: hasSeenRatingRequestKey) }
+    }
+
     // MARK: - Navigation Actions
     func splashComplete() {
         withAnimation(AppAnimation.standard) {
@@ -112,6 +129,25 @@ class AppCoordinator: ObservableObject {
         hasSeenOnboarding = true
         analytics.track(.onboardingCompleted)
         withAnimation(AppAnimation.standard) {
+            // Navigate to commitment screen after onboarding
+            currentScreen = .commitment
+        }
+    }
+
+    func commitmentComplete() {
+        hasSeenCommitment = true
+        analytics.track(.commitmentSigned)
+        withAnimation(AppAnimation.standard) {
+            // Navigate to rating request after commitment
+            currentScreen = .ratingRequest
+        }
+    }
+
+    func ratingRequestComplete() {
+        hasSeenRatingRequest = true
+        analytics.track(.ratingRequested)
+        withAnimation(AppAnimation.standard) {
+            // Finally navigate to home
             currentScreen = .home
         }
     }
@@ -379,14 +415,19 @@ class AppCoordinator: ObservableObject {
         }
     }
 
-    func presentPaywall(context: PaywallContext? = nil) {
+    func presentPaywall(context: PaywallContext? = nil, useModernStyle: Bool = false) {
         analytics.track(.paywallViewed)
         paywallContext = context ?? PaywallContext.proRequired
-        showPaywall = true
+        if useModernStyle {
+            showModernPaywall = true
+        } else {
+            showPaywall = true
+        }
     }
 
     func dismissPaywall() {
         showPaywall = false
+        showModernPaywall = false
         paywallContext = nil
     }
 
@@ -511,6 +552,51 @@ struct RootView: View {
                 }
             )
         }
+        .sheet(isPresented: $coordinator.showModernPaywall) {
+            ModernPaywallScreen(
+                onSubscribe: { plan in
+                    Task {
+                        do {
+                            try await coordinator.subscriptionManager.purchase(plan: plan)
+                            await MainActor.run {
+                                coordinator.dismissPaywall()
+                                Haptics.success()
+                            }
+                        } catch SubscriptionError.userCancelled {
+                            // User cancelled - do nothing
+                        } catch {
+                            await MainActor.run {
+                                coordinator.showError(message: error.localizedDescription)
+                            }
+                        }
+                    }
+                },
+                onRestore: {
+                    Task {
+                        await coordinator.subscriptionManager.restore()
+                        await MainActor.run {
+                            if coordinator.subscriptionManager.status.isPro {
+                                coordinator.dismissPaywall()
+                                Haptics.success()
+                            }
+                        }
+                    }
+                },
+                onDismiss: {
+                    coordinator.dismissPaywall()
+                },
+                onPrivacy: {
+                    if let url = URL(string: "https://optimize-app.com/privacy") {
+                        UIApplication.shared.open(url)
+                    }
+                },
+                onTerms: {
+                    if let url = URL(string: "https://optimize-app.com/terms") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            )
+        }
         .alert("Error", isPresented: $coordinator.showError) {
             Button("OK", role: .cancel) {
                 coordinator.dismissError()
@@ -542,6 +628,18 @@ struct RootView: View {
         case .onboarding:
             OnboardingScreen {
                 coordinator.onboardingComplete()
+            }
+            .transition(.opacity)
+
+        case .commitment:
+            CommitmentSigningView {
+                coordinator.commitmentComplete()
+            }
+            .transition(.opacity)
+
+        case .ratingRequest:
+            RatingRequestView {
+                coordinator.ratingRequestComplete()
             }
             .transition(.opacity)
 

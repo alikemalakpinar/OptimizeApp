@@ -267,6 +267,59 @@ struct AppStrings {
         static var newFile: String { String(localized: "Yeni Dosya Seç", comment: "Result: Button") }
     }
 
+    // MARK: - Modern Paywall
+    enum ModernPaywall {
+        static var premiumTitle: String { String(localized: "Optimize Premium", comment: "Modern Paywall: Title") }
+        static var featureTitle: String { String(localized: "Sınırsız Sıkıştırma", comment: "Modern Paywall: Feature Title") }
+        static var featureDescription: String { String(localized: "Dosyalarını özgürce sıkıştır ve paylaş.", comment: "Modern Paywall: Feature Description") }
+        static var unlimitedBadge: String { String(localized: "Sınırsız", comment: "Modern Paywall: Unlimited Badge") }
+
+        static var monthlyTitle: String { String(localized: "Aylık", comment: "Modern Paywall: Monthly Title") }
+        static var monthlySubtitle: String { String(localized: "Esneklik ve kontrol için en iyisi", comment: "Modern Paywall: Monthly Subtitle") }
+        static var yearlyTitle: String { String(localized: "Yıllık", comment: "Modern Paywall: Yearly Title") }
+        static var yearlySubtitle: String { String(localized: "En iyi değer, %58 tasarruf", comment: "Modern Paywall: Yearly Subtitle") }
+
+        static var popularBadge: String { String(localized: "POPÜLER", comment: "Modern Paywall: Popular Badge") }
+
+        static var feature1: String { String(localized: "Kullandıkça öde", comment: "Modern Paywall: Feature 1") }
+        static var feature2: String { String(localized: "Düzenli kullanıcılar için ideal", comment: "Modern Paywall: Feature 2") }
+        static var feature3: String { String(localized: "İstediğin zaman durdur veya iptal et", comment: "Modern Paywall: Feature 3") }
+
+        static var monthlyPrice: String { String(localized: "₺24,99/hafta", comment: "Modern Paywall: Monthly Price") }
+        static var monthlyBilled: String { String(localized: "Aylık ₺99,99 faturalandırılır", comment: "Modern Paywall: Monthly Billed") }
+        static var yearlyPrice: String { String(localized: "₺14,99/hafta", comment: "Modern Paywall: Yearly Price") }
+        static var yearlyBilled: String { String(localized: "Yıllık ₺779,99 faturalandırılır", comment: "Modern Paywall: Yearly Billed") }
+
+        static var tryFree: String { String(localized: "1 Hafta Ücretsiz Dene", comment: "Modern Paywall: Try Free Button") }
+        static var cancelAnytime: String { String(localized: "İstediğin zaman iptal et. Soru sorulmaz.", comment: "Modern Paywall: Cancel Anytime") }
+    }
+
+    // MARK: - Commitment Signing
+    enum Commitment {
+        static var title: String { String(localized: "Taahhütünüzü İmzalayın", comment: "Commitment: Title") }
+        static var subtitle: String { String(localized: "Bu günden itibaren ben:", comment: "Commitment: Subtitle") }
+        static var item1: String { String(localized: "Dosyalarımı düzenli tutacağım", comment: "Commitment: Item 1") }
+        static var item2: String { String(localized: "Depolama alanımı verimli kullanacağım", comment: "Commitment: Item 2") }
+        static var item3: String { String(localized: "Gereksiz dosyaları silmek yerine optimize edeceğim", comment: "Commitment: Item 3") }
+        static var item4: String { String(localized: "Kaliteden ödün vermeyeceğim", comment: "Commitment: Item 4") }
+        static var item5: String { String(localized: "Paylaşımlarımı kolaylaştıracağım", comment: "Commitment: Item 5") }
+        static var clear: String { String(localized: "Temizle", comment: "Commitment: Clear button") }
+    }
+
+    // MARK: - Rating Request
+    enum Rating {
+        static var title: String { String(localized: "Bizi Değerlendirin!", comment: "Rating: Title") }
+        static var description: String { String(localized: "Bu uygulama sizin gibi kullanıcılar için tasarlandı. Puanınız ne kadar yüksek olursa, o kadar çok kişiye yardım edebiliriz.", comment: "Rating: Description") }
+        static var userCount: String { String(localized: "+100.000 kullanıcı", comment: "Rating: User count") }
+        static var next: String { String(localized: "İleri", comment: "Rating: Next button") }
+
+        // Testimonials
+        static var testimonial1: String { String(localized: "Sıkıştırma özellikleri muhteşem. Sonunda dosyalarımı kontrol altına aldım.", comment: "Rating: Testimonial 1") }
+        static var testimonial2: String { String(localized: "Basit, etkili ve kullanışlı. Tam ihtiyacım olan şeydi.", comment: "Rating: Testimonial 2") }
+        static var testimonial3: String { String(localized: "Temiz tasarımı ve kolay kullanımı sevdim. Kesinlikle tavsiye ederim.", comment: "Rating: Testimonial 3") }
+        static var testimonial4: String { String(localized: "Sonunda bilgiyi anlayan bir uygulama. 5 yıldız.", comment: "Rating: Testimonial 4") }
+    }
+
     // MARK: - Error Messages
     enum ErrorMessage {
         static var generic: String { String(localized: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.", comment: "Error: Generic") }
