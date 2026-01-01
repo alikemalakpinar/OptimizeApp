@@ -121,7 +121,7 @@ struct HomeScreen: View {
 
                     // Recent History Section or Empty State
                     if recentHistory.isEmpty {
-                        EmptyHistoryState()
+                        HomeEmptyStorageState()
                             .padding(.horizontal, Spacing.md)
                             .padding(.top, Spacing.xl)
                     } else {
@@ -487,11 +487,11 @@ struct HighlightCard: View {
     }
 }
 
-// MARK: - Empty History State
-/// Empty state view with floating animation
+// MARK: - Home Empty Storage State
+/// Empty state view with floating animation for HomeScreen
 /// ACCESSIBILITY: Respects reduceMotion preference
 /// PERFORMANCE: Pauses animation when app goes to background
-struct EmptyHistoryState: View {
+struct HomeEmptyStorageState: View {
     @State private var floatOffset: CGFloat = 0
     @State private var isAnimating: Bool = false
 
