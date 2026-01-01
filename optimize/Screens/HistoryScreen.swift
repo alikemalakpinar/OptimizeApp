@@ -3,6 +3,7 @@
 //  optimize
 //
 //  Premium Bento Grid Design - Gallery-style history view
+//  Features: Matched Geometry Effect for hero transitions
 //
 
 import SwiftUI
@@ -13,6 +14,9 @@ struct HistoryScreen: View {
     @State private var showDetail = false
     @State private var showClearConfirmation = false
 
+    // Matched Geometry Namespace for hero transitions
+    @Namespace private var heroAnimation
+
     let onBack: () -> Void
 
     // Bento Grid Layout (2 Columns)
@@ -22,76 +26,95 @@ struct HistoryScreen: View {
     ]
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Compact Navigation Header
-            NavigationHeader("", onBack: onBack) {
-                if !historyManager.items.isEmpty {
-                    Button(action: {
-                        Haptics.warning()
-                        showClearConfirmation = true
-                    }) {
-                        Text("Temizle")
-                            .font(.uiCaption)
-                            .foregroundStyle(Color.statusError)
-                    }
-                } else {
-                    Color.clear.frame(width: 60)
-                }
-            }
-
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // Serif Title - Editorial Feel
-                    Text("Geçmiş İşlemler")
-                        .font(.displayTitle)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, Spacing.md)
-
-                    if historyManager.items.isEmpty {
-                        // Empty State
-                        EmptyHistoryState()
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, Spacing.xxl)
+        ZStack {
+            // Main Content
+            VStack(spacing: 0) {
+                // Compact Navigation Header
+                NavigationHeader("", onBack: onBack) {
+                    if !historyManager.items.isEmpty {
+                        Button(action: {
+                            Haptics.warning()
+                            showClearConfirmation = true
+                        }) {
+                            Text("Temizle")
+                                .font(.uiCaption)
+                                .foregroundStyle(Color.statusError)
+                        }
                     } else {
-                        // Stats Summary Card
-                        HistoryStatsCard(items: historyManager.items)
+                        Color.clear.frame(width: 60)
+                    }
+                }
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
+                        // Serif Title - Editorial Feel
+                        Text("Geçmiş İşlemler")
+                            .font(.displayTitle)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal, Spacing.md)
 
-                        // BENTO GRID
-                        LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(Array(historyManager.items.enumerated()), id: \.element.id) { index, item in
-                                BentoHistoryCard(item: item) {
-                                    Haptics.selection()
-                                    selectedItem = item
-                                    showDetail = true
-                                }
-                                .staggeredAppearance(index: index)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        withAnimation {
-                                            historyManager.removeItem(item)
+                        if historyManager.items.isEmpty {
+                            // Empty State
+                            EmptyHistoryState()
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, Spacing.xxl)
+                        } else {
+                            // Stats Summary Card
+                            HistoryStatsCard(items: historyManager.items)
+                                .padding(.horizontal, Spacing.md)
+
+                            // BENTO GRID with Matched Geometry
+                            LazyVGrid(columns: columns, spacing: 16) {
+                                ForEach(Array(historyManager.items.enumerated()), id: \.element.id) { index, item in
+                                    BentoHistoryCard(
+                                        item: item,
+                                        namespace: heroAnimation,
+                                        isSource: selectedItem?.id != item.id
+                                    ) {
+                                        Haptics.selection()
+                                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                            selectedItem = item
+                                            showDetail = true
                                         }
-                                    } label: {
-                                        Label("Sil", systemImage: "trash")
+                                    }
+                                    .staggeredAppearance(index: index)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            withAnimation {
+                                                historyManager.removeItem(item)
+                                            }
+                                        } label: {
+                                            Label("Sil", systemImage: "trash")
+                                        }
                                     }
                                 }
                             }
+                            .padding(.horizontal, Spacing.md)
                         }
-                        .padding(.horizontal, Spacing.md)
                     }
+                    .padding(.top, Spacing.sm)
+                    .padding(.bottom, Spacing.xl)
                 }
-                .padding(.top, Spacing.sm)
-                .padding(.bottom, Spacing.xl)
             }
-        }
-        .background(Color(.systemGroupedBackground))
-        .sheet(isPresented: $showDetail) {
-            if let item = selectedItem {
-                HistoryDetailSheet(item: item) {
-                    showDetail = false
-                }
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
+            .background(Color(.systemGroupedBackground))
+            .opacity(showDetail ? 0.3 : 1)
+
+            // Hero Detail Overlay
+            if showDetail, let item = selectedItem {
+                HeroDetailView(
+                    item: item,
+                    namespace: heroAnimation,
+                    onDismiss: {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            showDetail = false
+                        }
+                        // Clear selection after animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            selectedItem = nil
+                        }
+                    }
+                )
+                .transition(.opacity)
             }
         }
         .alert("Geçmişi Temizle", isPresented: $showClearConfirmation) {
@@ -107,83 +130,264 @@ struct HistoryScreen: View {
     }
 }
 
-// MARK: - Bento History Card
+// MARK: - Bento History Card with Matched Geometry
 struct BentoHistoryCard: View {
     let item: HistoryItem
+    var namespace: Namespace.ID? = nil
+    var isSource: Bool = true
     let onTap: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: onTap) {
+            cardContent
+                .padding(Spacing.md)
+                .frame(height: 180)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color(.systemBackground))
+                        .matchedGeometryEffectIfAvailable(
+                            id: "card-bg-\(item.id)",
+                            in: namespace,
+                            isSource: isSource
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(
+                    color: colorScheme == .dark ? .clear : Color.black.opacity(0.05),
+                    radius: 10, x: 0, y: 5
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.cardBorder, lineWidth: 1)
+                )
+                .scaleEffect(isPressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.15)) { isPressed = false }
+                }
+        )
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            // Top: Icon & Savings Badge
+            HStack {
+                // File Icon
+                Image(systemName: "doc.text.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.appAccent)
+                    .frame(width: 40, height: 40)
+                    .background(Color.appAccent.opacity(0.1))
+                    .clipShape(Circle())
+                    .matchedGeometryEffectIfAvailable(
+                        id: "icon-\(item.id)",
+                        in: namespace,
+                        isSource: isSource
+                    )
+
+                Spacer()
+
+                // Savings Badge
+                Text("-\(item.savingsPercent)%")
+                    .font(.uiCaptionBold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.appMint)
+                    .clipShape(Capsule())
+                    .matchedGeometryEffectIfAvailable(
+                        id: "badge-\(item.id)",
+                        in: namespace,
+                        isSource: isSource
+                    )
+            }
+
+            Spacer()
+
+            // Bottom: File Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.fileName)
+                    .font(.uiBodyBold)
+                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .matchedGeometryEffectIfAvailable(
+                        id: "title-\(item.id)",
+                        in: namespace,
+                        isSource: isSource
+                    )
+
+                HStack(spacing: 4) {
+                    Text(item.originalSizeFormatted)
+                        .strikethrough()
+                        .foregroundStyle(.secondary)
+
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+
+                    Text(item.compressedSizeFormatted)
+                        .foregroundStyle(Color.appMint)
+                        .fontWeight(.medium)
+                }
+                .font(.dataSmall)
+
+                // Time ago
+                Text(item.timeAgo)
+                    .font(.uiCaption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+// MARK: - Matched Geometry Helper Extension
+extension View {
+    @ViewBuilder
+    func matchedGeometryEffectIfAvailable(id: String, in namespace: Namespace.ID?, isSource: Bool) -> some View {
+        if let namespace = namespace {
+            self.matchedGeometryEffect(id: id, in: namespace, isSource: isSource)
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - Hero Detail View (Expanded Card)
+struct HeroDetailView: View {
+    let item: HistoryItem
+    let namespace: Namespace.ID
+    let onDismiss: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                // Top: Icon & Savings Badge
-                HStack {
-                    // File Icon
-                    Image(systemName: "doc.text.fill")
-                        .font(.title2)
-                        .foregroundStyle(Color.appAccent)
-                        .frame(width: 40, height: 40)
-                        .background(Color.appAccent.opacity(0.1))
-                        .clipShape(Circle())
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+
+            // Expanded Card
+            VStack(spacing: 0) {
+                // Card Content
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    // Header with close button
+                    HStack {
+                        // File Icon (matched)
+                        Image(systemName: "doc.text.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(Color.appAccent)
+                            .frame(width: 56, height: 56)
+                            .background(Color.appAccent.opacity(0.1))
+                            .clipShape(Circle())
+                            .matchedGeometryEffect(id: "icon-\(item.id)", in: namespace, isSource: false)
+
+                        Spacer()
+
+                        // Close button
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Title (matched)
+                    Text(item.fileName)
+                        .font(.system(.title2, design: .rounded).weight(.bold))
+                        .foregroundStyle(.primary)
+                        .matchedGeometryEffect(id: "title-\(item.id)", in: namespace, isSource: false)
+
+                    // Savings Badge (matched)
+                    HStack {
+                        Text("-\(item.savingsPercent)%")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.appMint)
+                            .clipShape(Capsule())
+                            .matchedGeometryEffect(id: "badge-\(item.id)", in: namespace, isSource: false)
+
+                        Text("tasarruf sağlandı")
+                            .font(.appBody)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    // Details
+                    VStack(spacing: Spacing.md) {
+                        DetailRow(icon: "doc.fill", label: "Orijinal Boyut", value: item.originalSizeFormatted, valueColor: .secondary)
+                        DetailRow(icon: "doc.badge.arrow.up", label: "Sıkıştırılmış", value: item.compressedSizeFormatted, valueColor: .appMint)
+                        DetailRow(icon: "clock", label: "İşlem Zamanı", value: item.timeAgo, valueColor: .secondary)
+                        DetailRow(icon: "slider.horizontal.3", label: "Kullanılan Ayar", value: presetName(item.presetUsed), valueColor: .appAccent)
+                    }
 
                     Spacer()
-
-                    // Savings Badge
-                    Text("-\(item.savingsPercent)%")
-                        .font(.uiCaptionBold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.appMint)
-                        .clipShape(Capsule())
                 }
-
-                Spacer()
-
-                // Bottom: File Info
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.fileName)
-                        .font(.uiBodyBold)
-                        .lineLimit(2)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-
-                    HStack(spacing: 4) {
-                        Text(item.originalSizeFormatted)
-                            .strikethrough()
-                            .foregroundStyle(.secondary)
-
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-
-                        Text(item.compressedSizeFormatted)
-                            .foregroundStyle(Color.appMint)
-                            .fontWeight(.medium)
-                    }
-                    .font(.dataSmall)
-
-                    // Time ago
-                    Text(item.timeAgo)
-                        .font(.uiCaption)
-                        .foregroundStyle(.tertiary)
-                }
+                .padding(Spacing.lg)
+                .frame(maxWidth: .infinity)
+                .frame(height: 400)
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(Color(.systemBackground))
+                        .matchedGeometryEffect(id: "card-bg-\(item.id)", in: namespace, isSource: false)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 20)
             }
-            .padding(Spacing.md)
-            .frame(height: 180)
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(
-                color: colorScheme == .dark ? .clear : Color.black.opacity(0.05),
-                radius: 10, x: 0, y: 5
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.cardBorder, lineWidth: 1)
-            )
+            .padding(.horizontal, Spacing.lg)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func presetName(_ id: String) -> String {
+        switch id {
+        case "mail": return "Mail (25 MB)"
+        case "whatsapp": return "WhatsApp"
+        case "quality": return "En İyi Kalite"
+        case "custom": return "Özel"
+        default: return id
+        }
+    }
+}
+
+// MARK: - Detail Row
+struct DetailRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    var valueColor: Color = .primary
+
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+
+            Text(label)
+                .font(.appBody)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Text(value)
+                .font(.appBodyMedium)
+                .foregroundStyle(valueColor)
+        }
     }
 }
 
@@ -294,84 +498,7 @@ struct EmptyHistoryState: View {
     }
 }
 
-// MARK: - History Detail Sheet
-struct HistoryDetailSheet: View {
-    let item: HistoryItem
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack(spacing: Spacing.lg) {
-            // Header
-            HStack {
-                Text("Detaylar")
-                    .font(.displayHeadline)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                HeaderCloseButton {
-                    onDismiss()
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.top, Spacing.md)
-
-            // File info
-            GlassCard {
-                VStack(spacing: Spacing.md) {
-                    HStack {
-                        Image(systemName: "doc.fill")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(Color.appAccent)
-
-                        VStack(alignment: .leading, spacing: Spacing.xxs) {
-                            Text(item.fileName)
-                                .font(.uiBodyBold)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-
-                            Text(item.timeAgo)
-                                .font(.uiCaption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        // Savings Badge
-                        Text("-\(item.savingsPercent)%")
-                            .font(.uiCaptionBold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.appMint)
-                            .clipShape(Capsule())
-                    }
-
-                    Divider()
-
-                    KeyValueRow(key: "Orijinal boyut", value: item.originalSizeFormatted)
-                    KeyValueRow(key: "Sıkıştırılmış", value: item.compressedSizeFormatted, valueColor: .statusSuccess)
-                    KeyValueRow(key: "Tasarruf", value: "\(item.savingsPercent)%", valueColor: .statusSuccess)
-                    KeyValueRow(key: "Kullanılan ayar", value: presetName(item.presetUsed))
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-
-            Spacer()
-        }
-        .background(Color.appBackground)
-    }
-
-    private func presetName(_ id: String) -> String {
-        switch id {
-        case "mail": return "Mail (25 MB)"
-        case "whatsapp": return "WhatsApp"
-        case "quality": return "En İyi Kalite"
-        case "custom": return "Özel"
-        default: return id
-        }
-    }
-}
+// NOTE: HistoryDetailSheet replaced by HeroDetailView with Matched Geometry Effect
 
 #Preview {
     HistoryScreen(

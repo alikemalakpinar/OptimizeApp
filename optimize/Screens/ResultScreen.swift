@@ -2,7 +2,7 @@
 //  ResultScreen.swift
 //  optimize
 //
-//  Compression result screen with confetti and visual comparison
+//  Compression result screen with confetti, victory stamp and visual comparison
 //
 
 import SwiftUI
@@ -18,15 +18,24 @@ struct ResultScreen: View {
     @State private var showConfetti = false
     @State private var animateResults = false
     @State private var shareButtonPulse = false
+    @State private var showVictoryStamp = false
 
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
-                        // Animated Success header
-                        EnhancedSuccessHeader(savingsPercent: result.savingsPercent)
-                            .padding(.top, Spacing.xl)
+                        // Animated Success header with Victory Stamp
+                        ZStack {
+                            EnhancedSuccessHeader(savingsPercent: result.savingsPercent)
+
+                            // Victory Stamp overlay - appears for high savings
+                            if showVictoryStamp && result.savingsPercent >= 40 {
+                                VictoryStampView(savingsPercent: result.savingsPercent)
+                                    .offset(x: 80, y: -20)
+                            }
+                        }
+                        .padding(.top, Spacing.xl)
 
                         // Visual comparison bar
                         VisualComparisonCard(
@@ -124,6 +133,19 @@ struct ResultScreen: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                 animateResults = true
+            }
+        }
+
+        // Show Victory Stamp for high savings (40%+) with dramatic "stamp" effect
+        if result.savingsPercent >= 40 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                    showVictoryStamp = true
+                }
+                // Heavy haptic feedback - the "GÜM" effect
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    Haptics.impact(style: .heavy)
+                }
             }
         }
 
@@ -373,6 +395,83 @@ struct PulsingPrimaryButton: View {
     private func startPulsing() {
         withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
             glowOpacity = 0.6
+        }
+    }
+}
+
+// MARK: - Victory Stamp View
+/// Premium "OPTIMIZED" stamp animation that appears for high savings (40%+)
+/// Creates a "dopamine hit" moment with spring animation and haptic feedback
+struct VictoryStampView: View {
+    let savingsPercent: Int
+
+    @State private var scale: CGFloat = 2.5
+    @State private var opacity: Double = 0.0
+    @State private var rotation: Double = -25
+
+    /// Dynamic stamp text based on savings level
+    private var stampText: String {
+        if savingsPercent >= 80 {
+            return "LEGENDARY"
+        } else if savingsPercent >= 60 {
+            return "AMAZING"
+        } else {
+            return "OPTIMIZED"
+        }
+    }
+
+    /// Dynamic color based on savings level
+    private var stampColor: Color {
+        if savingsPercent >= 80 {
+            return Color.warmOrange
+        } else if savingsPercent >= 60 {
+            return Color.premiumPurple
+        } else {
+            return Color.appMint
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Outer stamp circle with serrated edge effect
+            Circle()
+                .strokeBorder(stampColor, lineWidth: 3)
+                .frame(width: 100, height: 100)
+                .overlay(
+                    // Inner dashed circle for authentic stamp look
+                    Circle()
+                        .strokeBorder(stampColor.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .frame(width: 88, height: 88)
+                )
+
+            // Stamp text with serif font for official/premium feel
+            VStack(spacing: 2) {
+                Text(stampText)
+                    .font(.system(size: savingsPercent >= 80 ? 11 : 13, weight: .black, design: .serif))
+                    .tracking(1.5)
+                    .foregroundStyle(stampColor)
+
+                // Savings percentage badge
+                Text("\(savingsPercent)%")
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundStyle(stampColor)
+
+                // Small decorative line
+                Rectangle()
+                    .fill(stampColor.opacity(0.5))
+                    .frame(width: 40, height: 1)
+            }
+        }
+        .rotationEffect(.degrees(rotation))
+        .scaleEffect(scale)
+        .opacity(opacity)
+        .onAppear {
+            // "GÜM" stamp effect - dramatic spring animation
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.5, blendDuration: 0)) {
+                scale = 1.0
+                opacity = 1.0
+                rotation = -15
+            }
         }
     }
 }
