@@ -271,10 +271,5 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
 }
 
 // MARK: - History Manager Protocol Extension
-
-/// Protocol for history management - enables testability
-protocol HistoryManagerProtocol: AnyObject {
-    func addFromResult(_ result: CompressionResult, presetId: String)
-}
-
-extension HistoryManager: HistoryManagerProtocol {}
+// Note: HistoryManagerProtocol is defined in HistoryManager.swift
+// This extension adds conformance for the addFromResult method
