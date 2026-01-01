@@ -32,11 +32,11 @@ struct SettingsScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Settings", onBack: onBack)
+            NavigationHeader(AppStrings.Settings.title, onBack: onBack)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.lg) {
-                    SettingsSection(title: "Membership") {
+                    SettingsSection(title: AppStrings.Settings.membership) {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             HStack {
                                 VStack(alignment: .leading, spacing: Spacing.xxs) {
@@ -77,7 +77,7 @@ struct SettingsScreen: View {
                                     HStack {
                                         Image(systemName: "creditcard")
                                             .font(.system(size: 14, weight: .medium))
-                                        Text("Manage Subscription")
+                                        Text(AppStrings.Settings.manageSubscription)
                                             .font(.appCaption)
                                     }
                                     .foregroundStyle(Color.appAccent)
@@ -88,10 +88,10 @@ struct SettingsScreen: View {
                     }
 
                     // Compression Settings
-                    SettingsSection(title: "Compression") {
+                    SettingsSection(title: AppStrings.Settings.compression) {
                         VStack(spacing: Spacing.md) {
                             PickerRow(
-                                title: "Default preset",
+                                title: AppStrings.Settings.defaultPreset,
                                 icon: "slider.horizontal.3",
                                 options: presetOptions,
                                 optionLabel: { presetName($0) },
@@ -101,8 +101,8 @@ struct SettingsScreen: View {
                             Divider()
 
                             ToggleRow(
-                                title: "Process on Wi-Fi",
-                                subtitle: "Don't use mobile data",
+                                title: AppStrings.Settings.wifiOnly,
+                                subtitle: AppStrings.Settings.wifiOnlySubtitle,
                                 icon: "wifi",
                                 isOn: $processOnWifiOnly
                             )
@@ -110,8 +110,8 @@ struct SettingsScreen: View {
                             Divider()
 
                             ToggleRow(
-                                title: "Delete after processing",
-                                subtitle: "Remove original file",
+                                title: AppStrings.Settings.deleteOriginal,
+                                subtitle: AppStrings.Settings.deleteOriginalSubtitle,
                                 icon: "trash",
                                 isOn: $deleteOriginalAfterProcess
                             )
@@ -119,13 +119,13 @@ struct SettingsScreen: View {
                     }
 
                     // History Settings
-                    SettingsSection(title: "History") {
+                    SettingsSection(title: AppStrings.Settings.history) {
                         VStack(spacing: Spacing.md) {
                             PickerRow(
-                                title: "Keep history",
+                                title: AppStrings.Settings.keepHistory,
                                 icon: "clock.arrow.circlepath",
                                 options: retentionOptions,
-                                optionLabel: { "\($0) days" },
+                                optionLabel: { AppStrings.Settings.daysFormat($0) },
                                 selection: $historyRetentionDays
                             )
 
@@ -139,11 +139,11 @@ struct SettingsScreen: View {
                                         .frame(width: 24)
 
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Clear History")
+                                        Text(AppStrings.Settings.clearHistory)
                                             .font(.appBody)
                                             .foregroundStyle(.primary)
 
-                                        Text("\(historyManager.items.count) items")
+                                        Text("\(historyManager.items.count) \(AppStrings.Settings.items)")
                                             .font(.appCaption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -155,7 +155,7 @@ struct SettingsScreen: View {
                                     Haptics.selection()
                                     showClearHistoryAlert = true
                                 }) {
-                                    Text("Clear")
+                                    Text(AppStrings.Settings.clear)
                                         .font(.appCaptionMedium)
                                         .foregroundStyle(.white)
                                         .padding(.horizontal, Spacing.sm)
@@ -170,11 +170,11 @@ struct SettingsScreen: View {
                     }
 
                     // Privacy Settings
-                    SettingsSection(title: "Privacy") {
+                    SettingsSection(title: AppStrings.Settings.privacy) {
                         VStack(spacing: Spacing.md) {
                             ToggleRow(
-                                title: "Anonymous usage data",
-                                subtitle: "Help us improve the app",
+                                title: AppStrings.Settings.anonymousData,
+                                subtitle: AppStrings.Settings.anonymousDataSubtitle,
                                 icon: "chart.bar",
                                 isOn: $enableAnalytics
                             )
@@ -182,7 +182,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Privacy Policy",
+                                title: AppStrings.Settings.privacyPolicy,
                                 icon: "hand.raised"
                             ) {
                                 openPrivacyPolicy()
@@ -191,7 +191,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Terms of Service",
+                                title: AppStrings.Settings.termsOfService,
                                 icon: "doc.text"
                             ) {
                                 openTermsOfService()
@@ -200,10 +200,10 @@ struct SettingsScreen: View {
                     }
 
                     // Support
-                    SettingsSection(title: "Support") {
+                    SettingsSection(title: AppStrings.Settings.support) {
                         VStack(spacing: Spacing.md) {
                             SettingsLinkRow(
-                                title: "Help & FAQ",
+                                title: AppStrings.Settings.helpFAQ,
                                 icon: "questionmark.circle"
                             ) {
                                 openHelp()
@@ -212,7 +212,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Send Feedback",
+                                title: AppStrings.Settings.sendFeedback,
                                 icon: "envelope"
                             ) {
                                 sendFeedback()
@@ -221,7 +221,7 @@ struct SettingsScreen: View {
                             Divider()
 
                             SettingsLinkRow(
-                                title: "Rate the App",
+                                title: AppStrings.Settings.rateApp,
                                 icon: "star"
                             ) {
                                 rateApp()
@@ -235,7 +235,7 @@ struct SettingsScreen: View {
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
 
-                        Text("Made with ❤️ in Istanbul")
+                        Text(AppStrings.Settings.madeWith)
                             .font(.appCaption)
                             .foregroundStyle(.tertiary)
                     }
@@ -247,14 +247,14 @@ struct SettingsScreen: View {
             }
         }
         .appBackgroundLayered()
-        .alert("Clear History", isPresented: $showClearHistoryAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Clear All", role: .destructive) {
+        .alert(AppStrings.Settings.clearHistoryTitle, isPresented: $showClearHistoryAlert) {
+            Button(AppStrings.Settings.cancel, role: .cancel) { }
+            Button(AppStrings.Settings.clearAll, role: .destructive) {
                 historyManager.clearAll()
                 Haptics.success()
             }
         } message: {
-            Text("This will permanently delete all \(historyManager.items.count) compression history items. This action cannot be undone.")
+            Text(AppStrings.Settings.clearHistoryMessage(historyManager.items.count))
         }
     }
 
@@ -288,9 +288,15 @@ struct SettingsScreen: View {
     }
 
     private func sendFeedback() {
-        // Opens Mail app with feedback email
+        // Opens Mail app with feedback email including device info
+        let deviceModel = UIDevice.current.model
+        let systemVersion = UIDevice.current.systemVersion
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+
         let email = "support@optimize-app.com"
-        let subject = "Optimize App Feedback"
+        let subject = "Optimize App Destek (v\(version).\(build) - \(deviceModel) iOS \(systemVersion))"
+
         if let url = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
             UIApplication.shared.open(url)
         }

@@ -237,5 +237,5 @@ struct AppSettings: Equatable {
 }
 
 // MARK: - FileInfo Extension for URL Initialization
-// Note: The main from(url:) implementation is in PDFCompressionService.swift
+// Note: The main from(url:) implementation is in CompressionTypes.swift
 // which provides more complete functionality including page count for PDFs

@@ -46,13 +46,13 @@ struct PaywallScreen: View {
 
                     // Title Section
                     VStack(spacing: Spacing.xs) {
-                        Text("How Subscription Works")
+                        Text(AppStrings.Paywall.header)
                             .font(.system(size: 26, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
 
                         Text(selectedPlan == .yearly ?
-                             "Yearly $24.99 ($2.08/month)" :
-                             "Monthly $4.99")
+                             AppStrings.Paywall.yearlyDetail :
+                             AppStrings.Paywall.monthlyDetail)
                             .font(.appBody)
                             .foregroundStyle(.secondary)
                     }
@@ -68,13 +68,17 @@ struct PaywallScreen: View {
 
                     GlassCard {
                         FeatureList(features: [
-                            "No ads, clean interface",
-                            "PDF, image, video and office files",
-                            "Smart target sizes & quality profiles",
-                            "Priority compression engine"
+                            AppStrings.Paywall.featureNoAds,
+                            AppStrings.Paywall.featureAllFiles,
+                            AppStrings.Paywall.featureSmartTarget,
+                            AppStrings.Paywall.featurePriority
                         ])
                     }
                     .padding(.horizontal, Spacing.md)
+
+                    // Social Proof Banner
+                    SocialProofBanner()
+                        .padding(.vertical, Spacing.sm)
 
                     // Limit exceeded banner (if applicable)
                     if limitExceeded, let size = currentFileSize {
@@ -94,7 +98,7 @@ struct PaywallScreen: View {
             VStack(spacing: Spacing.sm) {
                 // Main CTA Button (Shimmer effect)
                 ShimmerButton(
-                    title: "Start Pro",
+                    title: AppStrings.Paywall.startPro,
                     icon: "crown.fill",
                     isLoading: isLoading
                 ) {
@@ -105,8 +109,8 @@ struct PaywallScreen: View {
 
                 // Trust badges
                 HStack(spacing: Spacing.md) {
-                    TrustBadge(icon: "lock.shield.fill", text: "Secure with Apple")
-                    TrustBadge(icon: "arrow.uturn.backward", text: "Cancel anytime")
+                    TrustBadge(icon: "lock.shield.fill", text: AppStrings.Paywall.secureApple)
+                    TrustBadge(icon: "arrow.uturn.backward", text: AppStrings.Paywall.cancelAnytime)
                 }
                 .padding(.top, Spacing.xxs)
 
@@ -122,7 +126,7 @@ struct PaywallScreen: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .secondary))
                                 .scaleEffect(0.7)
                         }
-                        Text("Restore Purchase")
+                        Text(AppStrings.Paywall.restore)
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
@@ -206,8 +210,8 @@ struct PlanToggle: View {
         HStack(spacing: 0) {
             // Yearly Option
             PlanToggleOption(
-                title: "Yearly",
-                subtitle: "58% savings",
+                title: AppStrings.Paywall.yearlyPlan,
+                subtitle: AppStrings.Paywall.savings,
                 isSelected: selectedPlan == .yearly
             ) {
                 withAnimation(AppAnimation.spring) {
@@ -217,7 +221,7 @@ struct PlanToggle: View {
 
             // Monthly Option
             PlanToggleOption(
-                title: "Monthly",
+                title: AppStrings.Paywall.monthlyPlan,
                 subtitle: nil,
                 isSelected: selectedPlan == .monthly
             ) {
@@ -276,8 +280,8 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "checkmark.circle.fill",
                 iconColor: .appAccent,
-                title: "Today",
-                description: "Instant access to all Pro features. Unlimited file size, batch processing and more.",
+                title: AppStrings.Paywall.today,
+                description: AppStrings.Paywall.todayDesc,
                 isFirst: true,
                 isLast: false
             )
@@ -286,8 +290,8 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "bell.fill",
                 iconColor: .appAccent,
-                title: "Anytime",
-                description: "Cancel your subscription anytime from App Store settings.",
+                title: AppStrings.Paywall.anytime,
+                description: AppStrings.Paywall.anytimeDesc,
                 isFirst: false,
                 isLast: false
             )
@@ -296,10 +300,10 @@ struct TrialTimeline: View {
             TimelineStep(
                 icon: "creditcard.fill",
                 iconColor: .appAccent,
-                title: selectedPlan == .yearly ? "Yearly renewal" : "Monthly renewal",
+                title: selectedPlan == .yearly ? AppStrings.Paywall.renewal : AppStrings.Paywall.renewal,
                 description: selectedPlan == .yearly ?
-                    "Billed $24.99 annually. Cancel anytime." :
-                    "Billed $4.99 monthly. Cancel anytime.",
+                    AppStrings.Paywall.renewalDescYearly :
+                    AppStrings.Paywall.renewalDescMonthly,
                 isFirst: false,
                 isLast: true
             )
@@ -405,7 +409,7 @@ struct SocialProofBanner: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
 
-                Text("files optimized")
+                Text(AppStrings.Paywall.filesOptimized)
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
             }

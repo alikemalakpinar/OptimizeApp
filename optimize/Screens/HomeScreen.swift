@@ -120,7 +120,7 @@ struct HomeScreen: View {
                     } else {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             HStack {
-                                Text("Recent Activity")
+                                Text(AppStrings.Home.recentActivity)
                                     .font(.appSection)
                                     .foregroundStyle(.primary)
 
@@ -129,7 +129,7 @@ struct HomeScreen: View {
                                 Button(action: {
                                     onOpenHistory()
                                 }) {
-                                    Text("View All")
+                                    Text(AppStrings.Home.viewAll)
                                         .font(.appCaptionMedium)
                                         .foregroundStyle(Color.appAccent)
                                 }
@@ -197,11 +197,11 @@ struct BreathingCTACard: View {
 
                 // Text
                 VStack(spacing: Spacing.xxs) {
-                    Text(isDropTargeted ? "Drop File" : "Select File")
+                    Text(isDropTargeted ? AppStrings.Home.dropFile : AppStrings.Home.selectFile)
                         .font(.appTitle)
                         .foregroundStyle(.primary)
 
-                    Text(isDropTargeted ? "Drop to optimize" : "Tap or drag file here")
+                    Text(isDropTargeted ? AppStrings.Home.dropHint : AppStrings.Home.selectHint)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -255,17 +255,17 @@ struct ConversionHighlights: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack {
                     VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text("Optimize Performance")
+                        Text(AppStrings.Home.performanceTitle)
                             .font(.appBodyMedium)
                             .foregroundStyle(.primary)
-                        Text("Recommendations based on real savings")
+                        Text(AppStrings.Home.performanceSubtitle)
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
-                    Label("New", systemImage: "sparkles")
+                    Label("Beta", systemImage: "sparkles")
                         .font(.appCaptionMedium)
                         .foregroundStyle(Color.appAccent)
                         .padding(.horizontal, Spacing.xs)
@@ -277,20 +277,20 @@ struct ConversionHighlights: View {
                 HStack(spacing: Spacing.sm) {
                     HighlightCard(
                         icon: "arrow.down.to.line",
-                        title: "Total saved",
+                        title: AppStrings.Home.totalSaved,
                         value: formattedTotal
                     )
 
                     HighlightCard(
                         icon: "percent",
-                        title: "Avg. savings",
+                        title: AppStrings.Home.avgSavings,
                         value: "\(averageSaving)%"
                     )
 
                     HighlightCard(
                         icon: "rosette",
-                        title: "Best result",
-                        value: bestSaving.map { "\($0)%" } ?? "75%"
+                        title: AppStrings.Home.bestResult,
+                        value: bestSaving.map { "\($0)%" } ?? "0%"
                     )
                 }
             }
@@ -392,15 +392,15 @@ struct EmptyHistoryState: View {
 
             // Text
             VStack(spacing: Spacing.xs) {
-                Text("Your Storage")
+                Text(AppStrings.Home.storageTitle)
                     .font(.appTitle)
                     .foregroundStyle(.primary)
 
-                Text("Awaits Relief")
+                Text(AppStrings.Home.storageSubtitle)
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.appMint)
 
-                Text("Select your first file and start the magic")
+                Text(AppStrings.Home.storageBody)
                     .font(.appCaption)
                     .foregroundStyle(.secondary)
                     .padding(.top, Spacing.xxs)
