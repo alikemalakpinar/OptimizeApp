@@ -49,6 +49,8 @@ enum AppScreen: Equatable {
 }
 
 // MARK: - App Coordinator
+/// Main navigation coordinator with dependency injection support
+/// REFACTORED: Now accepts injectable services for testability
 @MainActor
 class AppCoordinator: ObservableObject {
     @Published var currentScreen: AppScreen = .splash
@@ -59,6 +61,7 @@ class AppCoordinator: ObservableObject {
     @Published var showFileSaver = false
     @Published var showError = false
     @Published var errorMessage = ""
+    @Published var errorTitle = ""
     @Published var paywallContext: PaywallContext?
 
     // Current processing data
@@ -73,11 +76,20 @@ class AppCoordinator: ObservableObject {
     private var retryCount = 0
     private let maxRetries = 2
 
-    // Services
-    let compressionService = UltimatePDFCompressionService.shared
-    let historyManager = HistoryManager.shared
-    let analytics = AnalyticsService.shared
-    let subscriptionManager = SubscriptionManager.shared
+    // MARK: - Injectable Services (Dependency Injection)
+
+    /// Compression service - protocol-based for testability
+    let compressionService: UltimatePDFCompressionService
+
+    /// History manager
+    let historyManager: HistoryManager
+
+    /// Analytics service
+    let analytics: AnalyticsService
+
+    /// Subscription manager
+    let subscriptionManager: SubscriptionManager
+
     @Published var subscriptionStatus: SubscriptionStatus
 
     // User defaults keys
@@ -88,10 +100,29 @@ class AppCoordinator: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init() {
-        subscriptionStatus = subscriptionManager.status
+    // MARK: - Initialization (Dependency Injection)
 
-        subscriptionManager.$status
+    /// Initialize with injectable dependencies
+    /// - Parameters:
+    ///   - compressionService: Compression service (defaults to shared instance)
+    ///   - historyManager: History manager (defaults to shared instance)
+    ///   - analytics: Analytics service (defaults to shared instance)
+    ///   - subscriptionManager: Subscription manager (defaults to shared instance)
+    init(
+        compressionService: UltimatePDFCompressionService? = nil,
+        historyManager: HistoryManager? = nil,
+        analytics: AnalyticsService? = nil,
+        subscriptionManager: SubscriptionManager? = nil
+    ) {
+        // Use provided dependencies or fall back to shared instances
+        self.compressionService = compressionService ?? UltimatePDFCompressionService.shared
+        self.historyManager = historyManager ?? HistoryManager.shared
+        self.analytics = analytics ?? AnalyticsService.shared
+        self.subscriptionManager = subscriptionManager ?? SubscriptionManager.shared
+
+        self.subscriptionStatus = self.subscriptionManager.status
+
+        self.subscriptionManager.$status
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 self?.subscriptionStatus = status
@@ -183,7 +214,8 @@ class AppCoordinator: ObservableObject {
                 analytics.track(.fileAnalysisCompleted)
             } catch {
                 analytics.trackError(error, context: "file_selection")
-                showError(message: "Unable to read file: \(error.localizedDescription)")
+                let userError = UserFriendlyError(error)
+                showError(title: userError.title, message: userError.fullMessage)
             }
         }
     }
@@ -296,28 +328,26 @@ class AppCoordinator: ObservableObject {
             lastError = compressionError
             analytics.trackCompressionFailed(error: compressionError, presetId: preset.id)
 
-            // Build error message with recovery suggestion
-            var message = compressionError.errorDescription ?? "Compression failed"
-            if let suggestion = compressionError.recoverySuggestion {
-                message += "\n\n\(suggestion)"
-            }
+            let userError = UserFriendlyError(compressionError)
 
-            if retryCount < maxRetries && shouldAllowRetry(for: compressionError) {
+            if retryCount < maxRetries && userError.isRetryable {
                 showRetryAlert = true
             } else {
                 retryCount = 0
-                showError(message: message)
+                showError(title: userError.title, message: userError.fullMessage)
                 goHome()
             }
         } catch {
             lastError = error
             analytics.trackCompressionFailed(error: error, presetId: preset.id)
 
-            if retryCount < maxRetries {
+            let userError = UserFriendlyError(error)
+
+            if retryCount < maxRetries && userError.isRetryable {
                 showRetryAlert = true
             } else {
                 retryCount = 0
-                showError(message: "Compression failed: \(error.localizedDescription)")
+                showError(title: userError.title, message: userError.fullMessage)
                 goHome()
             }
         }
@@ -456,13 +486,17 @@ class AppCoordinator: ObservableObject {
     }
 
     // MARK: - Error Handling
-    func showError(message: String) {
+
+    /// Show error with user-friendly title and message
+    func showError(title: String = String(localized: "Hata", comment: "Error title"), message: String) {
+        errorTitle = title
         errorMessage = message
         showError = true
     }
 
     func dismissError() {
         showError = false
+        errorTitle = ""
         errorMessage = ""
     }
 }
@@ -597,22 +631,22 @@ struct RootView: View {
                 }
             )
         }
-        .alert("Error", isPresented: $coordinator.showError) {
-            Button("OK", role: .cancel) {
+        .alert(coordinator.errorTitle.isEmpty ? "Hata" : coordinator.errorTitle, isPresented: $coordinator.showError) {
+            Button("Tamam", role: .cancel) {
                 coordinator.dismissError()
             }
         } message: {
             Text(coordinator.errorMessage)
         }
-        .alert("Compression Failed", isPresented: $coordinator.showRetryAlert) {
-            Button("Retry") {
+        .alert(String(localized: "İşlem Başarısız", comment: "Retry alert title"), isPresented: $coordinator.showRetryAlert) {
+            Button(String(localized: "Tekrar Dene", comment: "Retry button")) {
                 coordinator.retryCompression()
             }
-            Button("Cancel", role: .cancel) {
+            Button(String(localized: "İptal", comment: "Cancel button"), role: .cancel) {
                 coordinator.cancelRetry()
             }
         } message: {
-            Text("Compression failed. Would you like to try again?")
+            Text(String(localized: "İşlem başarısız oldu. Tekrar denemek ister misiniz?", comment: "Retry message"))
         }
     }
 

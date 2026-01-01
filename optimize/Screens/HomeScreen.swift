@@ -155,6 +155,8 @@ struct HomeScreen: View {
 }
 
 // MARK: - Breathing CTA Card
+/// CTA card with breathing animation effect
+/// ACCESSIBILITY: Respects reduceMotion preference - disables animations when enabled
 struct BreathingCTACard: View {
     let isDropTargeted: Bool
     let onTap: () -> Void
@@ -162,24 +164,29 @@ struct BreathingCTACard: View {
     @State private var breathScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.3
 
+    /// Accessibility: Check if user prefers reduced motion
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: Spacing.md) {
                 // Icon with breathing effect
                 ZStack {
-                    // Outer breathing rings
-                    ForEach(0..<3, id: \.self) { index in
-                        Circle()
-                            .stroke(
-                                Color.appAccent.opacity(0.15 - Double(index) * 0.04),
-                                lineWidth: 1.5
-                            )
-                            .frame(
-                                width: 80 + CGFloat(index) * 20,
-                                height: 80 + CGFloat(index) * 20
-                            )
-                            .scaleEffect(breathScale + CGFloat(index) * 0.02)
-                            .opacity(ringOpacity - Double(index) * 0.1)
+                    // Outer breathing rings (hidden when reduceMotion is on)
+                    if !reduceMotion {
+                        ForEach(0..<3, id: \.self) { index in
+                            Circle()
+                                .stroke(
+                                    Color.appAccent.opacity(0.15 - Double(index) * 0.04),
+                                    lineWidth: 1.5
+                                )
+                                .frame(
+                                    width: 80 + CGFloat(index) * 20,
+                                    height: 80 + CGFloat(index) * 20
+                                )
+                                .scaleEffect(breathScale + CGFloat(index) * 0.02)
+                                .opacity(ringOpacity - Double(index) * 0.1)
+                        }
                     }
 
                     // Main circle
@@ -192,7 +199,7 @@ struct BreathingCTACard: View {
                     Image(systemName: "doc.badge.plus")
                         .font(.system(size: 32, weight: .medium))
                         .foregroundStyle(Color.appAccent)
-                        .symbolBounce(trigger: isDropTargeted)
+                        .symbolBounce(trigger: reduceMotion ? false : isDropTargeted)
                 }
 
                 // Text
@@ -222,7 +229,19 @@ struct BreathingCTACard: View {
         }
         .buttonStyle(.pressable)
         .onAppear {
-            startBreathingAnimation()
+            // Only start animation if reduceMotion is off
+            if !reduceMotion {
+                startBreathingAnimation()
+            }
+        }
+        .onChange(of: reduceMotion) { _, newValue in
+            // Stop animation if user enables reduceMotion
+            if newValue {
+                breathScale = 1.0
+                ringOpacity = 0.3
+            } else {
+                startBreathingAnimation()
+            }
         }
     }
 
@@ -326,8 +345,13 @@ struct HighlightCard: View {
 }
 
 // MARK: - Empty History State
+/// Empty state view with floating animation
+/// ACCESSIBILITY: Respects reduceMotion preference
 struct EmptyHistoryState: View {
     @State private var floatOffset: CGFloat = 0
+
+    /// Accessibility: Check if user prefers reduced motion
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -351,7 +375,7 @@ struct EmptyHistoryState: View {
                         )
                         .rotationEffect(.degrees(-15))
                         .offset(x: -20, y: 10)
-                        .offset(y: floatOffset * 0.5)
+                        .offset(y: reduceMotion ? 0 : floatOffset * 0.5)
 
                     // Middle document
                     RoundedRectangle(cornerRadius: 8)
@@ -363,7 +387,7 @@ struct EmptyHistoryState: View {
                         )
                         .rotationEffect(.degrees(5))
                         .offset(x: 15, y: -5)
-                        .offset(y: floatOffset * 0.7)
+                        .offset(y: reduceMotion ? 0 : floatOffset * 0.7)
 
                     // Front document with sparkle
                     ZStack {
@@ -385,7 +409,7 @@ struct EmptyHistoryState: View {
                             .font(.system(size: 24))
                             .foregroundStyle(Color.appAccent)
                     }
-                    .offset(y: floatOffset)
+                    .offset(y: reduceMotion ? 0 : floatOffset)
                 }
             }
             .frame(height: 140)
@@ -409,6 +433,8 @@ struct EmptyHistoryState: View {
         }
         .padding(.vertical, Spacing.xl)
         .onAppear {
+            // Only animate if reduceMotion is off
+            guard !reduceMotion else { return }
             withAnimation(
                 .easeInOut(duration: 2.0)
                 .repeatForever(autoreverses: true)
@@ -493,13 +519,13 @@ struct MembershipStatusCard: View {
     let onUpgrade: () -> Void
 
     private var headline: String {
-        status.isPro ? "Pro aktif" : "Ücretsiz plan"
+        status.isPro ? AppStrings.Home.proActive : AppStrings.Home.freePlan
     }
 
     private var detail: String {
         status.isPro
-            ? "Reklamsız, sınırsız ve profesyonel sıkıştırma açık."
-            : "Reklam yok. Bugün \(status.remainingUsage) ücretsiz kullanım hakkın kaldı."
+            ? AppStrings.Home.proDescription
+            : AppStrings.Home.freeDescription(status.remainingUsage)
     }
 
     private var badgeColor: Color {
@@ -532,20 +558,20 @@ struct MembershipStatusCard: View {
                 }
 
                 HStack(spacing: Spacing.sm) {
-                    CapabilityPill(icon: "checkmark.shield.fill", text: "Reklamsız")
-                    CapabilityPill(icon: "sparkles", text: "Akıllı profil")
-                    CapabilityPill(icon: "doc.on.doc", text: "Tüm dosyalar")
+                    CapabilityPill(icon: "checkmark.shield.fill", text: AppStrings.Home.noAds)
+                    CapabilityPill(icon: "sparkles", text: AppStrings.Home.smartProfile)
+                    CapabilityPill(icon: "doc.on.doc", text: AppStrings.Home.allFiles)
                 }
 
                 if !status.isPro {
                     PrimaryButton(
-                        title: "Pro'ya yükselt",
+                        title: AppStrings.Home.upgradeToPro,
                         icon: "crown.fill"
                     ) {
                         onUpgrade()
                     }
                 } else {
-                    Text("Sınırsız optimizasyon, özel hedef boyutlar ve öncelikli işlem hazır.")
+                    Text(AppStrings.Home.unlimitedDescription)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
