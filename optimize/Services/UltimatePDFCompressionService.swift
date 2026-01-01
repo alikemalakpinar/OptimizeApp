@@ -266,7 +266,7 @@ final class UltimatePDFCompressionService: ObservableObject {
                         }
                     } else {
                         // Image-heavy page - compress
-                        if let compressedPage = self?.createCompressedPage(from: page, config: config) {
+                        if let compressedPage = try? self?.createCompressedPage(from: page, config: config) {
                             outputDocument.insert(compressedPage, at: outputDocument.pageCount)
                         } else if let copiedPage = page.copy() as? PDFPage {
                             outputDocument.insert(copiedPage, at: outputDocument.pageCount)
@@ -503,16 +503,22 @@ final class UltimatePDFCompressionService: ObservableObject {
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) async throws -> URL {
-        isProcessing = true
-        progress = 0
-        currentStage = .preparing
-        error = nil
-        statusMessage = AppStrings.Process.loadingImage
+        await MainActor.run {
+            isProcessing = true
+            progress = 0
+            currentStage = .preparing
+            error = nil
+            statusMessage = AppStrings.Process.loadingImage
+        }
 
-        defer { isProcessing = false }
+        defer {
+            Task { @MainActor in
+                self.isProcessing = false
+            }
+        }
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
-            error = .accessDenied
+            await MainActor.run { self.error = .accessDenied }
             throw CompressionError.accessDenied
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
@@ -520,14 +526,16 @@ final class UltimatePDFCompressionService: ObservableObject {
         // Use ImageIO for better quality and metadata stripping
         guard let imageSource = CGImageSourceCreateWithURL(sourceURL as CFURL, nil),
               let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
-            error = .invalidFile
+            await MainActor.run { self.error = .invalidFile }
             throw CompressionError.invalidFile
         }
 
         onProgress(.preparing, 1.0)
 
-        currentStage = .optimizing
-        statusMessage = AppStrings.Process.compressingImage
+        await MainActor.run {
+            currentStage = .optimizing
+            statusMessage = AppStrings.Process.compressingImage
+        }
         let config = mapPresetToConfig(preset)
 
         // Calculate target size
@@ -568,7 +576,9 @@ final class UltimatePDFCompressionService: ObservableObject {
             try jpegData.write(to: outputURL, options: .atomic)
         }
 
-        currentStage = .downloading
+        await MainActor.run {
+            currentStage = .downloading
+        }
         onProgress(.downloading, 1.0)
 
         return outputURL
@@ -581,16 +591,22 @@ final class UltimatePDFCompressionService: ObservableObject {
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) async throws -> URL {
-        isProcessing = true
-        progress = 0
-        currentStage = .preparing
-        error = nil
-        statusMessage = AppStrings.Process.preparingVideo
+        await MainActor.run {
+            isProcessing = true
+            progress = 0
+            currentStage = .preparing
+            error = nil
+            statusMessage = AppStrings.Process.preparingVideo
+        }
 
-        defer { isProcessing = false }
+        defer {
+            Task { @MainActor in
+                self.isProcessing = false
+            }
+        }
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
-            error = .accessDenied
+            await MainActor.run { self.error = .accessDenied }
             throw CompressionError.accessDenied
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
@@ -599,7 +615,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         let presetName = exportPresetName(for: preset)
 
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: presetName) else {
-            error = .contextCreationFailed
+            await MainActor.run { self.error = .contextCreationFailed }
             throw CompressionError.contextCreationFailed
         }
 
@@ -611,8 +627,10 @@ final class UltimatePDFCompressionService: ObservableObject {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
 
-        currentStage = .optimizing
-        statusMessage = AppStrings.Process.encodingVideo
+        await MainActor.run {
+            currentStage = .optimizing
+            statusMessage = AppStrings.Process.encodingVideo
+        }
         onProgress(.optimizing, 0.05)
 
         let progressTask = Task {
@@ -643,7 +661,9 @@ final class UltimatePDFCompressionService: ObservableObject {
             }
         }
 
-        currentStage = .downloading
+        await MainActor.run {
+            currentStage = .downloading
+        }
         onProgress(.downloading, 1.0)
 
         return outputURL
