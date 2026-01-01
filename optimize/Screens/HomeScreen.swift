@@ -65,7 +65,7 @@ struct HomeScreen: View {
                 }
             }
 
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.xl) {
                     MembershipStatusCard(
                         status: subscriptionStatus,

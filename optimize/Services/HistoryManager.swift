@@ -89,6 +89,30 @@ class HistoryManager: ObservableObject {
         Array(items.prefix(limit))
     }
 
+    // MARK: - Statistics for Gamification
+
+    /// Total bytes saved across all compressions
+    var totalBytesSaved: Int64 {
+        items.reduce(0) { $0 + ($1.originalSize - $1.compressedSize) }
+    }
+
+    /// Total bytes saved formatted as string (e.g., "1.2 GB")
+    var totalSavedFormatted: String {
+        ByteCountFormatter.string(fromByteCount: totalBytesSaved, countStyle: .file)
+    }
+
+    /// Total number of files processed
+    var totalFilesProcessed: Int {
+        items.count
+    }
+
+    /// Average savings percentage across all compressions
+    var averageSavingsPercent: Int {
+        guard !items.isEmpty else { return 0 }
+        let total = items.reduce(0) { $0 + $1.savingsPercent }
+        return total / items.count
+    }
+
     // MARK: - Persistence
     private func loadHistory() {
         guard let data = UserDefaults.standard.data(forKey: historyKey) else {

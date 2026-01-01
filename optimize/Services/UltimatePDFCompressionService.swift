@@ -65,7 +65,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         progress = 0
         currentStage = .preparing
         error = nil
-        statusMessage = "Ready"
+        statusMessage = AppStrings.Process.ready
     }
 
     /// Main entry point for file compression
@@ -100,7 +100,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         progress = 0
         currentStage = .preparing
         error = nil
-        statusMessage = "Initializing..."
+        statusMessage = AppStrings.Process.initializing
 
         defer {
             isProcessing = false
@@ -114,7 +114,7 @@ final class UltimatePDFCompressionService: ObservableObject {
 
         // Stage 1: Prepare and validate
         currentStage = .preparing
-        statusMessage = "Validating document..."
+        statusMessage = AppStrings.Process.validating
         onProgress(.preparing, 0)
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
@@ -146,7 +146,7 @@ final class UltimatePDFCompressionService: ObservableObject {
 
         // Stage 2: Analyze document type
         currentStage = .uploading
-        statusMessage = "Analyzing content..."
+        statusMessage = AppStrings.Process.analyzing
         onProgress(.uploading, 0)
 
         let isScanned = try await isScannedDocument(document: document)
@@ -158,7 +158,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         currentStage = .optimizing
 
         if isScanned && config.useMRC {
-            statusMessage = "Optimizing scanned document (MRC)..."
+            statusMessage = AppStrings.Process.scanDetected
             try await compressScannedPDF(
                 document: document,
                 outputURL: outputURL,
@@ -166,7 +166,7 @@ final class UltimatePDFCompressionService: ObservableObject {
                 onProgress: onProgress
             )
         } else if config.preserveVectors {
-            statusMessage = "Preserving vectors, compressing images..."
+            statusMessage = AppStrings.Process.vectorPreserving
             try await compressDigitalPDF(
                 document: document,
                 sourceURL: sourceURL,
@@ -175,7 +175,7 @@ final class UltimatePDFCompressionService: ObservableObject {
                 onProgress: onProgress
             )
         } else {
-            statusMessage = "Applying aggressive compression..."
+            statusMessage = AppStrings.Process.aggressiveCompression
             try await compressAggressively(
                 document: document,
                 outputURL: outputURL,
@@ -186,7 +186,7 @@ final class UltimatePDFCompressionService: ObservableObject {
 
         // Stage 4: Finalize
         currentStage = .downloading
-        statusMessage = "Finalizing..."
+        statusMessage = AppStrings.Process.finalizing
         onProgress(.downloading, 1.0)
 
         return outputURL
@@ -463,7 +463,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         progress = 0
         currentStage = .preparing
         error = nil
-        statusMessage = "Loading image..."
+        statusMessage = AppStrings.Process.loadingImage
 
         defer { isProcessing = false }
 
@@ -483,7 +483,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         onProgress(.preparing, 1.0)
 
         currentStage = .optimizing
-        statusMessage = "Compressing image..."
+        statusMessage = AppStrings.Process.compressingImage
         let config = mapPresetToConfig(preset)
 
         // Calculate target size
@@ -541,7 +541,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         progress = 0
         currentStage = .preparing
         error = nil
-        statusMessage = "Preparing video..."
+        statusMessage = AppStrings.Process.preparingVideo
 
         defer { isProcessing = false }
 
@@ -629,7 +629,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         progress = 0
         currentStage = .preparing
         error = nil
-        statusMessage = "Loading file..."
+        statusMessage = AppStrings.Process.loadingFile
 
         defer { isProcessing = false }
 
@@ -643,7 +643,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         onProgress(.preparing, 1.0)
 
         currentStage = .optimizing
-        statusMessage = "Compressing..."
+        statusMessage = AppStrings.Process.compressing
         progress = 0.5
         onProgress(.optimizing, 0.5)
 
