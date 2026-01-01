@@ -75,27 +75,61 @@ enum Opacity {
     static let full: Double = 1.0
 }
 
-// MARK: - Typography
+// MARK: - Typography System (Pro Tool Design)
+///
+/// DESIGN PHILOSOPHY:
+/// - Headings: New York (Serif) - Editöryal, premium his
+/// - Body: SF Pro Rounded - Arkadaş canlısı, modern
+/// - Data/Numbers: SF Mono - Teknik, mühendislik hissi
+/// - Sizes: Consistent scale for visual hierarchy
+///
 extension Font {
-    // Title styles
-    static let appTitle = Font.title2.weight(.semibold)
-    static let appLargeTitle = Font.largeTitle.weight(.bold)
+    // MARK: - Heading Styles (Serif - New York)
+    /// Large headlines with editorial feel
+    static let appHeadlineSerif = Font.system(.title, design: .serif).weight(.semibold)
+    static let appLargeTitleSerif = Font.system(.largeTitle, design: .serif).weight(.bold)
+    static let appSubheadlineSerif = Font.system(.title3, design: .serif).weight(.medium)
 
-    // Section header
-    static let appSection = Font.headline
+    // MARK: - Title styles (Rounded for friendliness)
+    static let appTitle = Font.system(.title2, design: .rounded).weight(.semibold)
+    static let appLargeTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
+    static let appTitleSmall = Font.system(.title3, design: .rounded).weight(.semibold)
 
-    // Body
-    static let appBody = Font.body
-    static let appBodyMedium = Font.body.weight(.medium)
+    // MARK: - Section header
+    static let appSection = Font.system(.headline, design: .rounded)
+    static let appSectionSerif = Font.system(.headline, design: .serif).weight(.semibold)
 
-    // Caption
-    static let appCaption = Font.caption
-    static let appCaptionMedium = Font.caption.weight(.medium)
+    // MARK: - Body (Rounded for approachability)
+    static let appBody = Font.system(.body, design: .rounded)
+    static let appBodyMedium = Font.system(.body, design: .rounded).weight(.medium)
+    static let appBodyBold = Font.system(.body, design: .rounded).weight(.bold)
 
-    // Numbers - Rounded monospaced
+    // MARK: - Caption
+    static let appCaption = Font.system(.caption, design: .rounded)
+    static let appCaptionMedium = Font.system(.caption, design: .rounded).weight(.medium)
+    static let appCaptionBold = Font.system(.caption, design: .rounded).weight(.bold)
+
+    // MARK: - Technical Data (Monospaced)
+    /// File sizes, percentages, technical values
+    /// Monospaced creates "engineering dashboard" feel
+    static let appDataLarge = Font.system(.largeTitle, design: .monospaced).monospacedDigit()
+    static let appDataMedium = Font.system(.title, design: .monospaced).monospacedDigit()
+    static let appDataSmall = Font.system(.title3, design: .monospaced).monospacedDigit()
+    static let appDataCaption = Font.system(.caption, design: .monospaced).monospacedDigit()
+
+    // MARK: - Numbers (Rounded + Monospaced - Best of both)
+    /// For counters, savings percentages - friendly but aligned
     static let appNumber = Font.system(.largeTitle, design: .rounded).monospacedDigit()
     static let appNumberMedium = Font.system(.title, design: .rounded).monospacedDigit()
     static let appNumberSmall = Font.system(.title3, design: .rounded).monospacedDigit()
+
+    // MARK: - Special Purpose
+    /// For file names, paths, technical info
+    static let appMono = Font.system(.body, design: .monospaced)
+    static let appMonoSmall = Font.system(.caption, design: .monospaced)
+
+    /// For premium/pro badges
+    static let appBadge = Font.system(.caption2, design: .rounded).weight(.bold)
 }
 
 // MARK: - Animation Constants

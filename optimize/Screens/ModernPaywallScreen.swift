@@ -77,6 +77,11 @@ struct ModernPaywallScreen: View {
 
                 // MARK: - Bottom Panel with Glass Effect
                 VStack(spacing: Spacing.lg) {
+                    // MARK: - Trial Timeline (Trust Builder)
+                    // Shows exactly when charges happen - reduces "forgot to cancel" anxiety
+                    TrialTimelineView()
+                        .padding(.horizontal, Spacing.md)
+
                     // Plan Cards
                     HStack(spacing: Spacing.sm) {
                         // Weekly Plan
@@ -343,6 +348,177 @@ struct PaywallPlanCard: View {
                 }
             }
             .frame(height: 140)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Trial Timeline View (Trust Builder)
+/// Shows users exactly when charges happen - reduces subscription anxiety
+/// Psychology: "We'll remind you before charging" builds trust
+struct TrialTimelineView: View {
+    var body: some View {
+        VStack(spacing: Spacing.xs) {
+            // Timeline header
+            HStack {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 14, weight: .medium))
+                Text("Deneme Süreciniz")
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer()
+            }
+            .foregroundStyle(.white.opacity(0.9))
+
+            // Timeline points
+            HStack(spacing: 0) {
+                // Day 1: Today
+                TimelinePoint(
+                    day: "Bugün",
+                    text: "Pro Başlar",
+                    icon: "lock.open.fill",
+                    iconColor: .appMint,
+                    isFirst: true
+                )
+
+                TimelineLine()
+
+                // Day 5: Reminder
+                TimelinePoint(
+                    day: "5. Gün",
+                    text: "Hatırlatma",
+                    icon: "bell.fill",
+                    iconColor: .yellow,
+                    isFirst: false
+                )
+
+                TimelineLine()
+
+                // Day 7: Subscription starts
+                TimelinePoint(
+                    day: "7. Gün",
+                    text: "Abonelik",
+                    icon: "star.fill",
+                    iconColor: .appMint,
+                    isFirst: false
+                )
+            }
+
+            // Trust message
+            Text("5. gün hatırlatma e-postası göndereceğiz")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.top, Spacing.xxs)
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .fill(.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct TimelinePoint: View {
+    let day: String
+    let text: String
+    let icon: String
+    let iconColor: Color
+    let isFirst: Bool
+
+    var body: some View {
+        VStack(spacing: Spacing.xxs) {
+            // Icon circle
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.2))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(iconColor)
+            }
+
+            // Day label
+            Text(day)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+
+            // Description
+            Text(text)
+                .font(.system(size: 10))
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct TimelineLine: View {
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(height: 2)
+            .frame(maxWidth: 40)
+            .offset(y: -12) // Align with icon center
+    }
+}
+
+// MARK: - Lifetime Plan Card (Anchor Pricing / Decoy Effect)
+/// High-priced lifetime option makes yearly plan seem like a better deal
+struct LifetimePlanBadge: View {
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: Spacing.xs) {
+                // Crown icon
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.goldAccent)
+
+                Text("Ömür Boyu")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text("₺999")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text("Tek Ödeme")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.goldAccent.opacity(0.3),
+                                Color.orange.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        isSelected ? Color.goldAccent : Color.white.opacity(0.2),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
         }
         .buttonStyle(.plain)
     }

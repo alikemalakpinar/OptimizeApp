@@ -81,18 +81,207 @@ enum PDFAnalysisError: Error {
     case renderFailed
 }
 
+/// Lightweight metadata for fast-pass page analysis (no rendering required)
+struct PageMetadata {
+    let textLength: Int
+    let annotationCount: Int
+    let rotation: Int
+    let bounds: CGRect
+    let hasSignificantText: Bool
+    let isLandscape: Bool
+    let anomalyScore: Int
+
+    /// Estimated content type based on metadata only
+    var estimatedType: PageContentType {
+        if hasSignificantText && anomalyScore < 2 {
+            return .mainlyText
+        } else if !hasSignificantText && isLandscape {
+            return .photograph // or CAD drawing
+        } else if anomalyScore >= 4 {
+            return .mixed
+        } else {
+            return .scannedDocument
+        }
+    }
+}
+
 // MARK: - The Analyzer Engine
 
 final class SmartPDFAnalyzer {
 
     private let analysisQueue = DispatchQueue(label: "com.optimize.analysis", qos: .userInitiated)
 
-    /// Maksimum analiz edilecek örnek sayfa sayısı
-    private let maxSamplePages = 10
+    /// Maksimum render-based analiz için örnek sayfa sayısı
+    /// Bu değer artık sadece DETAYLI analiz için kullanılır
+    private let maxDetailedSamplePages = 10
+
+    /// FAST-PASS: Tüm sayfaların metadata kontrolü yapılır (render yok)
+    /// Sadece şüpheli sayfalar detaylı analize tabi tutulur
+    private let fastPassEnabled = true
 
     /// Hızlı analiz için kullanılır (UI preview ve karar verme)
+    /// YENİ: Önce tüm sayfaların metadata'sına bakar (Fast-Pass)
     func analyze(documentAt url: URL, tileSize: CGSize = CGSize(width: 512, height: 512)) async throws -> PDFAnalysisSummary {
+        // FAST-PASS: First check ALL pages via metadata (no rendering)
+        if fastPassEnabled {
+            return try await analyzeWithFastPass(documentAt: url, tileSize: tileSize)
+        }
         return try await analyzeInternal(documentAt: url, tileSize: tileSize, fullScan: false)
+    }
+
+    // MARK: - Fast-Pass Analysis (NEW)
+
+    /// Fast-pass analysis that checks ALL pages via metadata before detailed sampling.
+    /// This prevents missing content that starts after page 10 (e.g., CAD drawings on page 11).
+    ///
+    /// Algorithm:
+    /// 1. FAST-PASS: Scan ALL pages for metadata (text length, annotations, rotation) - NO RENDERING
+    /// 2. IDENTIFY: Find pages with unusual characteristics (potential CAD, photos, mixed content)
+    /// 3. SAMPLE: Detailed analysis only on representative + anomalous pages
+    private func analyzeWithFastPass(documentAt url: URL, tileSize: CGSize) async throws -> PDFAnalysisSummary {
+        guard let document = PDFDocument(url: url) else { throw PDFAnalysisError.invalidDocument }
+        let totalPageCount = document.pageCount
+
+        // PHASE 1: Fast-Pass Metadata Scan (ALL pages, no rendering)
+        let metadataResults = await performFastPassScan(document: document)
+
+        // PHASE 2: Determine which pages need detailed analysis
+        let pagesToAnalyze = selectPagesForDetailedAnalysis(
+            metadataResults: metadataResults,
+            totalPages: totalPageCount
+        )
+
+        // PHASE 3: Detailed analysis on selected pages
+        var allSegments: [PDFPageSegmentation] = []
+        let batchSize = 5
+
+        for batchStart in stride(from: 0, to: pagesToAnalyze.count, by: batchSize) {
+            try Task.checkCancellation()
+
+            let batchEnd = min(batchStart + batchSize, pagesToAnalyze.count)
+            let batchIndices = Array(pagesToAnalyze[batchStart..<batchEnd])
+
+            let results = try await withThrowingTaskGroup(of: PDFPageSegmentation.self) { group in
+                for index in batchIndices {
+                    group.addTask {
+                        try Task.checkCancellation()
+                        guard let page = document.page(at: index) else { throw PDFAnalysisError.renderFailed }
+                        return try await self.analyzePage(page, index: index, tileSize: tileSize)
+                    }
+                }
+
+                var segments: [PDFPageSegmentation] = []
+                for try await result in group {
+                    segments.append(result)
+                }
+                return segments
+            }
+
+            allSegments.append(contentsOf: results)
+            await Task.yield()
+        }
+
+        return PDFAnalysisSummary(
+            totalPageCount: totalPageCount,
+            sampledPages: allSegments.sorted { $0.pageIndex < $1.pageIndex }
+        )
+    }
+
+    /// Fast metadata scan - checks ALL pages without rendering
+    private func performFastPassScan(document: PDFDocument) async -> [Int: PageMetadata] {
+        var results: [Int: PageMetadata] = [:]
+        let pageCount = document.pageCount
+
+        for index in 0..<pageCount {
+            guard let page = document.page(at: index) else { continue }
+
+            let textLength = page.string?.count ?? 0
+            let annotationCount = page.annotations.count
+            let rotation = page.rotation
+            let bounds = page.bounds(for: .mediaBox)
+            let trimBounds = page.bounds(for: .trimBox)
+
+            // Detect anomalies
+            let hasSignificantText = textLength > 100
+            let hasAnnotations = annotationCount > 0
+            let hasRotation = rotation != 0
+            let hasTrimDifference = bounds != trimBounds
+            let isLandscape = bounds.width > bounds.height * 1.2
+            let isOversized = bounds.width > 1000 || bounds.height > 1000
+
+            // Calculate anomaly score
+            var anomalyScore = 0
+            if !hasSignificantText { anomalyScore += 2 } // Likely scanned/image
+            if hasAnnotations { anomalyScore += 1 }
+            if hasRotation { anomalyScore += 2 } // CAD drawings often rotated
+            if hasTrimDifference { anomalyScore += 2 } // Precise vector content
+            if isLandscape && !hasSignificantText { anomalyScore += 3 } // Likely diagram/CAD
+            if isOversized { anomalyScore += 2 } // Likely poster/CAD
+
+            results[index] = PageMetadata(
+                textLength: textLength,
+                annotationCount: annotationCount,
+                rotation: rotation,
+                bounds: bounds,
+                hasSignificantText: hasSignificantText,
+                isLandscape: isLandscape,
+                anomalyScore: anomalyScore
+            )
+        }
+
+        return results
+    }
+
+    /// Select pages for detailed analysis based on fast-pass results
+    private func selectPagesForDetailedAnalysis(
+        metadataResults: [Int: PageMetadata],
+        totalPages: Int
+    ) -> [Int] {
+        var selectedPages: Set<Int> = []
+
+        // Always include: First 3, Middle 2, Last 2
+        selectedPages.insert(0)
+        if totalPages > 1 { selectedPages.insert(1) }
+        if totalPages > 2 { selectedPages.insert(2) }
+        if totalPages > 3 { selectedPages.insert(totalPages - 1) }
+        if totalPages > 4 { selectedPages.insert(totalPages - 2) }
+        if totalPages > 5 {
+            let mid = totalPages / 2
+            selectedPages.insert(mid)
+            if mid > 0 { selectedPages.insert(mid - 1) }
+        }
+
+        // Add anomalous pages (high anomaly score)
+        let anomalousPages = metadataResults
+            .filter { $0.value.anomalyScore >= 3 }
+            .map { $0.key }
+            .sorted()
+
+        // Add up to 5 most anomalous pages
+        for page in anomalousPages.prefix(5) {
+            selectedPages.insert(page)
+        }
+
+        // If document has sections with different characteristics, sample from each
+        // Detect transitions (e.g., text → image → text)
+        let sortedPages = metadataResults.keys.sorted()
+        var lastWasText = true
+
+        for pageIndex in sortedPages {
+            guard let metadata = metadataResults[pageIndex] else { continue }
+            let isText = metadata.hasSignificantText
+
+            // Transition detected
+            if isText != lastWasText {
+                selectedPages.insert(pageIndex)
+                if pageIndex > 0 { selectedPages.insert(pageIndex - 1) }
+            }
+            lastWasText = isText
+        }
+
+        // Limit to reasonable number
+        let maxPages = min(15, totalPages)
+        return Array(selectedPages).sorted().prefix(maxPages).map { $0 }
     }
 
     /// Tam sayfa analizi - Reassembly için tüm sayfaların detaylı haritasını çıkarır
