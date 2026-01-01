@@ -2,7 +2,7 @@
 //  SettingsScreen.swift
 //  optimize
 //
-//  Settings screen
+//  Premium Settings Design with Apple-style Inset Grouped List
 //
 
 import SwiftUI
@@ -15,10 +15,7 @@ struct SettingsScreen: View {
     @AppStorage("historyRetentionDays") private var historyRetentionDays: Int = 30
     @AppStorage("enableAnalytics") private var enableAnalytics: Bool = true
 
-    @State private var showPrivacy = false
-    @State private var showTerms = false
     @State private var showClearHistoryAlert = false
-    @State private var showManageSubscription = false
 
     @ObservedObject private var historyManager = HistoryManager.shared
 
@@ -29,224 +26,177 @@ struct SettingsScreen: View {
     private let presetOptions = ["mail", "whatsapp", "quality"]
     private let retentionOptions = [7, 14, 30, 90]
 
+    // MARK: - URL Constants
+    // TODO: Update these URLs before App Store submission
+    private let privacyURL = URL(string: "https://optimize-app.com/privacy")!
+    private let termsURL = URL(string: "https://optimize-app.com/terms")!
+    private let helpURL = URL(string: "https://optimize-app.com/help")!
+    private let supportEmail = "support@optimize-app.com"
+    // TODO: Replace YOUR_APP_ID with actual App Store ID
+    private let rateURL = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review")!
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Compact Navigation Header
-            NavigationHeader(AppStrings.Settings.title, onBack: onBack)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: Spacing.lg) {
-                    SettingsSection(title: AppStrings.Settings.membership) {
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                                    Text(subscriptionStatus.isPro ? "Pro aktif" : "Ücretsiz plan")
-                                        .font(.appBodyMedium)
-                                        .foregroundStyle(.primary)
-                                    Text(subscriptionStatus.isPro ? "Reklamsız, sınırsız sıkıştırma açık." : "Günlük \(subscriptionStatus.dailyUsageLimit) ücretsiz kullanım, \(subscriptionStatus.remainingUsage) kaldı.")
-                                        .font(.appCaption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer()
-
-                                Text(subscriptionStatus.isPro ? "PRO" : "FREE")
-                                    .font(.appCaptionMedium)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, Spacing.sm)
-                                    .padding(.vertical, Spacing.xxs)
-                                    .background(subscriptionStatus.isPro ? Color.appMint : Color.appAccent)
-                                    .clipShape(Capsule())
-                            }
-
-                            if !subscriptionStatus.isPro {
-                                PrimaryButton(
-                                    title: "Pro'ya yükselt",
-                                    icon: "crown.fill"
-                                ) {
-                                    onUpgrade()
-                                }
-                            } else {
-                                InfoBanner(type: .success, message: "Öncelikli, reklamsız sıkıştırma etkin.")
-
-                                // Manage Subscription link
-                                Button(action: {
-                                    Haptics.selection()
-                                    openManageSubscription()
-                                }) {
-                                    HStack {
-                                        Image(systemName: "creditcard")
-                                            .font(.system(size: 14, weight: .medium))
-                                        Text(AppStrings.Settings.manageSubscription)
-                                            .font(.appCaption)
-                                    }
-                                    .foregroundStyle(Color.appAccent)
-                                }
-                                .padding(.top, Spacing.xs)
-                            }
-                        }
-                    }
-
-                    // Compression Settings
-                    SettingsSection(title: AppStrings.Settings.compression) {
-                        VStack(spacing: Spacing.md) {
-                            PickerRow(
-                                title: AppStrings.Settings.defaultPreset,
-                                icon: "slider.horizontal.3",
-                                options: presetOptions,
-                                optionLabel: { presetName($0) },
-                                selection: $defaultPresetId
-                            )
-
-                            Divider()
-
-                            ToggleRow(
-                                title: AppStrings.Settings.wifiOnly,
-                                subtitle: AppStrings.Settings.wifiOnlySubtitle,
-                                icon: "wifi",
-                                isOn: $processOnWifiOnly
-                            )
-
-                            Divider()
-
-                            ToggleRow(
-                                title: AppStrings.Settings.deleteOriginal,
-                                subtitle: AppStrings.Settings.deleteOriginalSubtitle,
-                                icon: "trash",
-                                isOn: $deleteOriginalAfterProcess
-                            )
-                        }
-                    }
-
-                    // History Settings
-                    SettingsSection(title: AppStrings.Settings.history) {
-                        VStack(spacing: Spacing.md) {
-                            PickerRow(
-                                title: AppStrings.Settings.keepHistory,
-                                icon: "clock.arrow.circlepath",
-                                options: retentionOptions,
-                                optionLabel: { AppStrings.Settings.daysFormat($0) },
-                                selection: $historyRetentionDays
-                            )
-
-                            Divider()
-
-                            HStack {
-                                HStack(spacing: Spacing.sm) {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 24)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(AppStrings.Settings.clearHistory)
-                                            .font(.appBody)
-                                            .foregroundStyle(.primary)
-
-                                        Text("\(historyManager.items.count) \(AppStrings.Settings.items)")
-                                            .font(.appCaption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Button(action: {
-                                    Haptics.selection()
-                                    showClearHistoryAlert = true
-                                }) {
-                                    Text(AppStrings.Settings.clear)
-                                        .font(.appCaptionMedium)
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, Spacing.sm)
-                                        .padding(.vertical, Spacing.xxs)
-                                        .background(Color.red.opacity(0.8))
-                                        .clipShape(Capsule())
-                                }
-                                .disabled(historyManager.items.isEmpty)
-                                .opacity(historyManager.items.isEmpty ? 0.5 : 1.0)
-                            }
-                        }
-                    }
-
-                    // Privacy Settings
-                    SettingsSection(title: AppStrings.Settings.privacy) {
-                        VStack(spacing: Spacing.md) {
-                            ToggleRow(
-                                title: AppStrings.Settings.anonymousData,
-                                subtitle: AppStrings.Settings.anonymousDataSubtitle,
-                                icon: "chart.bar",
-                                isOn: $enableAnalytics
-                            )
-
-                            Divider()
-
-                            SettingsLinkRow(
-                                title: AppStrings.Settings.privacyPolicy,
-                                icon: "hand.raised"
-                            ) {
-                                openPrivacyPolicy()
-                            }
-
-                            Divider()
-
-                            SettingsLinkRow(
-                                title: AppStrings.Settings.termsOfService,
-                                icon: "doc.text"
-                            ) {
-                                openTermsOfService()
-                            }
-                        }
-                    }
-
-                    // Support
-                    SettingsSection(title: AppStrings.Settings.support) {
-                        VStack(spacing: Spacing.md) {
-                            SettingsLinkRow(
-                                title: AppStrings.Settings.helpFAQ,
-                                icon: "questionmark.circle"
-                            ) {
-                                openHelp()
-                            }
-
-                            Divider()
-
-                            SettingsLinkRow(
-                                title: AppStrings.Settings.sendFeedback,
-                                icon: "envelope"
-                            ) {
-                                sendFeedback()
-                            }
-
-                            Divider()
-
-                            SettingsLinkRow(
-                                title: AppStrings.Settings.rateApp,
-                                icon: "star"
-                            ) {
-                                rateApp()
-                            }
-                        }
-                    }
-
-                    // App Info
-                    VStack(spacing: Spacing.xxs) {
-                        Text("Optimize v1.0.0")
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
-
-                        Text(AppStrings.Settings.madeWith)
-                            .font(.appCaption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.top, Spacing.lg)
-                    .padding(.bottom, Spacing.xl)
+        NavigationStack {
+            List {
+                // MARK: - Premium Banner Section
+                Section {
+                    PremiumBannerRow(
+                        isPro: subscriptionStatus.isPro,
+                        onUpgrade: onUpgrade
+                    )
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.top, Spacing.sm)
+                .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
+
+                // MARK: - Compression Settings
+                Section {
+                    // Default Quality Picker
+                    Picker(selection: $defaultPresetId) {
+                        Text("WhatsApp").tag("whatsapp")
+                        Text("Mail (25 MB)").tag("mail")
+                        Text(AppStrings.Presets.quality).tag("quality")
+                    } label: {
+                        Label(AppStrings.Settings.defaultPreset, systemImage: "slider.horizontal.3")
+                    }
+                    .pickerStyle(.menu)
+
+                    // Delete Original Toggle
+                    Toggle(isOn: $deleteOriginalAfterProcess) {
+                        Label(AppStrings.Settings.deleteOriginal, systemImage: "trash")
+                    }
+                    .tint(Color.appMint)
+
+                    // Wi-Fi Only Toggle
+                    Toggle(isOn: $processOnWifiOnly) {
+                        Label(AppStrings.Settings.wifiOnly, systemImage: "wifi")
+                    }
+                    .tint(Color.appMint)
+                } header: {
+                    Text(AppStrings.Settings.compression)
+                }
+
+                // MARK: - History Settings
+                Section {
+                    // History Retention Picker
+                    Picker(selection: $historyRetentionDays) {
+                        ForEach(retentionOptions, id: \.self) { days in
+                            Text(AppStrings.Settings.daysFormat(days)).tag(days)
+                        }
+                    } label: {
+                        Label(AppStrings.Settings.keepHistory, systemImage: "clock.arrow.circlepath")
+                    }
+                    .pickerStyle(.menu)
+
+                    // Clear History Button
+                    Button(role: .destructive) {
+                        showClearHistoryAlert = true
+                    } label: {
+                        HStack {
+                            Label(AppStrings.Settings.clearHistory, systemImage: "trash")
+                            Spacer()
+                            Text("\(historyManager.items.count) \(AppStrings.Settings.items)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(historyManager.items.isEmpty)
+                } header: {
+                    Text(AppStrings.Settings.history)
+                }
+
+                // MARK: - Privacy Settings
+                Section {
+                    // Analytics Toggle
+                    Toggle(isOn: $enableAnalytics) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(AppStrings.Settings.anonymousData, systemImage: "chart.bar")
+                            Text(AppStrings.Settings.anonymousDataSubtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .tint(Color.appMint)
+                } header: {
+                    Text(AppStrings.Settings.privacy)
+                }
+
+                // MARK: - Support Section
+                Section {
+                    // Rate App
+                    Link(destination: rateURL) {
+                        Label(AppStrings.Settings.rateApp, systemImage: "star.fill")
+                            .foregroundStyle(.primary)
+                    }
+
+                    // Send Feedback
+                    Button {
+                        sendFeedback()
+                    } label: {
+                        Label(AppStrings.Settings.sendFeedback, systemImage: "envelope.fill")
+                            .foregroundStyle(.primary)
+                    }
+
+                    // Help & FAQ
+                    Link(destination: helpURL) {
+                        Label(AppStrings.Settings.helpFAQ, systemImage: "questionmark.circle.fill")
+                            .foregroundStyle(.primary)
+                    }
+                } header: {
+                    Text(AppStrings.Settings.support)
+                }
+
+                // MARK: - Legal Section
+                Section {
+                    Link(destination: privacyURL) {
+                        Label(AppStrings.Settings.privacyPolicy, systemImage: "hand.raised.fill")
+                            .foregroundStyle(.primary)
+                    }
+
+                    Link(destination: termsURL) {
+                        Label(AppStrings.Settings.termsOfService, systemImage: "doc.text.fill")
+                            .foregroundStyle(.primary)
+                    }
+
+                    if subscriptionStatus.isPro {
+                        Button {
+                            openManageSubscription()
+                        } label: {
+                            Label(AppStrings.Settings.manageSubscription, systemImage: "creditcard.fill")
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                } header: {
+                    Text("Yasal")
+                }
+
+                // MARK: - App Info Footer
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 4) {
+                            Text("Optimize v\(appVersion)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(AppStrings.Settings.madeWith)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                    }
+                }
+                .listRowBackground(Color.clear)
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle(AppStrings.Settings.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Kapat") {
+                        Haptics.selection()
+                        onBack()
+                    }
+                }
             }
         }
-        .appBackgroundLayered()
         .alert(AppStrings.Settings.clearHistoryTitle, isPresented: $showClearHistoryAlert) {
             Button(AppStrings.Settings.cancel, role: .cancel) { }
             Button(AppStrings.Settings.clearAll, role: .destructive) {
@@ -258,136 +208,120 @@ struct SettingsScreen: View {
         }
     }
 
+    // MARK: - Helper Properties
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
+    }
+
     // MARK: - Helper Functions
     private func openManageSubscription() {
-        // Opens the iOS subscription management page
         if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
             UIApplication.shared.open(url)
         }
     }
 
-    // MARK: - IMPORTANT: Update these URLs before App Store submission!
-    // ⚠️ TODO: Replace placeholder URLs with your actual website URLs
-    // Failure to update these will result in App Store rejection
-
-    private func openPrivacyPolicy() {
-        // TODO: Replace with your actual Privacy Policy URL before submission
-        // Example: "https://yourcompany.com/optimize/privacy"
-        if let url = URL(string: "https://optimize-app.com/privacy") {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    private func openTermsOfService() {
-        // TODO: Replace with your actual Terms of Service URL before submission
-        // Example: "https://yourcompany.com/optimize/terms"
-        if let url = URL(string: "https://optimize-app.com/terms") {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    private func openHelp() {
-        // TODO: Replace with your actual Help/FAQ URL before submission
-        // Example: "https://yourcompany.com/optimize/help"
-        if let url = URL(string: "https://optimize-app.com/help") {
-            UIApplication.shared.open(url)
-        }
-    }
-
     private func sendFeedback() {
-        // Opens Mail app with feedback email including device info
         let deviceModel = UIDevice.current.model
         let systemVersion = UIDevice.current.systemVersion
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        let subject = "Optimize App Destek (v\(appVersion) - \(deviceModel) iOS \(systemVersion))"
 
-        // TODO: Replace with your actual support email before submission
-        let email = "support@optimize-app.com"
-        let subject = "Optimize App Destek (v\(version).\(build) - \(deviceModel) iOS \(systemVersion))"
-
-        if let url = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
+        if let url = URL(string: "mailto:\(supportEmail)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
             UIApplication.shared.open(url)
-        }
-    }
-
-    private func rateApp() {
-        // TODO: Replace YOUR_APP_ID with your actual App Store ID before submission
-        // You can find this in App Store Connect after creating your app
-        // Example: "https://apps.apple.com/app/id1234567890?action=write-review"
-        if let url = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review") {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    private func presetName(_ id: String) -> String {
-        switch id {
-        case "mail": return "Mail (25 MB)"
-        case "whatsapp": return "WhatsApp"
-        case "quality": return "Best Quality"
-        default: return id
         }
     }
 }
 
-// MARK: - Settings Section
-struct SettingsSection<Content: View>: View {
-    let title: String
-    let content: Content
-
-    init(title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
+// MARK: - Premium Banner Row
+struct PremiumBannerRow: View {
+    let isPro: Bool
+    let onUpgrade: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(title)
-                .font(.appCaptionMedium)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+        if !isPro {
+            // Upgrade Banner
+            Button(action: onUpgrade) {
+                HStack(spacing: 15) {
+                    // Crown Icon with gradient background
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.purple, .blue],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 50, height: 50)
 
-            GlassCard {
-                content
+                        Image(systemName: "crown.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Optimize Premium'a Geç")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        Text("Sınırsız sıkıştırma & Reklamsız")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
             }
-        }
-    }
-}
+        } else {
+            // Pro Active Banner
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.appMint)
 
-// MARK: - Settings Link Row
-struct SettingsLinkRow: View {
-    let title: String
-    let icon: String
-    let action: () -> Void
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Premium Üyesiniz")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
-    var body: some View {
-        Button(action: {
-            Haptics.selection()
-            action()
-        }) {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24)
-
-                Text(title)
-                    .font(.appBody)
-                    .foregroundStyle(.primary)
+                    Text("Tüm özellikler aktif")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.tertiary)
+                Text("PRO")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.appMint)
+                    .clipShape(Capsule())
             }
+            .padding(.vertical, 4)
         }
-        .buttonStyle(.pressable)
     }
 }
 
-#Preview {
+// MARK: - Preview
+#Preview("Free User") {
     SettingsScreen(
         subscriptionStatus: .free,
+        onUpgrade: {},
+        onBack: {}
+    )
+}
+
+#Preview("Pro User") {
+    SettingsScreen(
+        subscriptionStatus: .pro,
         onUpgrade: {},
         onBack: {}
     )
