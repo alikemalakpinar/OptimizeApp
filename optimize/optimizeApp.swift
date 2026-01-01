@@ -246,46 +246,31 @@ struct RootViewWithCoordinator: View {
     private var navigationContent: some View {
         ZStack(alignment: .bottom) {
             NavigationStack(path: $coordinator.navigationPath) {
-                // Root of navigation stack is HomeScreen
+                // Root: HomeScreen
                 HomeScreen(
                     coordinator: coordinator,
                     subscriptionStatus: coordinator.subscriptionStatus,
-                    onSelectFile: {
-                        coordinator.requestFilePicker()
-                    },
-                    onOpenHistory: {
-                        coordinator.openHistory()
-                    },
-                    onOpenSettings: {
-                        coordinator.openSettings()
-                    },
-                    onUpgrade: {
-                        coordinator.presentPaywall()
-                    }
+                    onSelectFile: { coordinator.requestFilePicker() },
+                    onOpenHistory: { coordinator.openHistory() },
+                    onOpenSettings: { coordinator.openSettings() },
+                    onUpgrade: { coordinator.presentPaywall() }
                 )
                 .safeAreaInset(edge: .bottom) {
-                    // Reserve space for floating tab bar only on home
-                    Color.clear
-                        .frame(height: 90)
+                    Color.clear.frame(height: 90) // Tab bar boşluğu
                 }
+                .toolbar(.hidden, for: .navigationBar) // [FIX] Home'da native barı gizle - Double Header önleme
                 .navigationDestination(for: AppScreen.self) { screen in
                     destinationView(for: screen)
                 }
             }
 
-            // Floating Tab Bar - only visible when navigation stack is empty (on Home)
+            // Floating Tab Bar (Sadece ana sayfada görünür)
             if coordinator.navigationPath.isEmpty {
                 FloatingTabBar(
                     selectedTab: .constant(.home),
-                    onAddTap: {
-                        coordinator.requestFilePicker()
-                    },
-                    onHistoryTap: {
-                        coordinator.openHistory()
-                    },
-                    onSettingsTap: {
-                        coordinator.openSettings()
-                    }
+                    onAddTap: { coordinator.requestFilePicker() },
+                    onHistoryTap: { coordinator.openHistory() },
+                    onSettingsTap: { coordinator.openSettings() }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -294,6 +279,7 @@ struct RootViewWithCoordinator: View {
     }
 
     /// Builds the destination view for each screen type
+    /// [FIX] Double Header sorunu çözüldü - her ekranda native bar gizleniyor
     @ViewBuilder
     private func destinationView(for screen: AppScreen) -> some View {
         switch screen {
@@ -303,81 +289,59 @@ struct RootViewWithCoordinator: View {
                 analysisResult: coordinator.currentAnalysis,
                 subscriptionStatus: coordinator.subscriptionStatus,
                 paywallContext: coordinator.paywallContext,
-                onContinue: {
-                    coordinator.analyzeComplete()
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onReplace: {
-                    coordinator.requestFilePicker()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall(context: coordinator.paywallContext)
-                }
+                onContinue: { coordinator.analyzeComplete() },
+                onBack: { coordinator.goBack() },
+                onReplace: { coordinator.requestFilePicker() },
+                onUpgrade: { coordinator.presentPaywall(context: coordinator.paywallContext) }
             )
+            .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .preset(let file, let analysis):
             PresetScreen(
                 file: file,
                 analysisResult: analysis,
                 isProUser: coordinator.subscriptionStatus.isPro,
-                onCompress: { preset in
-                    coordinator.startCompression(preset: preset)
-                },
-                onBack: {
-                    coordinator.goBack()
-                },
-                onShowPaywall: {
-                    coordinator.presentPaywall()
-                }
+                onCompress: { preset in coordinator.startCompression(preset: preset) },
+                onBack: { coordinator.goBack() },
+                onShowPaywall: { coordinator.presentPaywall() }
             )
+            .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .progress(let file, let preset):
             ProgressScreen(
                 file: file,
                 preset: preset,
                 compressionService: coordinator.compressionService,
-                onCancel: {
-                    coordinator.goHome()
-                }
+                onCancel: { coordinator.goHome() }
             )
+            .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .result(let result):
             ResultScreen(
                 result: result,
-                onShare: {
-                    coordinator.shareResult()
-                },
-                onSave: {
-                    coordinator.saveResult()
-                },
-                onNewFile: {
-                    coordinator.goHome()
-                }
+                onShare: { coordinator.shareResult() },
+                onSave: { coordinator.saveResult() },
+                onNewFile: { coordinator.goHome() }
             )
+            .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .history:
             HistoryScreen(
                 historyManager: coordinator.historyManager,
-                onBack: {
-                    coordinator.goBack()
-                }
+                onBack: { coordinator.goBack() }
             )
+            .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .settings:
+            // SettingsScreen native List kullandığı için özel handling
             SettingsScreen(
                 subscriptionStatus: coordinator.subscriptionStatus,
-                onUpgrade: {
-                    coordinator.presentPaywall()
-                },
-                onBack: {
-                    coordinator.goBack()
-                }
+                onUpgrade: { coordinator.presentPaywall() },
+                onBack: { coordinator.goBack() }
             )
+            .navigationBarBackButtonHidden(true) // Coordinator'ın yönettiği özel back butonu için
 
         default:
-            // Fallback for screens that shouldn't be in NavigationStack
             EmptyView()
         }
     }
