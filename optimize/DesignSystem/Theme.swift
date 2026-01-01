@@ -25,6 +25,16 @@ extension Color {
     static let proGradientEnd = Color.blue
     static let goldAccent = Color(red: 1.0, green: 0.84, blue: 0.0) // Gold for premium
 
+    // Premium UI Colors - Harmonized Palette
+    static let premiumPurple = Color(red: 0.56, green: 0.27, blue: 0.98) // #8F44FC
+    static let premiumBlue = Color(red: 0.25, green: 0.47, blue: 1.0) // #4078FF
+    static let premiumIndigo = Color(red: 0.35, green: 0.34, blue: 0.84) // #5957D6
+    static let premiumCyan = Color(red: 0.2, green: 0.68, blue: 0.9) // #33ADE5
+
+    // Warm accent for CTAs
+    static let warmOrange = Color(red: 1.0, green: 0.58, blue: 0.0) // #FF9500
+    static let warmCoral = Color(red: 1.0, green: 0.38, blue: 0.42) // #FF616B
+
     // Semantic colors (auto Dark Mode)
     static let appBackground = Color(.systemBackground)
     static let appSurface = Color(.secondarySystemBackground)

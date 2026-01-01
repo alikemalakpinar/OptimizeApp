@@ -38,8 +38,7 @@ struct SettingsScreen: View {
     private let rateURL = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review")!
 
     var body: some View {
-        NavigationStack {
-            List {
+        List {
                 // MARK: - Commitment Signature Card (Motivation)
                 if signatureImage != nil {
                     Section {
@@ -176,7 +175,7 @@ struct SettingsScreen: View {
                         }
                     }
                 } header: {
-                    Text("Yasal")
+                    Text(AppStrings.Settings.legal)
                 }
 
                 // MARK: - App Info Footer
@@ -196,15 +195,21 @@ struct SettingsScreen: View {
                 }
                 .listRowBackground(Color.clear)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle(AppStrings.Settings.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Kapat") {
-                        Haptics.selection()
-                        onBack()
+        .listStyle(.insetGrouped)
+        .navigationTitle(AppStrings.Settings.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    Haptics.selection()
+                    onBack()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Geri")
                     }
+                    .foregroundStyle(Color.appAccent)
                 }
             }
         }
@@ -259,75 +264,88 @@ struct SettingsScreen: View {
 struct PremiumBannerRow: View {
     let isPro: Bool
     let onUpgrade: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if !isPro {
             // Upgrade Banner
             Button(action: onUpgrade) {
-                HStack(spacing: 15) {
-                    // Crown Icon with gradient background
+                HStack(spacing: Spacing.md) {
+                    // Crown Icon with premium gradient
                     ZStack {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [.purple, .blue],
+                                    colors: [Color.premiumPurple, Color.premiumBlue],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 50, height: 50)
+                            .frame(width: 48, height: 48)
 
                         Image(systemName: "crown.fill")
-                            .font(.title2)
+                            .font(.system(size: 22, weight: .medium))
                             .foregroundStyle(.white)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Optimize Premium'a Geç")
-                            .font(.headline)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(AppStrings.Home.upgradeToPro)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
 
                         Text("Sınırsız sıkıştırma & Reklamsız")
-                            .font(.caption)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.premiumPurple)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
             }
         } else {
             // Pro Active Banner
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.title)
-                    .foregroundStyle(Color.appMint)
+            HStack(spacing: Spacing.sm) {
+                ZStack {
+                    Circle()
+                        .fill(Color.appMint.opacity(0.15))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(Color.appMint)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Premium Üyesiniz")
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
                     Text("Tüm özellikler aktif")
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Text("PRO")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.appMint)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 5)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.appMint, Color.appTeal],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .clipShape(Capsule())
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
         }
     }
 }

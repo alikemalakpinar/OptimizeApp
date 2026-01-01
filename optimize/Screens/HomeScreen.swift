@@ -165,52 +165,108 @@ struct BreathingCTACard: View {
     @State private var breathScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.3
     @State private var isAnimating: Bool = false
+    @State private var gradientRotation: Double = 0
 
     /// Accessibility: Check if user prefers reduced motion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Scene phase for pausing animations in background
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: Spacing.md) {
+            VStack(spacing: Spacing.lg) {
                 // Icon with breathing effect
                 ZStack {
+                    // Gradient background glow
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.premiumPurple.opacity(0.15),
+                                    Color.premiumBlue.opacity(0.08),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 100
+                            )
+                        )
+                        .frame(width: 160, height: 160)
+                        .scaleEffect(breathScale * 1.2)
+                        .blur(radius: 20)
+
                     // Outer breathing rings (hidden when reduceMotion is on)
                     if !reduceMotion {
                         ForEach(0..<3, id: \.self) { index in
                             Circle()
                                 .stroke(
-                                    Color.appAccent.opacity(0.15 - Double(index) * 0.04),
-                                    lineWidth: 1.5
+                                    LinearGradient(
+                                        colors: [
+                                            Color.premiumPurple.opacity(0.2 - Double(index) * 0.05),
+                                            Color.premiumBlue.opacity(0.15 - Double(index) * 0.04)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 2 - CGFloat(index) * 0.5
                                 )
                                 .frame(
-                                    width: 80 + CGFloat(index) * 20,
-                                    height: 80 + CGFloat(index) * 20
+                                    width: 88 + CGFloat(index) * 24,
+                                    height: 88 + CGFloat(index) * 24
                                 )
                                 .scaleEffect(breathScale + CGFloat(index) * 0.02)
-                                .opacity(ringOpacity - Double(index) * 0.1)
+                                .opacity(ringOpacity - Double(index) * 0.08)
                         }
                     }
 
-                    // Main circle
+                    // Main circle with gradient
                     Circle()
-                        .fill(Color.appAccent.opacity(Opacity.subtle))
-                        .frame(width: 80, height: 80)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.premiumPurple.opacity(0.15),
+                                    Color.premiumBlue.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 88, height: 88)
                         .scaleEffect(isDropTargeted ? 1.1 : 1.0)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.premiumPurple.opacity(0.4),
+                                            Color.premiumBlue.opacity(0.2)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 2
+                                )
+                        )
 
-                    // Icon
+                    // Icon with gradient
                     Image(systemName: "doc.badge.plus")
-                        .font(.system(size: 32, weight: .medium))
-                        .foregroundStyle(Color.appAccent)
+                        .font(.system(size: 36, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.premiumPurple, Color.premiumBlue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .symbolBounce(trigger: reduceMotion ? false : isDropTargeted)
                 }
 
                 // Text
-                VStack(spacing: Spacing.xxs) {
+                VStack(spacing: Spacing.xs) {
                     Text(isDropTargeted ? AppStrings.Home.dropFile : AppStrings.Home.selectFile)
-                        .font(.appTitle)
+                        .font(.system(.title2, design: .rounded).weight(.bold))
                         .foregroundStyle(.primary)
 
                     Text(isDropTargeted ? AppStrings.Home.dropHint : AppStrings.Home.selectHint)
@@ -219,18 +275,37 @@ struct BreathingCTACard: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.xl)
+            .padding(.vertical, Spacing.xl + Spacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                ZStack {
+                    RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                        .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+
+                    // Subtle gradient overlay
+                    RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.premiumPurple.opacity(0.03),
+                                    Color.premiumBlue.opacity(0.02),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
                     .stroke(
-                        isDropTargeted ? Color.appAccent : Color.glassBorder,
-                        lineWidth: isDropTargeted ? 2 : 0.5
+                        isDropTargeted
+                            ? LinearGradient(colors: [Color.premiumPurple, Color.premiumBlue], startPoint: .leading, endPoint: .trailing)
+                            : LinearGradient(colors: [Color.glassBorder, Color.glassBorder], startPoint: .leading, endPoint: .trailing),
+                        lineWidth: isDropTargeted ? 2 : 1
                     )
             )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 16, x: 0, y: 6)
         }
         .buttonStyle(.pressable)
         .onAppear {
@@ -271,7 +346,7 @@ struct BreathingCTACard: View {
             .easeInOut(duration: 2.5)
             .repeatForever(autoreverses: true)
         ) {
-            breathScale = 1.08
+            breathScale = 1.06
             ringOpacity = 0.5
         }
     }
@@ -291,6 +366,7 @@ struct ConversionHighlights: View {
     let totalSavedMB: Double
     let averageSaving: Int
     let bestSaving: Int?
+    @Environment(\.colorScheme) private var colorScheme
 
     private var formattedTotal: String {
         if totalSavedMB >= 1000 {
@@ -300,50 +376,66 @@ struct ConversionHighlights: View {
     }
 
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack {
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text(AppStrings.Home.performanceTitle)
-                            .font(.appBodyMedium)
-                            .foregroundStyle(.primary)
-                        Text(AppStrings.Home.performanceSubtitle)
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Label("Beta", systemImage: "sparkles")
-                        .font(.appCaptionMedium)
-                        .foregroundStyle(Color.appAccent)
-                        .padding(.horizontal, Spacing.xs)
-                        .padding(.vertical, Spacing.xxs)
-                        .background(Color.appAccent.opacity(Opacity.subtle))
-                        .clipShape(Capsule())
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(AppStrings.Home.performanceTitle)
+                        .font(.appBodyMedium)
+                        .foregroundStyle(.primary)
+                    Text(AppStrings.Home.performanceSubtitle)
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
                 }
 
-                HStack(spacing: Spacing.sm) {
-                    HighlightCard(
-                        icon: "arrow.down.to.line",
-                        title: AppStrings.Home.totalSaved,
-                        value: formattedTotal
-                    )
+                Spacer()
 
-                    HighlightCard(
-                        icon: "percent",
-                        title: AppStrings.Home.avgSavings,
-                        value: "\(averageSaving)%"
-                    )
-
-                    HighlightCard(
-                        icon: "rosette",
-                        title: AppStrings.Home.bestResult,
-                        value: bestSaving.map { "\($0)%" } ?? "0%"
-                    )
+                HStack(spacing: 4) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Live")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                 }
+                .foregroundStyle(Color.appMint)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, 5)
+                .background(Color.appMint.opacity(0.12))
+                .clipShape(Capsule())
+            }
+
+            // Bento Grid Layout
+            HStack(spacing: Spacing.sm) {
+                HighlightCard(
+                    icon: "arrow.down.circle.fill",
+                    title: AppStrings.Home.totalSaved,
+                    value: formattedTotal,
+                    accentColor: .appMint
+                )
+
+                HighlightCard(
+                    icon: "percent",
+                    title: AppStrings.Home.avgSavings,
+                    value: "\(averageSaving)%",
+                    accentColor: .premiumPurple
+                )
+
+                HighlightCard(
+                    icon: "trophy.fill",
+                    title: AppStrings.Home.bestResult,
+                    value: bestSaving.map { "\($0)%" } ?? "—",
+                    accentColor: .warmOrange
+                )
             }
         }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
     }
 }
 
@@ -351,26 +443,40 @@ struct HighlightCard: View {
     let icon: String
     let title: String
     let value: String
+    var accentColor: Color = .appAccent
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            HStack(spacing: Spacing.xxs) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
-                Text(title)
-                    .font(.appCaption)
-            }
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(accentColor)
 
+            Spacer()
+
+            // Value
             Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
                 .foregroundStyle(.primary)
+
+            // Title
+            Text(title)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, Spacing.xs)
-        .padding(.horizontal, Spacing.sm)
-        .background(Color.appSurface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        .frame(height: 90)
+        .padding(Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.tertiarySystemBackground) : Color(.systemGray6))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .stroke(accentColor.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 
@@ -581,6 +687,7 @@ struct HistoryRow: View {
 struct MembershipStatusCard: View {
     let status: SubscriptionStatus
     let onUpgrade: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     private var headline: String {
         status.isPro ? AppStrings.Home.proActive : AppStrings.Home.freePlan
@@ -592,74 +699,154 @@ struct MembershipStatusCard: View {
             : AppStrings.Home.freeDescription(status.remainingUsage)
     }
 
-    private var badgeColor: Color {
-        status.isPro ? .appMint : .appAccent
-    }
-
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text(headline)
-                            .font(.appBodyMedium)
-                            .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top) {
+                // Icon with gradient
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: status.isPro
+                                    ? [Color.appMint.opacity(0.2), Color.appTeal.opacity(0.1)]
+                                    : [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
 
-                        Text(detail)
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    Text(status.isPro ? "PRO" : "FREE")
-                        .font(.appCaptionMedium)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xxs)
-                        .background(badgeColor)
-                        .clipShape(Capsule())
+                    Image(systemName: status.isPro ? "crown.fill" : "sparkles")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: status.isPro
+                                    ? [Color.appMint, Color.appTeal]
+                                    : [Color.premiumPurple, Color.premiumBlue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 }
 
-                HStack(spacing: Spacing.sm) {
-                    CapabilityPill(icon: "checkmark.shield.fill", text: AppStrings.Home.noAds)
-                    CapabilityPill(icon: "sparkles", text: AppStrings.Home.smartProfile)
-                    CapabilityPill(icon: "doc.on.doc", text: AppStrings.Home.allFiles)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(headline)
+                        .font(.appBodyMedium)
+                        .foregroundStyle(.primary)
+
+                    Text(detail)
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
                 }
 
-                if !status.isPro {
-                    PrimaryButton(
-                        title: AppStrings.Home.upgradeToPro,
-                        icon: "crown.fill"
-                    ) {
-                        onUpgrade()
+                Spacer()
+
+                // Premium Badge
+                Text(status.isPro ? "PRO" : "FREE")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 6)
+                    .background(
+                        LinearGradient(
+                            colors: status.isPro
+                                ? [Color.appMint, Color.appTeal]
+                                : [Color.premiumPurple, Color.premiumBlue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(Capsule())
+            }
+
+            // Capability Pills
+            HStack(spacing: Spacing.xs) {
+                CapabilityPill(icon: "checkmark.shield.fill", text: AppStrings.Home.noAds, isActive: status.isPro)
+                CapabilityPill(icon: "sparkles", text: AppStrings.Home.smartProfile, isActive: status.isPro)
+                CapabilityPill(icon: "doc.on.doc", text: AppStrings.Home.allFiles, isActive: status.isPro)
+            }
+
+            if !status.isPro {
+                // Upgrade Button with premium gradient
+                Button(action: onUpgrade) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text(AppStrings.Home.upgradeToPro)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
                     }
-                } else {
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.premiumPurple, Color.premiumBlue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                    .shadow(color: Color.premiumPurple.opacity(0.3), radius: 12, x: 0, y: 6)
+                }
+                .buttonStyle(.pressable)
+            } else {
+                HStack(spacing: Spacing.xxs) {
+                    Image(systemName: "infinity")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appMint)
                     Text(AppStrings.Home.unlimitedDescription)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: status.isPro
+                            ? [Color.appMint.opacity(0.3), Color.appTeal.opacity(0.1)]
+                            : [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
     }
 }
 
 struct CapabilityPill: View {
     let icon: String
     let text: String
+    var isActive: Bool = false
 
     var body: some View {
-        HStack(spacing: Spacing.xxs) {
+        HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
             Text(text)
-                .font(.appCaptionMedium)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(isActive ? Color.appMint : .secondary)
         .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs)
-        .background(Color.appSurface)
+        .padding(.vertical, 6)
+        .background(
+            isActive
+                ? Color.appMint.opacity(0.1)
+                : Color(.tertiarySystemBackground)
+        )
         .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(isActive ? Color.appMint.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
     }
 }
 
