@@ -577,7 +577,12 @@ class AppCoordinator: ObservableObject {
         }
     }
 
-    func presentPaywall(context: PaywallContext? = nil, useModernStyle: Bool = false) {
+    /// Present the paywall screen
+    /// - Parameters:
+    ///   - context: Optional context describing why paywall is shown
+    ///   - useModernStyle: Whether to use modern glassmorphism design (default: true)
+    /// NOTE: ModernPaywallScreen is now the default as it provides better conversion
+    func presentPaywall(context: PaywallContext? = nil, useModernStyle: Bool = true) {
         analytics.track(.paywallViewed)
         paywallContext = context ?? PaywallContext.proRequired
         if useModernStyle {

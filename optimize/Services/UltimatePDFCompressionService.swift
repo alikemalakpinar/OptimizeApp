@@ -300,6 +300,22 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         await updateUIState(stage: .downloading, message: AppStrings.Process.finalizing)
         onProgress(.downloading, 1.0)
 
+        // SIZE GUARD: Never return a file larger than the original
+        // This prevents the "ballooning effect" where compression increases file size
+        let originalSize = try FileManager.default.attributesOfItem(atPath: sourceURL.path)[.size] as? Int64 ?? 0
+        let compressedSize = try FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64 ?? 0
+
+        if compressedSize >= originalSize && originalSize > 0 {
+            // Compressed file is larger or equal - return a copy of the original instead
+            // Delete the failed compressed file
+            try? FileManager.default.removeItem(at: outputURL)
+
+            // Copy original to output location with "_optimized" suffix
+            try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+
+            await updateUIState(stage: nil, message: AppStrings.Process.alreadyOptimized)
+        }
+
         return outputURL
     }
 
