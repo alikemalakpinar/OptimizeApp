@@ -568,7 +568,7 @@ final class UltimatePDFCompressionService: ObservableObject {
         exportSession.shouldOptimizeForNetworkUse = true
 
         currentStage = .optimizing
-        statusMessage = "Encoding video..."
+        statusMessage = AppStrings.Process.encodingVideo
         onProgress(.optimizing, 0.05)
 
         let progressTask = Task {

@@ -12,30 +12,32 @@ struct OnboardingScreen: View {
     @State private var showShimmer = false
     let onComplete: () -> Void
 
-    // Enhanced pages with result-oriented copy
-    private let pages: [OnboardingPage] = [
-        OnboardingPage(
-            icon: "doc.zipper",
-            iconAnimation: .compress,
-            accentColor: .appAccent,
-            title: "Files Are No\nLonger a Barrier",
-            subtitle: "Convert GBs of data to MBs without compromising quality. No more email or WhatsApp limits."
-        ),
-        OnboardingPage(
-            icon: "lock.shield.fill",
-            iconAnimation: .shield,
-            accentColor: .appMint,
-            title: "Fully On-Device,\nFully Secure",
-            subtitle: "Your files never leave your device. Works safely even without internet."
-        ),
-        OnboardingPage(
-            icon: "bolt.fill",
-            iconAnimation: .bolt,
-            accentColor: .appTeal,
-            title: "One Tap\nFreedom",
-            subtitle: "No complex settings. Select your file, compress it, and share instantly."
-        )
-    ]
+    // Enhanced pages with result-oriented copy - Localized
+    private var pages: [OnboardingPage] {
+        [
+            OnboardingPage(
+                icon: "doc.zipper",
+                iconAnimation: .compress,
+                accentColor: .appAccent,
+                title: AppStrings.Onboarding.page1Title,
+                subtitle: AppStrings.Onboarding.page1Sub
+            ),
+            OnboardingPage(
+                icon: "lock.shield.fill",
+                iconAnimation: .shield,
+                accentColor: .appMint,
+                title: AppStrings.Onboarding.page2Title,
+                subtitle: AppStrings.Onboarding.page2Sub
+            ),
+            OnboardingPage(
+                icon: "bolt.fill",
+                iconAnimation: .bolt,
+                accentColor: .appTeal,
+                title: AppStrings.Onboarding.page3Title,
+                subtitle: AppStrings.Onboarding.page3Sub
+            )
+        ]
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,7 +65,7 @@ struct OnboardingScreen: View {
 
                 // Continue button with shimmer
                 OnboardingShimmerButton(
-                    title: currentPage == pages.count - 1 ? "Let's Get Started" : "Continue",
+                    title: currentPage == pages.count - 1 ? AppStrings.Onboarding.start : AppStrings.Onboarding.continue,
                     accentColor: pages[currentPage].accentColor,
                     showShimmer: currentPage == pages.count - 1
                 ) {
@@ -85,7 +87,7 @@ struct OnboardingScreen: View {
                         Haptics.selection()
                         onComplete()
                     }) {
-                        Text("Skip for Now")
+                        Text(AppStrings.Onboarding.skip)
                             .font(.appCaption)
                             .foregroundStyle(.secondary)
                     }

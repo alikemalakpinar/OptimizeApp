@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct ResultScreen: View {
     let result: CompressionResult
@@ -68,7 +69,7 @@ struct ResultScreen: View {
                 VStack(spacing: Spacing.sm) {
                     // Pulsing share button
                     PulsingPrimaryButton(
-                        title: "Share Now",
+                        title: AppStrings.ResultScreen.share,
                         icon: "square.and.arrow.up",
                         isPulsing: shareButtonPulse
                     ) {
@@ -76,11 +77,11 @@ struct ResultScreen: View {
                         onShare()
                     }
 
-                    SecondaryButton(title: "Save to Files", icon: "square.and.arrow.down") {
+                    SecondaryButton(title: AppStrings.ResultScreen.saveFiles, icon: "square.and.arrow.down") {
                         onSave()
                     }
 
-                    TextButton(title: "Select new file", icon: "arrow.counterclockwise") {
+                    TextButton(title: AppStrings.ResultScreen.newFile, icon: "arrow.counterclockwise") {
                         onNewFile()
                     }
                     .padding(.top, Spacing.xs)
@@ -130,6 +131,19 @@ struct ResultScreen: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             shareButtonPulse = true
         }
+
+        // Request App Store review if savings are significant (>40%)
+        if result.savingsPercent > 40 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                requestAppStoreReview()
+            }
+        }
+    }
+
+    private func requestAppStoreReview() {
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
+        }
     }
 }
 
@@ -170,11 +184,11 @@ struct EnhancedSuccessHeader: View {
 
             // Title
             VStack(spacing: Spacing.xs) {
-                Text("Great Job!")
+                Text(AppStrings.ResultScreen.greatJob)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Your file is now light as a feather")
+                Text(AppStrings.ResultScreen.featherText)
                     .font(.appBody)
                     .foregroundStyle(.secondary)
             }
@@ -209,7 +223,7 @@ struct VisualComparisonCard: View {
             VStack(spacing: Spacing.md) {
                 // Before bar
                 HStack(spacing: Spacing.sm) {
-                    Text("Before")
+                    Text(AppStrings.ResultScreen.before)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .frame(width: 50, alignment: .leading)
@@ -229,7 +243,7 @@ struct VisualComparisonCard: View {
 
                 // After bar (animated)
                 HStack(spacing: Spacing.sm) {
-                    Text("After")
+                    Text(AppStrings.ResultScreen.after)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                         .frame(width: 50, alignment: .leading)
@@ -281,7 +295,7 @@ struct EnhancedResultNumbers: View {
                     )
                 )
 
-            Text("Saved")
+            Text(AppStrings.ResultScreen.saved)
                 .font(.appTitle)
                 .foregroundStyle(.secondary)
         }
