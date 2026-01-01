@@ -91,7 +91,7 @@ struct ModernPaywallScreen: View {
                         // Cancel anytime text
                         Text(AppStrings.ModernPaywall.cancelAnytime)
                             .font(.appCaption)
-                            .foregroundStyle(.appMint)
+                            .foregroundStyle(Color.appMint)
                             .opacity(animateContent ? 1 : 0)
 
                         // Restore & Links
@@ -307,7 +307,7 @@ struct PlanOptionButton: View {
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(isSelected ? .appMint : .secondary)
+                        .foregroundStyle(isSelected ? Color.appMint : Color.secondary)
                 }
             }
             .foregroundStyle(isSelected ? .primary : .secondary)
