@@ -268,7 +268,7 @@ struct AppStrings {
     }
 
     // MARK: - Error Messages
-    enum Error {
+    enum ErrorMessage {
         static var generic: String { String(localized: "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.", comment: "Error: Generic") }
         static var accessDenied: String { String(localized: "Dosya erişimi reddedildi. Lütfen dosyayı tekrar seçin.", comment: "Error: Access Denied") }
         static var invalidPDF: String { String(localized: "Geçersiz veya bozuk PDF dosyası. Dosyanın hasarlı olmadığından emin olun.", comment: "Error: Invalid PDF") }

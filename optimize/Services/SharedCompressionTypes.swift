@@ -29,35 +29,35 @@ enum CompressionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessDenied:
-            return AppStrings.Error.accessDenied
+            return AppStrings.ErrorMessage.accessDenied
         case .invalidPDF:
-            return AppStrings.Error.invalidPDF
+            return AppStrings.ErrorMessage.invalidPDF
         case .invalidFile:
-            return AppStrings.Error.invalidFile
+            return AppStrings.ErrorMessage.invalidFile
         case .emptyPDF:
-            return AppStrings.Error.emptyPDF
+            return AppStrings.ErrorMessage.emptyPDF
         case .encryptedPDF:
-            return AppStrings.Error.encryptedPDF
+            return AppStrings.ErrorMessage.encryptedPDF
         case .contextCreationFailed:
-            return AppStrings.Error.contextFailed
+            return AppStrings.ErrorMessage.contextFailed
         case .saveFailed:
-            return AppStrings.Error.saveFailed
+            return AppStrings.ErrorMessage.saveFailed
         case .cancelled:
-            return AppStrings.Error.cancelled
+            return AppStrings.ErrorMessage.cancelled
         case .memoryPressure:
-            return AppStrings.Error.memoryPressure
+            return AppStrings.ErrorMessage.memoryPressure
         case .fileTooLarge:
-            return AppStrings.Error.fileTooLarge
+            return AppStrings.ErrorMessage.fileTooLarge
         case .pageProcessingFailed:
-            return AppStrings.Error.pageFailed
+            return AppStrings.ErrorMessage.pageFailed
         case .timeout:
-            return AppStrings.Error.timeout
+            return AppStrings.ErrorMessage.timeout
         case .exportFailed:
-            return AppStrings.Error.exportFailed
+            return AppStrings.ErrorMessage.exportFailed
         case .unsupportedType:
-            return AppStrings.Error.unsupportedType
+            return AppStrings.ErrorMessage.unsupportedType
         case .unknown:
-            return AppStrings.Error.generic
+            return AppStrings.ErrorMessage.generic
         }
     }
 }
