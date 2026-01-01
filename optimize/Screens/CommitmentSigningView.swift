@@ -80,7 +80,7 @@ struct CommitmentSigningView: View {
                 }) {
                     Text(AppStrings.Onboarding.continue)
                         .font(.appBodyMedium)
-                        .foregroundStyle(.appAccent)
+                        .foregroundStyle(Color.appAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .background(Color.white)
@@ -137,7 +137,7 @@ struct CommitmentRow: View {
                     if item.isChecked {
                         Image(systemName: "checkmark")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.appAccent)
+                            .foregroundStyle(Color.appAccent)
                     }
                 }
 
