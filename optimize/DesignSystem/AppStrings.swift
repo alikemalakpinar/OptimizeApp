@@ -270,28 +270,47 @@ struct AppStrings {
     // MARK: - Modern Paywall
     enum ModernPaywall {
         static var premiumTitle: String { String(localized: "Optimize Premium", comment: "Modern Paywall: Title") }
-        static var featureTitle: String { String(localized: "Sınırsız Sıkıştırma", comment: "Modern Paywall: Feature Title") }
-        static var featureDescription: String { String(localized: "Dosyalarını özgürce sıkıştır ve paylaş.", comment: "Modern Paywall: Feature Description") }
+        static var featureTitle: String { String(localized: "Sınırsız Erişimi Aç", comment: "Modern Paywall: Feature Title") }
+        static var featureDescription: String { String(localized: "Dosya boyutu limiti yok. Reklam yok.\nEn hızlı sıkıştırma.", comment: "Modern Paywall: Feature Description") }
         static var unlimitedBadge: String { String(localized: "Sınırsız", comment: "Modern Paywall: Unlimited Badge") }
 
-        static var monthlyTitle: String { String(localized: "Aylık", comment: "Modern Paywall: Monthly Title") }
-        static var monthlySubtitle: String { String(localized: "Esneklik ve kontrol için en iyisi", comment: "Modern Paywall: Monthly Subtitle") }
+        // Weekly Plan (low barrier entry)
+        static var weeklyTitle: String { String(localized: "Haftalık", comment: "Modern Paywall: Weekly Title") }
+        static var weeklySubtitle: String { String(localized: "İstediğin zaman iptal et", comment: "Modern Paywall: Weekly Subtitle") }
+        static var weeklyPrice: String { String(localized: "₺29,99", comment: "Modern Paywall: Weekly Price") }
+        static var weeklyPriceUS: String { String(localized: "$1.99", comment: "Modern Paywall: Weekly Price US") }
+
+        // Yearly Plan (best value - anchor pricing)
         static var yearlyTitle: String { String(localized: "Yıllık", comment: "Modern Paywall: Yearly Title") }
-        static var yearlySubtitle: String { String(localized: "En iyi değer, %58 tasarruf", comment: "Modern Paywall: Yearly Subtitle") }
+        static var yearlySubtitle: String { String(localized: "₺7,69 / hafta", comment: "Modern Paywall: Yearly Subtitle") }
+        static var yearlySubtitleUS: String { String(localized: "$0.38 / week", comment: "Modern Paywall: Yearly Subtitle US") }
+        static var yearlyPrice: String { String(localized: "₺399,99", comment: "Modern Paywall: Yearly Price") }
+        static var yearlyPriceUS: String { String(localized: "$19.99", comment: "Modern Paywall: Yearly Price US") }
+        static var yearlySavings: String { String(localized: "%75 TASARRUF", comment: "Modern Paywall: Yearly Savings Badge") }
+        static var yearlySavingsUS: String { String(localized: "80% OFF", comment: "Modern Paywall: Yearly Savings Badge US") }
 
         static var popularBadge: String { String(localized: "POPÜLER", comment: "Modern Paywall: Popular Badge") }
+        static var bestValueBadge: String { String(localized: "EN İYİ DEĞER", comment: "Modern Paywall: Best Value Badge") }
 
-        static var feature1: String { String(localized: "Kullandıkça öde", comment: "Modern Paywall: Feature 1") }
-        static var feature2: String { String(localized: "Düzenli kullanıcılar için ideal", comment: "Modern Paywall: Feature 2") }
-        static var feature3: String { String(localized: "İstediğin zaman durdur veya iptal et", comment: "Modern Paywall: Feature 3") }
+        // Features for paywall
+        static var feature1: String { String(localized: "Sınırsız dosya sıkıştırma", comment: "Modern Paywall: Feature 1") }
+        static var feature2: String { String(localized: "1 GB'a kadar büyük dosyalar", comment: "Modern Paywall: Feature 2") }
+        static var feature3: String { String(localized: "Reklamsız, temiz arayüz", comment: "Modern Paywall: Feature 3") }
+        static var feature4: String { String(localized: "Öncelikli sıkıştırma motoru", comment: "Modern Paywall: Feature 4") }
 
-        static var monthlyPrice: String { String(localized: "₺24,99/hafta", comment: "Modern Paywall: Monthly Price") }
-        static var monthlyBilled: String { String(localized: "Aylık ₺99,99 faturalandırılır", comment: "Modern Paywall: Monthly Billed") }
-        static var yearlyPrice: String { String(localized: "₺14,99/hafta", comment: "Modern Paywall: Yearly Price") }
-        static var yearlyBilled: String { String(localized: "Yıllık ₺779,99 faturalandırılır", comment: "Modern Paywall: Yearly Billed") }
+        // Legacy - keeping for compatibility
+        static var monthlyTitle: String { String(localized: "Aylık", comment: "Modern Paywall: Monthly Title") }
+        static var monthlySubtitle: String { String(localized: "Esneklik ve kontrol için en iyisi", comment: "Modern Paywall: Monthly Subtitle") }
+        static var monthlyPrice: String { String(localized: "₺29,99/hafta", comment: "Modern Paywall: Monthly Price") }
+        static var monthlyBilled: String { String(localized: "Haftalık faturalandırılır", comment: "Modern Paywall: Monthly Billed") }
+        static var yearlyBilled: String { String(localized: "Yıllık faturalandırılır", comment: "Modern Paywall: Yearly Billed") }
 
-        static var tryFree: String { String(localized: "1 Hafta Ücretsiz Dene", comment: "Modern Paywall: Try Free Button") }
+        static var tryFree: String { String(localized: "Devam Et", comment: "Modern Paywall: Try Free Button") }
+        static var startTrial: String { String(localized: "1 Hafta Ücretsiz Dene", comment: "Modern Paywall: Start Trial Button") }
         static var cancelAnytime: String { String(localized: "İstediğin zaman iptal et. Soru sorulmaz.", comment: "Modern Paywall: Cancel Anytime") }
+
+        // Social proof
+        static var userCount: String { String(localized: "+100.000 kullanıcı", comment: "Modern Paywall: User Count") }
     }
 
     // MARK: - Commitment Signing
