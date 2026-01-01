@@ -5,10 +5,31 @@
 //  Central place for handling free/pro logic, usage limits and paywall context
 //  UPDATED: StoreKit 2 integration for real In-App Purchases
 //
+//  SECURITY ENHANCEMENT:
+//  - Real-time entitlement verification for critical operations
+//  - Reduces reliance on UserDefaults cache (vulnerable to manipulation)
+//  - Verifies subscription status with StoreKit before premium features
+//
 
 import Combine
 import Foundation
 import StoreKit
+
+// MARK: - Subscription Manager Protocol (Dependency Injection)
+
+/// Protocol for subscription management - enables testability and mocking
+protocol SubscriptionManagerProtocol: AnyObject {
+    var status: SubscriptionStatus { get }
+    var products: [Product] { get }
+
+    func paywallContext(for file: FileInfo, preset: CompressionPreset?) -> PaywallContext?
+    func recordSuccessfulCompression()
+    func purchase(plan: SubscriptionPlan) async throws
+    func restore() async
+
+    /// SECURITY: Verify entitlement in real-time before critical operations
+    func verifyEntitlementForCriticalOperation() async -> Bool
+}
 
 // MARK: - Paywall Context
 struct PaywallContext: Equatable {
@@ -32,8 +53,14 @@ struct PaywallContext: Equatable {
 
 // MARK: - Subscription Manager
 @MainActor
-final class SubscriptionManager: ObservableObject {
+final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     static let shared = SubscriptionManager()
+
+    // MARK: - Real-time Verification Cache
+    /// Last verification timestamp to avoid excessive StoreKit calls
+    private var lastVerificationTime: Date?
+    private var lastVerificationResult: Bool = false
+    private let verificationCacheDuration: TimeInterval = 60 // 1 minute cache
 
     // Published status for UI
     @Published private(set) var status: SubscriptionStatus
@@ -323,6 +350,75 @@ final class SubscriptionManager: ObservableObject {
         status = SubscriptionStatus.free
         UserDefaults.standard.set(SubscriptionPlan.free.rawValue, forKey: planKey)
         persistUsage()
+    }
+
+    // MARK: - Real-time Entitlement Verification (Security Critical)
+
+    /// Verifies subscription status in real-time before critical operations
+    /// This prevents bypass attacks via UserDefaults manipulation
+    ///
+    /// SECURITY: Always call this before:
+    /// - Starting compression of large files
+    /// - Using Pro-only presets
+    /// - Any premium feature access
+    ///
+    /// Uses a short cache (60 seconds) to balance security with performance
+    func verifyEntitlementForCriticalOperation() async -> Bool {
+        // Check cache first to avoid excessive StoreKit calls
+        if let lastTime = lastVerificationTime,
+           Date().timeIntervalSince(lastTime) < verificationCacheDuration {
+            return lastVerificationResult
+        }
+
+        // Real-time verification with StoreKit
+        var hasActiveSubscription = false
+
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                if productIds.contains(transaction.productID) {
+                    if transaction.revocationDate == nil {
+                        hasActiveSubscription = true
+                        break
+                    }
+                }
+            }
+        }
+
+        // Update cache
+        lastVerificationTime = Date()
+        lastVerificationResult = hasActiveSubscription
+
+        // Sync UI state if there's a mismatch (e.g., subscription expired)
+        if hasActiveSubscription != status.isPro {
+            await updateSubscriptionStatus()
+        }
+
+        return hasActiveSubscription
+    }
+
+    /// Checks if user can perform a specific operation with real-time verification
+    /// Returns true if user is Pro OR has remaining free usage
+    func canPerformOperation(file: FileInfo, preset: CompressionPreset?) async -> Bool {
+        // Free users: check daily limit
+        if !status.isPro {
+            refreshDailyUsage(lastDate: UserDefaults.standard.object(forKey: lastUsageDateKey) as? Date)
+
+            // Check file size limit for free users
+            if file.sizeMB > freeMaxFileSizeMB {
+                return false
+            }
+
+            // Check Pro-only preset
+            if let preset, preset.isProOnly {
+                return false
+            }
+
+            // Check daily limit
+            return status.dailyUsageCount < freeDailyLimit
+        }
+
+        // Pro users: verify subscription is still active
+        return await verifyEntitlementForCriticalOperation()
     }
 
     // MARK: - Helpers

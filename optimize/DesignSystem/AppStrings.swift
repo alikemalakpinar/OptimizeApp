@@ -210,6 +210,19 @@ struct AppStrings {
         static var storageTitle: String { String(localized: "Depolama Alanın", comment: "Empty: Title") }
         static var storageSubtitle: String { String(localized: "Rahatlamak İstiyor", comment: "Empty: Subtitle") }
         static var storageBody: String { String(localized: "İlk dosyanı seç ve sihri başlat", comment: "Empty: Body") }
+
+        // Membership Status Card (moved from hardcoded)
+        static var proActive: String { String(localized: "Pro aktif", comment: "Membership: Pro active") }
+        static var freePlan: String { String(localized: "Ücretsiz plan", comment: "Membership: Free plan") }
+        static var proDescription: String { String(localized: "Reklamsız, sınırsız ve profesyonel sıkıştırma açık.", comment: "Membership: Pro description") }
+        static func freeDescription(_ remaining: Int) -> String {
+            String(localized: "Reklam yok. Bugün \(remaining) ücretsiz kullanım hakkın kaldı.", comment: "Membership: Free description")
+        }
+        static var noAds: String { String(localized: "Reklamsız", comment: "Capability: No ads") }
+        static var smartProfile: String { String(localized: "Akıllı profil", comment: "Capability: Smart profile") }
+        static var allFiles: String { String(localized: "Tüm dosyalar", comment: "Capability: All files") }
+        static var upgradeToPro: String { String(localized: "Pro'ya yükselt", comment: "Button: Upgrade to Pro") }
+        static var unlimitedDescription: String { String(localized: "Sınırsız optimizasyon, özel hedef boyutlar ve öncelikli işlem hazır.", comment: "Membership: Unlimited description") }
     }
 
     // MARK: - Settings Screen
