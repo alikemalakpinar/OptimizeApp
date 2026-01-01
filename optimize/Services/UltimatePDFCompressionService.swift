@@ -522,25 +522,32 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         for pageIndex in 0..<pageCount {
             try Task.checkCancellation()
 
-            try await autoreleasepool {
-                // Render page to image
-                guard let page = document.page(at: pageIndex) else { return }
-                let pageImage = renderPageToImage(page, config: config)
+            // Step 1: Render page to image (synchronous, in autoreleasepool for memory)
+            let (pageImage, pageRect): (UIImage, CGRect) = autoreleasepool {
+                guard let page = document.page(at: pageIndex) else {
+                    return (UIImage(), .zero)
+                }
+                let image = renderPageToImage(page, config: config)
+                let rect = page.bounds(for: .mediaBox)
+                return (image, rect)
+            }
 
-                guard pageImage.size.width > 0 && pageImage.size.height > 0 else { return }
+            guard pageImage.size.width > 0 && pageImage.size.height > 0 else { continue }
 
-                let pageRect = page.bounds(for: .mediaBox)
-                var mediaBox = CGRect(origin: .zero, size: pageRect.size)
+            var mediaBox = CGRect(origin: .zero, size: pageRect.size)
 
-                // Apply TRUE MRC processing - get separate layers
-                if let mrcResult = await mrcEngineRef.processPageWithLayers(image: pageImage) {
+            // Step 2: Process with MRC (async operation, outside autoreleasepool)
+            let mrcResult = await mrcEngineRef.processPageWithLayers(image: pageImage)
+
+            // Step 3: Write to PDF context (synchronous, in autoreleasepool)
+            autoreleasepool {
+                if let mrcResult = mrcResult {
                     // TRUE MRC: Draw background first, then overlay text mask
                     pdfContext.beginPage(mediaBox: &mediaBox)
 
                     // Layer 1: Background (low-quality JPEG - colors and textures)
                     if let backgroundCG = mrcResult.background.cgImage {
                         pdfContext.saveGState()
-                        // Flip for correct orientation
                         pdfContext.translateBy(x: 0, y: mediaBox.height)
                         pdfContext.scaleBy(x: 1, y: -1)
                         pdfContext.draw(backgroundCG, in: mediaBox)
@@ -548,12 +555,10 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                     }
 
                     // Layer 2: Foreground text mask (overlay with multiply blend)
-                    // Only if significant text detected
                     if mrcResult.hasSignificantText, let maskCG = mrcResult.foregroundMask.cgImage {
                         pdfContext.saveGState()
                         pdfContext.translateBy(x: 0, y: mediaBox.height)
                         pdfContext.scaleBy(x: 1, y: -1)
-                        // Use multiply blend mode for text overlay
                         pdfContext.setBlendMode(.multiply)
                         pdfContext.draw(maskCG, in: mediaBox)
                         pdfContext.restoreGState()
