@@ -4,6 +4,12 @@
 //
 //  Main navigation coordinator with real file operations
 //
+//  REFACTORED (MVVM-C Architecture):
+//  - Business logic extracted to dedicated ViewModels
+//  - Coordinator now focuses on navigation and view coordination
+//  - ViewModels handle: analysis, compression, result operations
+//  - This reduces the "God Object" anti-pattern
+//
 
 import SwiftUI
 import UniformTypeIdentifiers
@@ -50,9 +56,21 @@ enum AppScreen: Equatable {
 
 // MARK: - App Coordinator
 /// Main navigation coordinator with dependency injection support
-/// REFACTORED: Now accepts injectable services for testability
+///
+/// REFACTORED (MVVM-C Architecture):
+/// - Business logic extracted to AnalyzeViewModel, CompressionViewModel, ResultViewModel
+/// - Coordinator now focuses on navigation and sheet/alert coordination
+/// - This reduces the "God Object" anti-pattern identified in code review
+///
+/// Coordinator Responsibilities:
+/// 1. Screen navigation (currentScreen state)
+/// 2. Sheet/alert presentation (paywall, document picker, share, etc.)
+/// 3. Coordinating ViewModels and connecting their callbacks to navigation
+/// 4. Providing services to views
 @MainActor
 class AppCoordinator: ObservableObject {
+    // MARK: - Navigation State
+
     @Published var currentScreen: AppScreen = .splash
     @Published var showPaywall = false
     @Published var showModernPaywall = false
@@ -64,7 +82,7 @@ class AppCoordinator: ObservableObject {
     @Published var errorTitle = ""
     @Published var paywallContext: PaywallContext?
 
-    // Current processing data
+    // Current processing data (forwarded from ViewModels)
     @Published var currentFile: FileInfo?
     @Published var currentAnalysis: AnalysisResult?
     @Published var currentResult: CompressionResult?
@@ -75,6 +93,37 @@ class AppCoordinator: ObservableObject {
     @Published var lastError: Error?
     private var retryCount = 0
     private let maxRetries = 2
+
+    // MARK: - ViewModels (MVVM-C Architecture)
+
+    /// ViewModel for file analysis operations
+    private(set) lazy var analyzeViewModel: AnalyzeViewModel = {
+        let vm = AnalyzeViewModel(
+            compressionService: compressionService,
+            analytics: analytics
+        )
+        setupAnalyzeViewModelCallbacks(vm)
+        return vm
+    }()
+
+    /// ViewModel for compression operations
+    private(set) lazy var compressionViewModel: CompressionViewModel = {
+        let vm = CompressionViewModel(
+            service: compressionService,
+            historyManager: historyManager,
+            subscriptionManager: subscriptionManager,
+            analytics: analytics
+        )
+        setupCompressionViewModelCallbacks(vm)
+        return vm
+    }()
+
+    /// ViewModel for result screen operations
+    private(set) lazy var resultViewModel: ResultViewModel = {
+        let vm = ResultViewModel(analytics: analytics)
+        setupResultViewModelCallbacks(vm)
+        return vm
+    }()
 
     // MARK: - Injectable Services (Dependency Injection)
 
@@ -136,6 +185,73 @@ class AppCoordinator: ObservableObject {
                 self?.subscriptionStatus = status
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - ViewModel Callback Setup
+
+    private func setupAnalyzeViewModelCallbacks(_ vm: AnalyzeViewModel) {
+        vm.onAnalysisCompleted = { [weak self] file, result in
+            self?.currentAnalysis = result
+        }
+
+        vm.onAnalysisFailed = { [weak self] error in
+            self?.analytics.trackError(error, context: "file_analysis")
+        }
+    }
+
+    private func setupCompressionViewModelCallbacks(_ vm: CompressionViewModel) {
+        vm.onCompressionCompleted = { [weak self] result in
+            guard let self = self else { return }
+            self.currentResult = result
+            self.retryCount = 0
+
+            // Check if commitment screen should be shown
+            if self.shouldShowCommitmentAfterCompression {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(AppAnimation.standard) {
+                        self.currentScreen = .commitment
+                    }
+                }
+            }
+
+            withAnimation(AppAnimation.standard) {
+                self.currentScreen = .result(result)
+            }
+        }
+
+        vm.onRetryAvailable = { [weak self] error in
+            self?.lastError = error
+            self?.showRetryAlert = true
+        }
+
+        vm.onCompressionFailed = { [weak self] error in
+            guard let self = self else { return }
+            self.retryCount = 0
+            let userError = UserFriendlyError(error)
+            self.showError(title: userError.title, message: userError.fullMessage)
+            self.goHome()
+        }
+
+        vm.onCancelled = { [weak self] in
+            self?.goHome()
+        }
+    }
+
+    private func setupResultViewModelCallbacks(_ vm: ResultViewModel) {
+        vm.onShouldShowCommitment = { [weak self] in
+            guard let self = self else { return }
+            withAnimation(AppAnimation.standard) {
+                self.currentScreen = .commitment
+            }
+        }
+
+        vm.onShare = { [weak self] _ in
+            self?.showShareSheet = true
+        }
+
+        vm.onSave = { [weak self] _ in
+            self?.showFileSaver = true
+        }
     }
 
     var hasSeenOnboarding: Bool {
@@ -229,10 +345,8 @@ class AppCoordinator: ObservableObject {
                     currentScreen = .analyze(fileInfo)
                 }
 
-                // Start analysis
-                analytics.track(.fileAnalysisStarted)
-                await performAnalysis(for: fileInfo)
-                analytics.track(.fileAnalysisCompleted)
+                // REFACTORED: Delegate analysis to AnalyzeViewModel
+                await analyzeViewModel.analyze(file: fileInfo)
             } catch {
                 analytics.trackError(error, context: "file_selection")
                 let userError = UserFriendlyError(error)
@@ -241,21 +355,10 @@ class AppCoordinator: ObservableObject {
         }
     }
 
+    /// Legacy method - kept for backward compatibility
+    /// New code should use analyzeViewModel.analyze() directly
     func performAnalysis(for file: FileInfo) async {
-        do {
-            let result = try await compressionService.analyze(file: file)
-            currentAnalysis = result
-        } catch {
-            // Use default analysis on error
-            currentAnalysis = AnalysisResult(
-                pageCount: file.pageCount ?? 1,
-                imageCount: 0,
-                imageDensity: .medium,
-                estimatedSavings: .medium,
-                isAlreadyOptimized: false,
-                originalDPI: nil
-            )
-        }
+        await analyzeViewModel.analyze(file: file)
     }
 
     func analyzeComplete() {
@@ -274,13 +377,6 @@ class AppCoordinator: ObservableObject {
             return
         }
 
-        // Track preset selection and compression start
-        analytics.trackPresetSelected(presetId: preset.id, isCustom: preset.quality == .custom)
-        analytics.track(.compressionStarted, parameters: [
-            "preset_id": preset.id,
-            "file_size_mb": file.sizeMB
-        ])
-
         // Reset observable progress state so the progress screen is accurate immediately
         compressionService.prepareForNewTask()
 
@@ -288,125 +384,21 @@ class AppCoordinator: ObservableObject {
             currentScreen = .progress(file, preset)
         }
 
-        // Start actual compression
+        // REFACTORED: Delegate compression to CompressionViewModel
         Task {
-            await performCompression(file: file, preset: preset)
+            await compressionViewModel.compress(file: file, preset: preset)
         }
     }
 
+    /// Legacy method - kept for backward compatibility
+    /// New code should use compressionViewModel.compress() directly
     func performCompression(file: FileInfo, preset: CompressionPreset) async {
-        // Check for extremely large files (500+ pages)
-        if let pageCount = file.pageCount, pageCount > 500 {
-            let error = CompressionError.fileTooLarge
-            lastError = error
-            analytics.trackCompressionFailed(error: error, presetId: preset.id)
-            showError(message: error.errorDescription ?? "File too large")
-            goHome()
-            return
-        }
-
-        do {
-            let outputURL = try await compressionService.compressFile(
-                at: file.url,
-                preset: preset
-            ) { stage, progress in
-                // Progress updates handled by service
-            }
-
-            // Get compressed file size
-            let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            let compressedSize = attributes[.size] as? Int64 ?? 0
-
-            let result = CompressionResult(
-                originalFile: file,
-                compressedURL: outputURL,
-                compressedSize: compressedSize
-            )
-
-            currentResult = result
-            retryCount = 0 // Reset retry count on success
-
-            // Track compression success
-            analytics.trackCompressionCompleted(
-                originalSize: file.size,
-                compressedSize: result.compressedSize,
-                savingsPercent: result.savingsPercent,
-                presetId: preset.id,
-                duration: 0 // Could track actual duration if needed
-            )
-
-            // Add to history
-            historyManager.addFromResult(result, presetId: preset.id)
-            subscriptionManager.recordSuccessfulCompression()
-
-            // Smart Review Prompt: Ask for review at optimal moments
-            requestReviewIfAppropriate(savingsPercent: result.savingsPercent)
-
-            withAnimation(AppAnimation.standard) {
-                currentScreen = .result(result)
-            }
-
-            // UX IMPROVEMENT: Show commitment screen after first successful compression
-            // This is better than showing it immediately after onboarding because:
-            // 1. User has now experienced the app's value
-            // 2. They're more likely to engage with commitment
-            // 3. Reduces perceived "dark patterns"
-            if shouldShowCommitmentAfterCompression {
-                // Delay to let result screen render first
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                    guard let self = self else { return }
-                    withAnimation(AppAnimation.standard) {
-                        self.currentScreen = .commitment
-                    }
-                }
-            }
-        } catch let compressionError as CompressionError {
-            lastError = compressionError
-            analytics.trackCompressionFailed(error: compressionError, presetId: preset.id)
-
-            let userError = UserFriendlyError(compressionError)
-
-            if retryCount < maxRetries && userError.isRetryable {
-                showRetryAlert = true
-            } else {
-                retryCount = 0
-                showError(title: userError.title, message: userError.fullMessage)
-                goHome()
-            }
-        } catch {
-            lastError = error
-            analytics.trackCompressionFailed(error: error, presetId: preset.id)
-
-            let userError = UserFriendlyError(error)
-
-            if retryCount < maxRetries && userError.isRetryable {
-                showRetryAlert = true
-            } else {
-                retryCount = 0
-                showError(title: userError.title, message: userError.fullMessage)
-                goHome()
-            }
-        }
-    }
-
-    /// Determines if retry should be allowed for specific error types
-    private func shouldAllowRetry(for error: CompressionError) -> Bool {
-        switch error {
-        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType:
-            // These errors won't be fixed by retry
-            return false
-        case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled, .exportFailed:
-            // These might be fixed by retry
-            return true
-        }
+        await compressionViewModel.compress(file: file, preset: preset)
     }
 
     func retryCompression() {
         guard let file = currentFile, let preset = selectedPreset else { return }
-        retryCount += 1
         showRetryAlert = false
-
-        analytics.track(.compressionRetried, parameters: ["retry_count": retryCount])
 
         compressionService.prepareForNewTask()
 
@@ -414,8 +406,9 @@ class AppCoordinator: ObservableObject {
             currentScreen = .progress(file, preset)
         }
 
+        // REFACTORED: Delegate retry to CompressionViewModel
         Task {
-            await performCompression(file: file, preset: preset)
+            await compressionViewModel.retry()
         }
     }
 
@@ -426,15 +419,17 @@ class AppCoordinator: ObservableObject {
     }
 
     func shareResult() {
-        guard currentResult != nil else { return }
-        analytics.track(.fileShared)
-        showShareSheet = true
+        guard let result = currentResult else { return }
+        // REFACTORED: Use ResultViewModel for share logic
+        resultViewModel.setResult(result)
+        resultViewModel.share()
     }
 
     func saveResult() {
-        guard currentResult != nil else { return }
-        analytics.track(.fileSaved)
-        showFileSaver = true
+        guard let result = currentResult else { return }
+        // REFACTORED: Use ResultViewModel for save logic
+        resultViewModel.setResult(result)
+        resultViewModel.save()
     }
 
     func openHistory() {

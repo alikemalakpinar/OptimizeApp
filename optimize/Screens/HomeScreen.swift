@@ -157,15 +157,20 @@ struct HomeScreen: View {
 // MARK: - Breathing CTA Card
 /// CTA card with breathing animation effect
 /// ACCESSIBILITY: Respects reduceMotion preference - disables animations when enabled
+/// PERFORMANCE: Pauses animation when app goes to background (saves CPU)
 struct BreathingCTACard: View {
     let isDropTargeted: Bool
     let onTap: () -> Void
 
     @State private var breathScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.3
+    @State private var isAnimating: Bool = false
 
     /// Accessibility: Check if user prefers reduced motion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Scene phase for pausing animations in background
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Button(action: onTap) {
@@ -229,29 +234,54 @@ struct BreathingCTACard: View {
         }
         .buttonStyle(.pressable)
         .onAppear {
-            // Only start animation if reduceMotion is off
-            if !reduceMotion {
+            // Only start animation if reduceMotion is off and app is active
+            if !reduceMotion && scenePhase == .active {
                 startBreathingAnimation()
             }
         }
         .onChange(of: reduceMotion) { _, newValue in
             // Stop animation if user enables reduceMotion
             if newValue {
-                breathScale = 1.0
-                ringOpacity = 0.3
-            } else {
+                stopBreathingAnimation()
+            } else if scenePhase == .active {
                 startBreathingAnimation()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // PERFORMANCE: Pause animation when app goes to background
+            // This prevents unnecessary CPU usage
+            switch newPhase {
+            case .active:
+                if !reduceMotion && !isAnimating {
+                    startBreathingAnimation()
+                }
+            case .inactive, .background:
+                stopBreathingAnimation()
+            @unknown default:
+                break
             }
         }
     }
 
     private func startBreathingAnimation() {
+        guard !isAnimating else { return }
+        isAnimating = true
+
         withAnimation(
             .easeInOut(duration: 2.5)
             .repeatForever(autoreverses: true)
         ) {
             breathScale = 1.08
             ringOpacity = 0.5
+        }
+    }
+
+    private func stopBreathingAnimation() {
+        isAnimating = false
+
+        withAnimation(.easeOut(duration: 0.3)) {
+            breathScale = 1.0
+            ringOpacity = 0.3
         }
     }
 }
@@ -347,11 +377,16 @@ struct HighlightCard: View {
 // MARK: - Empty History State
 /// Empty state view with floating animation
 /// ACCESSIBILITY: Respects reduceMotion preference
+/// PERFORMANCE: Pauses animation when app goes to background
 struct EmptyHistoryState: View {
     @State private var floatOffset: CGFloat = 0
+    @State private var isAnimating: Bool = false
 
     /// Accessibility: Check if user prefers reduced motion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Scene phase for pausing animations in background
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -433,14 +468,43 @@ struct EmptyHistoryState: View {
         }
         .padding(.vertical, Spacing.xl)
         .onAppear {
-            // Only animate if reduceMotion is off
-            guard !reduceMotion else { return }
-            withAnimation(
-                .easeInOut(duration: 2.0)
-                .repeatForever(autoreverses: true)
-            ) {
-                floatOffset = -8
+            // Only animate if reduceMotion is off and app is active
+            if !reduceMotion && scenePhase == .active {
+                startFloatingAnimation()
             }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // PERFORMANCE: Pause animation when app goes to background
+            switch newPhase {
+            case .active:
+                if !reduceMotion && !isAnimating {
+                    startFloatingAnimation()
+                }
+            case .inactive, .background:
+                stopFloatingAnimation()
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    private func startFloatingAnimation() {
+        guard !isAnimating else { return }
+        isAnimating = true
+
+        withAnimation(
+            .easeInOut(duration: 2.0)
+            .repeatForever(autoreverses: true)
+        ) {
+            floatOffset = -8
+        }
+    }
+
+    private func stopFloatingAnimation() {
+        isAnimating = false
+
+        withAnimation(.easeOut(duration: 0.3)) {
+            floatOffset = 0
         }
     }
 }

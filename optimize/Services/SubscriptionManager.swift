@@ -7,13 +7,15 @@
 //
 //  SECURITY ENHANCEMENT:
 //  - Real-time entitlement verification for critical operations
-//  - Reduces reliance on UserDefaults cache (vulnerable to manipulation)
+//  - Critical counters (dailyUsageCount, firstInstallDate) stored in Keychain
+//  - Keychain data persists across app reinstalls (prevents limit reset exploits)
 //  - Verifies subscription status with StoreKit before premium features
 //
 
 import Combine
 import Foundation
 import StoreKit
+import Security
 
 // MARK: - Subscription Manager Protocol (Dependency Injection)
 
@@ -75,21 +77,40 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
     // Storage keys
     private let planKey = "subscription.plan"
-    private let dailyCountKey = "subscription.daily.count"
-    private let lastUsageDateKey = "subscription.daily.date"
+
+    // SECURITY: These keys are stored in Keychain (not UserDefaults)
+    // Keychain persists across reinstalls, preventing limit reset exploits
+    private let dailyCountKey = "secure.subscription.daily.count"
+    private let lastUsageDateKey = "secure.subscription.daily.date"
+    private let firstInstallDateKey = "secure.subscription.first.install"
 
     // Free-plan limits
     private let freeMaxFileSizeMB: Double = 50
     private let freeDailyLimit: Int = 1
 
+    // SECURITY: Secure storage for critical counters
+    private let secureStorage: SecureStorageProtocol
+
     // Transaction listener task
     private var transactionListener: Task<Void, Error>?
 
-    private init() {
+    private init(secureStorage: SecureStorageProtocol = KeychainStorage.shared) {
+        self.secureStorage = secureStorage
+
+        // SECURITY: Migrate existing UserDefaults data to Keychain (one-time)
+        Self.migrateToSecureStorage(secureStorage: secureStorage)
+
         let storedPlan = UserDefaults.standard.string(forKey: planKey)
         let plan = SubscriptionPlan(rawValue: storedPlan ?? "") ?? .free
-        let dailyCount = UserDefaults.standard.integer(forKey: dailyCountKey)
-        let lastDate = UserDefaults.standard.object(forKey: lastUsageDateKey) as? Date
+
+        // SECURITY: Read daily count from Keychain (persists across reinstalls)
+        let dailyCount = secureStorage.getInt(forKey: dailyCountKey) ?? 0
+        let lastDate = secureStorage.getDate(forKey: lastUsageDateKey)
+
+        // Record first install date if not already set
+        if !secureStorage.contains(key: firstInstallDateKey) {
+            secureStorage.set(Date(), forKey: firstInstallDateKey)
+        }
 
         status = SubscriptionStatus(
             plan: plan,
@@ -108,6 +129,27 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         Task {
             await loadProducts()
             await updateSubscriptionStatus()
+        }
+    }
+
+    // MARK: - Migration from UserDefaults to Keychain
+
+    /// One-time migration of sensitive data from UserDefaults to Keychain
+    private static func migrateToSecureStorage(secureStorage: SecureStorageProtocol) {
+        let defaults = UserDefaults.standard
+
+        // Migrate daily count
+        let oldDailyKey = "subscription.daily.count"
+        if let oldCount = defaults.object(forKey: oldDailyKey) as? Int {
+            secureStorage.set(oldCount, forKey: "secure.subscription.daily.count")
+            defaults.removeObject(forKey: oldDailyKey)
+        }
+
+        // Migrate last usage date
+        let oldDateKey = "subscription.daily.date"
+        if let oldDate = defaults.object(forKey: oldDateKey) as? Date {
+            secureStorage.set(oldDate, forKey: "secure.subscription.daily.date")
+            defaults.removeObject(forKey: oldDateKey)
         }
     }
 
@@ -265,7 +307,8 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
     // MARK: - Public API
     func paywallContext(for file: FileInfo, preset: CompressionPreset? = nil) -> PaywallContext? {
-        refreshDailyUsage(lastDate: UserDefaults.standard.object(forKey: lastUsageDateKey) as? Date)
+        // SECURITY: Read last usage date from Keychain
+        refreshDailyUsage(lastDate: secureStorage.getDate(forKey: lastUsageDateKey))
 
         guard !status.isPro else { return nil }
 
@@ -401,7 +444,8 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     func canPerformOperation(file: FileInfo, preset: CompressionPreset?) async -> Bool {
         // Free users: check daily limit
         if !status.isPro {
-            refreshDailyUsage(lastDate: UserDefaults.standard.object(forKey: lastUsageDateKey) as? Date)
+            // SECURITY: Read last usage date from Keychain
+            refreshDailyUsage(lastDate: secureStorage.getDate(forKey: lastUsageDateKey))
 
             // Check file size limit for free users
             if file.sizeMB > freeMaxFileSizeMB {
@@ -440,9 +484,11 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         }
     }
 
+    /// SECURITY: Persist usage data to Keychain (not UserDefaults)
+    /// Keychain data survives app reinstalls, preventing limit bypass
     private func persistUsage() {
-        UserDefaults.standard.set(status.dailyUsageCount, forKey: dailyCountKey)
-        UserDefaults.standard.set(Date(), forKey: lastUsageDateKey)
+        secureStorage.set(status.dailyUsageCount, forKey: dailyCountKey)
+        secureStorage.set(Date(), forKey: lastUsageDateKey)
     }
 }
 
