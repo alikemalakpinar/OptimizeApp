@@ -280,35 +280,39 @@ final class UltimatePDFCompressionService: ObservableObject {
         for pageIndex in 0..<pageCount {
             try Task.checkCancellation()
 
-            try await autoreleasepool {
-                guard let page = document.page(at: pageIndex) else { return }
-
-                // Render page to image
-                let pageImage = renderPageToImage(page, config: config)
-
-                // Apply MRC processing
-                let processedImage: UIImage
-                if let mrcResult = await mrcEngine.processPage(image: pageImage, config: config) {
-                    processedImage = mrcResult
-                } else {
-                    // Fallback to simple compression
-                    if let jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality)),
-                       let compressed = UIImage(data: jpegData) {
-                        processedImage = compressed
-                    } else {
-                        processedImage = pageImage
-                    }
+            // Render page to image inside autoreleasepool (synchronous work)
+            let pageImage: UIImage = autoreleasepool {
+                guard let page = document.page(at: pageIndex) else {
+                    return UIImage()
                 }
-
-                // Create PDF page from processed image
-                if let newPage = PDFPage(image: processedImage) {
-                    outputDocument.insert(newPage, at: outputDocument.pageCount)
-                }
-
-                let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-                progress = pageProgress
-                onProgress(.optimizing, pageProgress)
+                return renderPageToImage(page, config: config)
             }
+
+            // Skip empty pages
+            guard pageImage.size.width > 0 && pageImage.size.height > 0 else { continue }
+
+            // Apply MRC processing (async work outside autoreleasepool)
+            let processedImage: UIImage
+            if let mrcResult = await mrcEngine.processPage(image: pageImage, config: config) {
+                processedImage = mrcResult
+            } else {
+                // Fallback to simple compression
+                if let jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality)),
+                   let compressed = UIImage(data: jpegData) {
+                    processedImage = compressed
+                } else {
+                    processedImage = pageImage
+                }
+            }
+
+            // Create PDF page from processed image
+            if let newPage = PDFPage(image: processedImage) {
+                outputDocument.insert(newPage, at: outputDocument.pageCount)
+            }
+
+            let pageProgress = Double(pageIndex + 1) / Double(pageCount)
+            progress = pageProgress
+            onProgress(.optimizing, pageProgress)
         }
 
         guard outputDocument.pageCount > 0 else {
