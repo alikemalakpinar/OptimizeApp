@@ -98,6 +98,14 @@ class AppCoordinator: ObservableObject {
     private let hasSeenRatingRequestKey = "hasSeenRatingRequest"
     private let successCountKey = "successfulCompressionCount"
 
+    /// ONBOARDING FLOW IMPROVEMENT:
+    /// Commitment and Rating screens are now shown AFTER first successful compression,
+    /// not immediately after onboarding. This provides better UX by:
+    /// 1. Letting users experience the app's value first
+    /// 2. Building trust before asking for commitment
+    /// 3. Reducing early churn from perceived "dark patterns"
+    private let pendingCommitmentKey = "pendingCommitmentAfterFirstCompression"
+
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Initialization (Dependency Injection)
@@ -159,9 +167,14 @@ class AppCoordinator: ObservableObject {
     func onboardingComplete() {
         hasSeenOnboarding = true
         analytics.track(.onboardingCompleted)
+
+        // UX IMPROVEMENT: Skip commitment and rating on first launch
+        // Show them AFTER first successful compression to build trust first
+        UserDefaults.standard.set(true, forKey: pendingCommitmentKey)
+
         withAnimation(AppAnimation.standard) {
-            // Navigate to commitment screen after onboarding
-            currentScreen = .commitment
+            // Go directly to home - let user experience the value first
+            currentScreen = .home
         }
     }
 
@@ -177,10 +190,18 @@ class AppCoordinator: ObservableObject {
     func ratingRequestComplete() {
         hasSeenRatingRequest = true
         analytics.track(.ratingRequested)
+        // Clear the pending flag
+        UserDefaults.standard.set(false, forKey: pendingCommitmentKey)
         withAnimation(AppAnimation.standard) {
-            // Finally navigate to home
+            // Navigate to home
             currentScreen = .home
         }
+    }
+
+    /// Check if we should show commitment screen after successful compression
+    private var shouldShowCommitmentAfterCompression: Bool {
+        let isPending = UserDefaults.standard.bool(forKey: pendingCommitmentKey)
+        return isPending && !hasSeenCommitment
     }
 
     func requestFilePicker() {
@@ -323,6 +344,21 @@ class AppCoordinator: ObservableObject {
 
             withAnimation(AppAnimation.standard) {
                 currentScreen = .result(result)
+            }
+
+            // UX IMPROVEMENT: Show commitment screen after first successful compression
+            // This is better than showing it immediately after onboarding because:
+            // 1. User has now experienced the app's value
+            // 2. They're more likely to engage with commitment
+            // 3. Reduces perceived "dark patterns"
+            if shouldShowCommitmentAfterCompression {
+                // Delay to let result screen render first
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                    guard let self = self else { return }
+                    withAnimation(AppAnimation.standard) {
+                        self.currentScreen = .commitment
+                    }
+                }
             }
         } catch let compressionError as CompressionError {
             lastError = compressionError

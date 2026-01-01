@@ -165,7 +165,68 @@ struct UserFriendlyError {
     }
 }
 
+// MARK: - Security Scoped Resource Wrapper (RAII Pattern)
+
+/// RAII wrapper for Security Scoped Resource access
+/// Ensures resources are properly released even if errors are thrown
+///
+/// Usage:
+/// ```
+/// try await SecurityScopedResource.access(url) { accessibleURL in
+///     // Work with the URL safely
+///     let data = try Data(contentsOf: accessibleURL)
+/// }
+/// ```
+enum SecurityScopedResource {
+    /// Access a security-scoped resource with automatic cleanup
+    /// - Parameters:
+    ///   - url: The URL to access
+    ///   - block: The work to perform with the accessible URL
+    /// - Returns: The result of the block
+    /// - Throws: `CompressionError.accessDenied` if access cannot be obtained
+    static func access<T>(_ url: URL, block: (URL) throws -> T) throws -> T {
+        guard url.startAccessingSecurityScopedResource() else {
+            throw CompressionError.accessDenied
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        return try block(url)
+    }
+
+    /// Async version of security-scoped resource access
+    static func accessAsync<T>(_ url: URL, block: (URL) async throws -> T) async throws -> T {
+        guard url.startAccessingSecurityScopedResource() else {
+            throw CompressionError.accessDenied
+        }
+        defer { url.stopAccessingSecurityScopedResource() }
+        return try await block(url)
+    }
+
+    /// Access multiple URLs with automatic cleanup
+    /// All URLs are released when the block completes
+    static func accessMultiple<T>(_ urls: [URL], block: ([URL]) throws -> T) throws -> T {
+        var accessedURLs: [URL] = []
+
+        // Start accessing all URLs
+        for url in urls {
+            guard url.startAccessingSecurityScopedResource() else {
+                // Release any URLs we've already accessed
+                accessedURLs.forEach { $0.stopAccessingSecurityScopedResource() }
+                throw CompressionError.accessDenied
+            }
+            accessedURLs.append(url)
+        }
+
+        // Ensure all URLs are released on exit
+        defer {
+            accessedURLs.forEach { $0.stopAccessingSecurityScopedResource() }
+        }
+
+        return try block(accessedURLs)
+    }
+}
+
 // MARK: - File Info Extension
+
 extension FileInfo {
     static func from(url: URL) throws -> FileInfo {
         guard url.startAccessingSecurityScopedResource() else {

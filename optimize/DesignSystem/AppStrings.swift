@@ -87,6 +87,12 @@ struct AppStrings {
         static var qualityDescription: String { String(localized: "Minimum kayıp, maksimum sıkıştırma", comment: "Preset description: Quality") }
         static var custom: String { String(localized: "Özel Boyut", comment: "Preset: Custom") }
         static var customDescription: String { String(localized: "Hedef boyutunuzu belirleyin", comment: "Preset description: Custom") }
+
+        // Aggressive/Maximum compression warning
+        static var aggressiveWarningTitle: String { String(localized: "Dikkat", comment: "Warning: Aggressive mode title") }
+        static var aggressiveWarningMessage: String { String(localized: "Bu mod PDF içindeki metinleri resimlere dönüştürür. İşlem sonrasında metin seçimi ve arama yapılamaz.", comment: "Warning: Aggressive mode disables text selection") }
+        static var aggressiveContinue: String { String(localized: "Devam Et", comment: "Warning: Continue button") }
+        static var aggressiveCancel: String { String(localized: "Vazgeç", comment: "Warning: Cancel button") }
     }
 
     // MARK: - Result Screen
