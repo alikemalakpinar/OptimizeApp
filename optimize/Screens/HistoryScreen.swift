@@ -56,7 +56,7 @@ struct HistoryScreen: View {
                 .padding(.horizontal, Spacing.xl)
             } else {
                 // History list
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: Spacing.xs) {
                         ForEach(Array(historyManager.items.enumerated()), id: \.element.id) { index, item in
                             HistoryRow(item: item) {

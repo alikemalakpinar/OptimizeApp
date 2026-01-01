@@ -21,7 +21,7 @@ struct ResultScreen: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
                         // Animated Success header
                         EnhancedSuccessHeader(savingsPercent: result.savingsPercent)
