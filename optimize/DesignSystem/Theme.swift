@@ -43,7 +43,17 @@ extension Color {
     // Bento Grid Design System
     static let bentoBackground = Color(.secondarySystemBackground)
     static let cardBorder = Color.primary.opacity(0.05)
-    static let signatureCardBG = Color(red: 0.98, green: 0.97, blue: 0.94) // Hafif sarımsı kağıt rengi
+
+    // Dynamic signatureCardBG - Safe for both Light and Dark Mode
+    // Uses UIColor dynamic provider instead of Asset (more reliable)
+    static let signatureCardBG = Color(uiColor: UIColor { trait in
+        // Dark Mode: Koyu gri (System Grouped Background)
+        if trait.userInterfaceStyle == .dark {
+            return UIColor.secondarySystemGroupedBackground
+        }
+        // Light Mode: Hafif krem/kağıt rengi
+        return UIColor(red: 0.98, green: 0.98, blue: 0.96, alpha: 1.0)
+    })
 
     // Text
     static let textPrimary = Color.primary
