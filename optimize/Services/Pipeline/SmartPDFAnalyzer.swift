@@ -347,7 +347,7 @@ final class SmartPDFAnalyzer {
     }
 
     private func determineSampleIndices(total: Int) -> [Int] {
-        if total <= maxSamplePages {
+        if total <= maxDetailedSamplePages {
             return Array(0..<total)
         }
 
