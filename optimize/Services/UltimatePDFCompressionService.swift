@@ -92,6 +92,44 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
     /// Semaphore to limit concurrent page processing (memory optimization)
     private let processingQueue = DispatchQueue(label: "com.optimize.compression", qos: .userInitiated)
 
+    // MARK: - Progress Throttling (Performance Optimization)
+
+    /// Last progress update timestamp - prevents UI thread flooding
+    /// Updates are throttled to maximum 10 per second (100ms intervals)
+    private var lastProgressUpdateTime: Date = .distantPast
+    private let progressUpdateInterval: TimeInterval = 0.1 // 100ms minimum between updates
+
+    /// Throttled progress reporter - only updates UI if enough time has passed
+    /// This prevents main thread congestion during rapid progress changes
+    /// - Parameters:
+    ///   - value: Progress value (0.0 to 1.0)
+    ///   - handler: The progress callback to invoke
+    /// - Returns: True if progress was reported, false if throttled
+    @discardableResult
+    private func reportProgressThrottled(
+        _ value: Double,
+        stage: ProcessingStage,
+        handler: @escaping @Sendable (ProcessingStage, Double) -> Void
+    ) -> Bool {
+        let now = Date()
+
+        // Always report 0% (start), 100% (completion), or if enough time has passed
+        let shouldUpdate = value <= 0.0 ||
+                          value >= 1.0 ||
+                          now.timeIntervalSince(lastProgressUpdateTime) >= progressUpdateInterval
+
+        guard shouldUpdate else { return false }
+
+        lastProgressUpdateTime = now
+
+        Task { @MainActor [weak self] in
+            self?.progress = value
+        }
+        handler(stage, value)
+
+        return true
+    }
+
     // MARK: - Initialization (Dependency Injection)
 
     /// Initialize with injectable dependencies for testability
@@ -126,6 +164,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         currentStage = .preparing
         error = nil
         statusMessage = AppStrings.Process.ready
+        lastProgressUpdateTime = .distantPast // Reset throttle for new task
     }
 
     /// Main entry point for file compression
@@ -192,7 +231,12 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         defer { sourceURL.stopAccessingSecurityScopedResource() }
 
         // Perform heavy PDF loading on background thread
-        let (document, pageCount, outputURL) = try await Task.detached(priority: .userInitiated) {
+        // NOTE: Using Task.detached to escape @MainActor context for CPU-intensive work
+        // Priority is explicitly set to maintain responsiveness
+        let (document, pageCount, outputURL) = try await Task.detached(priority: .userInitiated) { [self] in
+            // Check cancellation early
+            try Task.checkCancellation()
+
             guard let document = PDFDocument(url: sourceURL) else {
                 throw CompressionError.invalidPDF
             }
@@ -290,8 +334,13 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
     /// Smart document analysis that goes beyond text length
     /// Analyzes PDF operators to detect CAD drawings, architectural plans, etc.
+    ///
+    /// CONCURRENCY: Uses Task.detached to avoid blocking MainActor during analysis.
+    /// Includes cancellation checkpoints for responsive task cancellation.
     private func analyzeDocumentContent(document: PDFDocument, config: CompressionConfig) async throws -> DocumentAnalysis {
-        return try await Task.detached(priority: .userInitiated) {
+        return try await Task.detached(priority: .userInitiated) { [document, config] in
+            // Early cancellation check
+            try Task.checkCancellation()
             let checkCount = min(document.pageCount, 5)
             var totalTextLength = 0
             var vectorOperatorCount = 0
@@ -385,6 +434,11 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
     /// Compresses digital-born PDFs while preserving vector content
     /// Runs on background thread to avoid UI freezes
+    ///
+    /// CONCURRENCY: Uses Task.detached to escape MainActor for CPU-intensive work.
+    /// - Includes cancellation checkpoints for responsive task cancellation
+    /// - Uses autoreleasepool for memory management
+    /// - Weak self prevents retain cycles in long-running tasks
     private func compressDigitalPDFBackground(
         document: PDFDocument,
         sourceURL: URL,
@@ -393,6 +447,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws {
         try await Task.detached(priority: .userInitiated) { [weak self] in
+            // Early cancellation check
+            try Task.checkCancellation()
             let pageCount = document.pageCount
             let outputDocument = PDFDocument()
 
@@ -420,11 +476,9 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                         }
                     }
 
+                    // PERFORMANCE: Use throttled progress to prevent UI thread flooding
                     let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-                    Task { @MainActor in
-                        self?.progress = pageProgress
-                    }
-                    onProgress(.optimizing, pageProgress)
+                    self?.reportProgressThrottled(pageProgress, stage: .optimizing, handler: onProgress)
                 }
             }
 
@@ -487,23 +541,20 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 outputDocument.insert(newPage, at: outputDocument.pageCount)
             }
 
+            // PERFORMANCE: Use throttled progress to prevent UI thread flooding
             let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-            await MainActor.run {
-                self.progress = pageProgress
-            }
-            onProgress(.optimizing, pageProgress)
+            reportProgressThrottled(pageProgress, stage: .optimizing, handler: onProgress)
         }
 
         guard outputDocument.pageCount > 0 else {
             throw CompressionError.contextCreationFailed
         }
 
-        // Write to file on background thread
-        try await Task.detached(priority: .userInitiated) {
-            guard outputDocument.write(to: outputURL) else {
-                throw CompressionError.saveFailed
-            }
-        }.value
+        // Write to file - use Task with proper cancellation support
+        try Task.checkCancellation()
+        guard outputDocument.write(to: outputURL) else {
+            throw CompressionError.saveFailed
+        }
     }
 
     // MARK: - Aggressive Compression - Background (Memory Optimized)
@@ -516,6 +567,16 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
     /// - Processes ONE page at a time (batch size = 1) to minimize memory footprint
     /// - Uses CGContext-based rendering instead of UIImage intermediates
     /// - Suitable for 500+ page PDFs on older devices (iPhone 11 and earlier)
+    ///
+    /// CONCURRENCY: Uses Task.detached to escape MainActor for CPU-intensive work.
+    /// - Includes cancellation checkpoints for responsive task cancellation
+    /// - Uses autoreleasepool for per-page memory cleanup
+    ///
+    /// ACCESSIBILITY WARNING: This mode rasterizes text, losing:
+    /// - Text selectability (copy/paste)
+    /// - VoiceOver accessibility for text content
+    /// - Text searchability
+    /// Consider using preserveVectors mode for documents with important text.
     private func compressAggressivelyBackground(
         document: PDFDocument,
         outputURL: URL,
@@ -523,6 +584,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws {
         try await Task.detached(priority: .userInitiated) { [weak self] in
+            // Early cancellation check
+            try Task.checkCancellation()
             let pageCount = document.pageCount
 
             // CRITICAL: Use file-based data consumer for streaming to disk
@@ -590,12 +653,9 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                     pdfContext.draw(compressedCGImage, in: mediaBox)
                     pdfContext.endPage()
 
-                    // Progress update
+                    // PERFORMANCE: Use throttled progress to prevent UI thread flooding
                     let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-                    Task { @MainActor in
-                        self?.progress = pageProgress
-                    }
-                    onProgress(.optimizing, pageProgress)
+                    self?.reportProgressThrottled(pageProgress, stage: .optimizing, handler: onProgress)
                 }
             }
 

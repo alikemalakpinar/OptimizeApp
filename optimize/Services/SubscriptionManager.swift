@@ -279,16 +279,23 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     }
 
     /// Listen for transaction updates (purchases made on other devices, subscription renewals, etc.)
-    /// Fixed: UI updates now properly dispatched to MainActor
+    ///
+    /// CONCURRENCY: Uses Task.detached to create an independent listener that:
+    /// - Survives parent task cancellation (intentional for app lifecycle)
+    /// - Runs continuously in background
+    /// - Properly dispatches UI updates to MainActor
     private func listenForTransactions() -> Task<Void, Error> {
-        return Task.detached {
+        return Task.detached { [weak self] in
             for await result in Transaction.updates {
+                // Check if self still exists (app might be terminating)
+                guard self != nil else { break }
+
                 if case .verified(let transaction) = result {
                     await transaction.finish()
                     // Properly dispatch UI updates to MainActor
                     await MainActor.run {
-                        Task {
-                            await self.updateSubscriptionStatus()
+                        Task { [weak self] in
+                            await self?.updateSubscriptionStatus()
                         }
                     }
                 }
