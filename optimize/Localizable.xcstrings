@@ -1,0 +1,1916 @@
+{
+  "sourceLanguage" : "tr",
+  "strings" : {
+    "Hazır" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready"
+          }
+        }
+      }
+    },
+    "Başlatılıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initializing..."
+          }
+        }
+      }
+    },
+    "Dosya doğrulanıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validating file..."
+          }
+        }
+      }
+    },
+    "İçerik analiz ediliyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analyzing content..."
+          }
+        }
+      }
+    },
+    "Taranmış belge iyileştiriliyor (MRC)..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimizing scanned document (MRC)..."
+          }
+        }
+      }
+    },
+    "Vektörler korunarak sıkıştırılıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressing while preserving vectors..."
+          }
+        }
+      }
+    },
+    "Agresif sıkıştırma uygulanıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applying aggressive compression..."
+          }
+        }
+      }
+    },
+    "Optimize ediliyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimizing..."
+          }
+        }
+      }
+    },
+    "Tamamlanıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finalizing..."
+          }
+        }
+      }
+    },
+    "Görüntü yükleniyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading image..."
+          }
+        }
+      }
+    },
+    "Görüntü sıkıştırılıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressing image..."
+          }
+        }
+      }
+    },
+    "Video hazırlanıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing video..."
+          }
+        }
+      }
+    },
+    "Video kodlanıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encoding video..."
+          }
+        }
+      }
+    },
+    "Dosya yükleniyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading file..."
+          }
+        }
+      }
+    },
+    "Sıkıştırılıyor..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressing..."
+          }
+        }
+      }
+    },
+    "Dosya erişim izni reddedildi. Lütfen dosyayı tekrar seçin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File access denied. Please select the file again."
+          }
+        }
+      }
+    },
+    "Geçersiz veya bozuk PDF dosyası. Lütfen başka bir dosya deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid or corrupted PDF file. Please try another file."
+          }
+        }
+      }
+    },
+    "Bu dosya okunamıyor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file cannot be read."
+          }
+        }
+      }
+    },
+    "PDF dosyası boş veya okunamıyor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF file is empty or unreadable."
+          }
+        }
+      }
+    },
+    "Bu PDF şifreli. Lütfen önce şifresini kaldırın." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PDF is encrypted. Please remove the password first."
+          }
+        }
+      }
+    },
+    "İşlem başlatılamadı. Cihazınızın belleği yetersiz olabilir." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not start processing. Your device may be low on memory."
+          }
+        }
+      }
+    },
+    "Kaydetme başarısız. Depolama alanını kontrol edin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save failed. Please check your storage space."
+          }
+        }
+      }
+    },
+    "İşlem kullanıcı tarafından iptal edildi." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation cancelled by user."
+          }
+        }
+      }
+    },
+    "Yetersiz bellek. Lütfen bazı uygulamaları kapatın ve tekrar deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insufficient memory. Please close some apps and try again."
+          }
+        }
+      }
+    },
+    "Dosya çok büyük. Lütfen 500 sayfadan az dosyalar deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File is too large. Please try files with less than 500 pages."
+          }
+        }
+      }
+    },
+    "Sayfa işlenemedi. Dosya bozuk olabilir." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page could not be processed. File may be corrupted."
+          }
+        }
+      }
+    },
+    "İşlem zaman aşımına uğradı. Daha küçük bir dosya deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation timed out. Try a smaller file."
+          }
+        }
+      }
+    },
+    "Video dışa aktarılamadı. Daha düşük kalite deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video export failed. Try a lower quality setting."
+          }
+        }
+      }
+    },
+    "Bu dosya türü henüz desteklenmiyor." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file type is not yet supported."
+          }
+        }
+      }
+    },
+    "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An unexpected error occurred. Please try again."
+          }
+        }
+      }
+    },
+    "Orijinal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original"
+          }
+        }
+      }
+    },
+    "Optimize" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimized"
+          }
+        }
+      }
+    },
+    "Alan Kazan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Space"
+          }
+        }
+      }
+    },
+    "Sıkıştırılıyor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compressing"
+          }
+        }
+      }
+    },
+    "Dosya Seç" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select File"
+          }
+        }
+      }
+    },
+    "Sıkıştır" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compress"
+          }
+        }
+      }
+    },
+    "Paylaş" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
+    "Kaydet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "İptal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Tekrar Dene" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "Tamam" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Yeni Dosya" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New File"
+          }
+        }
+      }
+    },
+    "Geçmiş" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        }
+      }
+    },
+    "Ayarlar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "Analiz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analyze"
+          }
+        }
+      }
+    },
+    "Kalite Seçimi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quality Selection"
+          }
+        }
+      }
+    },
+    "İşleniyor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processing"
+          }
+        }
+      }
+    },
+    "Sonuç" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
+          }
+        }
+      }
+    },
+    "E-posta (25 MB)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email (25 MB)"
+          }
+        }
+      }
+    },
+    "E-posta ekleri için mükemmel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfect for email attachments"
+          }
+        }
+      }
+    },
+    "WhatsApp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WhatsApp"
+          }
+        }
+      }
+    },
+    "Hızlı paylaşım için optimize" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimized for quick sharing"
+          }
+        }
+      }
+    },
+    "En İyi Kalite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best Quality"
+          }
+        }
+      }
+    },
+    "Minimum kayıp, maksimum sıkıştırma" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum loss, maximum compression"
+          }
+        }
+      }
+    },
+    "Özel Boyut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Size"
+          }
+        }
+      }
+    },
+    "Hedef boyutunuzu belirleyin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set your target size"
+          }
+        }
+      }
+    },
+    "Başarılı!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Success!"
+          }
+        }
+      }
+    },
+    "Kazandığınız Alan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space Saved"
+          }
+        }
+      }
+    },
+    "küçültme" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "reduction"
+          }
+        }
+      }
+    },
+    "Öncesi / Sonrası" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before / After"
+          }
+        }
+      }
+    },
+    "Hoş Geldiniz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome"
+          }
+        }
+      }
+    },
+    "PDF, görüntü ve videoları saniyeler içinde küçültün" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compress PDFs, images and videos in seconds"
+          }
+        }
+      }
+    },
+    "Gizlilik Öncelikli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy First"
+          }
+        }
+      }
+    },
+    "Dosyalarınız asla cihazınızdan çıkmaz. %100 cihaz içi işlem." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your files never leave your device. 100% on-device processing."
+          }
+        }
+      }
+    },
+    "Profesyonel Kalite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Professional Quality"
+          }
+        }
+      }
+    },
+    "Akıllı algoritma metinleri korur, sadece gereksiz veriyi atar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart algorithm preserves text, removes only unnecessary data"
+          }
+        }
+      }
+    },
+    "Başlayalım" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Started"
+          }
+        }
+      }
+    },
+    "Dosyalar Artık\nEngel Değil" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files Are No\nLonger a Problem"
+          }
+        }
+      }
+    },
+    "Kaliteden ödün vermeden GB'larca veriyi MB'lara dönüştür. E-posta limitlerine takılma." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convert GBs to MBs without sacrificing quality. No more email limits."
+          }
+        }
+      }
+    },
+    "Tamamen Cihaz İçi\nTamamen Güvenli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completely On-Device\nCompletely Secure"
+          }
+        }
+      }
+    },
+    "Dosyaların asla telefonundan çıkmaz. İnternet olmasa bile güvenle çalışır." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your files never leave your phone. Works securely even offline."
+          }
+        }
+      }
+    },
+    "Tek Dokunuşla\nÖzgürlük" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-Tap\nFreedom"
+          }
+        }
+      }
+    },
+    "Karmaşık ayarlar yok. Dosyanı seç, sıkıştır ve anında paylaş." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No complex settings. Select your file, compress, and share instantly."
+          }
+        }
+      }
+    },
+    "Devam Et" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "Şimdilik Geç" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip for Now"
+          }
+        }
+      }
+    },
+    "Pro'ya Yükselt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Pro"
+          }
+        }
+      }
+    },
+    "Sınırsız sıkıştırma ve tüm özellikler" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited compression and all features"
+          }
+        }
+      }
+    },
+    "Aylık" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly"
+          }
+        }
+      }
+    },
+    "Yıllık" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yearly"
+          }
+        }
+      }
+    },
+    "%50 Tasarruf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "50% Off"
+          }
+        }
+      }
+    },
+    "Sınırsız dosya sıkıştırma" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited file compression"
+          }
+        }
+      }
+    },
+    "Tüm kalite seçenekleri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All quality options"
+          }
+        }
+      }
+    },
+    "Özel boyut hedefleme" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom size targeting"
+          }
+        }
+      }
+    },
+    "Reklamsız deneyim" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-free experience"
+          }
+        }
+      }
+    },
+    "Dosyalarınız cihazınızdan çıkmaz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your files never leave your device"
+          }
+        }
+      }
+    },
+    "Satın Alımları Geri Yükle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        }
+      }
+    },
+    "Abonelik Nasıl Çalışır?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How Subscription Works"
+          }
+        }
+      }
+    },
+    "₺899,99 (₺75/ay)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "$89.99/year ($7.50/mo)"
+          }
+        }
+      }
+    },
+    "₺99,99" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "$9.99/month"
+          }
+        }
+      }
+    },
+    "%58 Tasarruf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save 58%"
+          }
+        }
+      }
+    },
+    "Pro'yu Başlat" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Pro"
+          }
+        }
+      }
+    },
+    "Apple ile Güvenli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secured by Apple"
+          }
+        }
+      }
+    },
+    "İstediğin zaman iptal et" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel anytime"
+          }
+        }
+      }
+    },
+    "Bugün" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
+    "Tüm Pro özelliklere anında erişim. Sınırsız dosya boyutu ve toplu işlem." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instant access to all Pro features. Unlimited file size and batch processing."
+          }
+        }
+      }
+    },
+    "İstediğin Zaman" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anytime"
+          }
+        }
+      }
+    },
+    "Ayarlar'dan aboneliğini kolayca iptal edebilirsin." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can easily cancel your subscription from Settings."
+          }
+        }
+      }
+    },
+    "Yenileme" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renewal"
+          }
+        }
+      }
+    },
+    "Yıllık faturalandırılır. İstediğin zaman iptal et." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed annually. Cancel anytime."
+          }
+        }
+      }
+    },
+    "Aylık faturalandırılır. İstediğin zaman iptal et." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed monthly. Cancel anytime."
+          }
+        }
+      }
+    },
+    "Reklam yok, temiz arayüz" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No ads, clean interface"
+          }
+        }
+      }
+    },
+    "PDF, görüntü, video ve ofis dosyaları" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF, images, videos and office files"
+          }
+        }
+      }
+    },
+    "Akıllı hedef boyutlar ve kalite profilleri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart target sizes and quality profiles"
+          }
+        }
+      }
+    },
+    "Öncelikli sıkıştırma motoru" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority compression engine"
+          }
+        }
+      }
+    },
+    "dosya optimize edildi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "files optimized"
+          }
+        }
+      }
+    },
+    "Toplam Kazanılan Alan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total Space Saved"
+          }
+        }
+      }
+    },
+    "İşlenen Dosya" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files Processed"
+          }
+        }
+      }
+    },
+    "Bugün Kazandığınız" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Today"
+          }
+        }
+      }
+    },
+    "Biliyor muydunuz? PDF'lerin %40'ı insan gözüne görünmeyen veri içerir." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Did you know? 40% of PDFs contain data invisible to the human eye."
+          }
+        }
+      }
+    },
+    "Fontlarınızı diyete sokuyoruz..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Putting your fonts on a diet..."
+          }
+        }
+      }
+    },
+    "Sıkıştırılan her MB bir kediyi mutlu eder. (Kaynak: Biz)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every MB compressed makes a cat happy. (Source: Us)"
+          }
+        }
+      }
+    },
+    "Dosyanızdaki fazlalıkları buduyoruz..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trimming the excess from your file..."
+          }
+        }
+      }
+    },
+    "Dijital detoks uyguluyoruz..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applying digital detox..."
+          }
+        }
+      }
+    },
+    "Gereksiz piksellere tek tek veda ediyoruz..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saying goodbye to unnecessary pixels one by one..."
+          }
+        }
+      }
+    },
+    "Dosyanızı e-postaya sığdırma sanatında ustalaşıyoruz..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mastering the art of fitting your file into email..."
+          }
+        }
+      }
+    },
+    "Görünmez metadata avındayız..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hunting invisible metadata..."
+          }
+        }
+      }
+    },
+    "Son İşlemler" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent Activity"
+          }
+        }
+      }
+    },
+    "Tümü" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View All"
+          }
+        }
+      }
+    },
+    "Performans Özeti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance Summary"
+          }
+        }
+      }
+    },
+    "Gerçek tasarruf verileri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real savings data"
+          }
+        }
+      }
+    },
+    "Toplam" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "Ortalama" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
+          }
+        }
+      }
+    },
+    "En İyi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best"
+          }
+        }
+      }
+    },
+    "Dosyayı Bırak" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop File"
+          }
+        }
+      }
+    },
+    "Optimize etmek için bırak" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop to optimize"
+          }
+        }
+      }
+    },
+    "Dokun veya dosyayı sürükle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap or drag a file"
+          }
+        }
+      }
+    },
+    "Depolama Alanın" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Storage"
+          }
+        }
+      }
+    },
+    "Rahatlamak İstiyor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wants to Breathe"
+          }
+        }
+      }
+    },
+    "İlk dosyanı seç ve sihri başlat" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select your first file and start the magic"
+          }
+        }
+      }
+    },
+    "Üyelik" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membership"
+          }
+        }
+      }
+    },
+    "Sıkıştırma" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compression"
+          }
+        }
+      }
+    },
+    "Gizlilik" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        }
+      }
+    },
+    "Destek" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Support"
+          }
+        }
+      }
+    },
+    "Varsayılan Kalite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Quality"
+          }
+        }
+      }
+    },
+    "Sadece Wi-Fi ile İşle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Process on Wi-Fi Only"
+          }
+        }
+      }
+    },
+    "Mobil veri kullanma" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don't use mobile data"
+          }
+        }
+      }
+    },
+    "İşlemden Sonra Orijinali Sil" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Original After Processing"
+          }
+        }
+      }
+    },
+    "Orijinal dosyayı kaldır" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove original file"
+          }
+        }
+      }
+    },
+    "Geçmişi Sakla" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep History"
+          }
+        }
+      }
+    },
+    "Geçmişi Temizle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear History"
+          }
+        }
+      }
+    },
+    "Temizle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        }
+      }
+    },
+    "Tümünü Temizle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear All"
+          }
+        }
+      }
+    },
+    "öğe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "items"
+          }
+        }
+      }
+    },
+    "Anonim kullanım verileri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anonymous usage data"
+          }
+        }
+      }
+    },
+    "Uygulamayı geliştirmemize yardım et" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help us improve the app"
+          }
+        }
+      }
+    },
+    "Gizlilik Politikası" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        }
+      }
+    },
+    "Kullanım Koşulları" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Service"
+          }
+        }
+      }
+    },
+    "Yardım & SSS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help & FAQ"
+          }
+        }
+      }
+    },
+    "Geri Bildirim Gönder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Feedback"
+          }
+        }
+      }
+    },
+    "Uygulamayı Değerlendir" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate the App"
+          }
+        }
+      }
+    },
+    "Aboneliği Yönet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Subscription"
+          }
+        }
+      }
+    },
+    "İstanbul'da ❤️ ile yapıldı" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Made with ❤️ in Istanbul"
+          }
+        }
+      }
+    },
+    "Harika İş!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Great Job!"
+          }
+        }
+      }
+    },
+    "Dosyan artık tüy gibi hafif" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your file is now light as a feather"
+          }
+        }
+      }
+    },
+    "Öncesi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before"
+          }
+        }
+      }
+    },
+    "Sonrası" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After"
+          }
+        }
+      }
+    },
+    "Kazanılan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        }
+      }
+    },
+    "Şimdi Paylaş" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Now"
+          }
+        }
+      }
+    },
+    "Dosyalara Kaydet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to Files"
+          }
+        }
+      }
+    },
+    "Yeni Dosya Seç" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select New File"
+          }
+        }
+      }
+    },
+    "Optimize Premium" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimize Premium"
+          }
+        }
+      }
+    },
+    "Sınırsız Sıkıştırma" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited Compression"
+          }
+        }
+      }
+    },
+    "Dosyalarını özgürce sıkıştır ve paylaş." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compress and share your files freely."
+          }
+        }
+      }
+    },
+    "Sınırsız" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited"
+          }
+        }
+      }
+    },
+    "Esneklik ve kontrol için en iyisi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best for flexibility and control"
+          }
+        }
+      }
+    },
+    "En iyi değer, %58 tasarruf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best value, save 58%"
+          }
+        }
+      }
+    },
+    "POPÜLER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "POPULAR"
+          }
+        }
+      }
+    },
+    "Kullandıkça öde" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pay as you go"
+          }
+        }
+      }
+    },
+    "Düzenli kullanıcılar için ideal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ideal for regular users"
+          }
+        }
+      }
+    },
+    "İstediğin zaman durdur veya iptal et" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause or cancel anytime"
+          }
+        }
+      }
+    },
+    "₺24,99/hafta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "$2.99/week"
+          }
+        }
+      }
+    },
+    "Aylık ₺99,99 faturalandırılır" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed $9.99 monthly"
+          }
+        }
+      }
+    },
+    "₺14,99/hafta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "$1.99/week"
+          }
+        }
+      }
+    },
+    "Yıllık ₺779,99 faturalandırılır" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed $89.99 yearly"
+          }
+        }
+      }
+    },
+    "1 Hafta Ücretsiz Dene" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try 1 Week Free"
+          }
+        }
+      }
+    },
+    "İstediğin zaman iptal et. Soru sorulmaz." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel anytime. No questions asked."
+          }
+        }
+      }
+    },
+    "Taahhütünüzü İmzalayın" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign Your Commitment"
+          }
+        }
+      }
+    },
+    "Bu günden itibaren ben:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this day forward, I will:"
+          }
+        }
+      }
+    },
+    "Dosyalarımı düzenli tutacağım" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep my files organized"
+          }
+        }
+      }
+    },
+    "Depolama alanımı verimli kullanacağım" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use my storage efficiently"
+          }
+        }
+      }
+    },
+    "Gereksiz dosyaları silmek yerine optimize edeceğim" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optimize files instead of deleting them"
+          }
+        }
+      }
+    },
+    "Kaliteden ödün vermeyeceğim" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not compromise on quality"
+          }
+        }
+      }
+    },
+    "Paylaşımlarımı kolaylaştıracağım" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make sharing easier"
+          }
+        }
+      }
+    },
+    "Bizi Değerlendirin!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate Us!"
+          }
+        }
+      }
+    },
+    "Bu uygulama sizin gibi kullanıcılar için tasarlandı. Puanınız ne kadar yüksek olursa, o kadar çok kişiye yardım edebiliriz." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app was designed for users like you. The higher your rating, the more people we can help."
+          }
+        }
+      }
+    },
+    "+100.000 kullanıcı" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+100,000 users"
+          }
+        }
+      }
+    },
+    "İleri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "Sıkıştırma özellikleri muhteşem. Sonunda dosyalarımı kontrol altına aldım." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The compression features are amazing. I finally have my files under control."
+          }
+        }
+      }
+    },
+    "Basit, etkili ve kullanışlı. Tam ihtiyacım olan şeydi." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simple, effective and useful. Exactly what I needed."
+          }
+        }
+      }
+    },
+    "Temiz tasarımı ve kolay kullanımı sevdim. Kesinlikle tavsiye ederim." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I love the clean design and ease of use. Highly recommend."
+          }
+        }
+      }
+    },
+    "Sonunda bilgiyi anlayan bir uygulama. 5 yıldız." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finally an app that gets it. 5 stars."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
