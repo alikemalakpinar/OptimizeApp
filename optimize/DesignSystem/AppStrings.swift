@@ -27,6 +27,7 @@ struct AppStrings {
         static var encodingVideo: String { String(localized: "Video kodlanıyor...", comment: "Status: Encoding video") }
         static var loadingFile: String { String(localized: "Dosya yükleniyor...", comment: "Status: Loading file") }
         static var compressing: String { String(localized: "Sıkıştırılıyor...", comment: "Status: Compressing") }
+        static var alreadyOptimized: String { String(localized: "Dosya zaten optimize durumda", comment: "Status: File already optimized - size guard triggered") }
     }
 
     // MARK: - Error Messages

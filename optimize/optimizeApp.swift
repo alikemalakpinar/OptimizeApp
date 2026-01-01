@@ -253,10 +253,10 @@ struct RootViewWithCoordinator: View {
                     coordinator.requestFilePicker()
                 },
                 onOpenHistory: {
-                    coordinator.push(.history)
+                    coordinator.openHistory()
                 },
                 onOpenSettings: {
-                    coordinator.push(.settings)
+                    coordinator.openSettings()
                 },
                 onUpgrade: {
                     coordinator.presentPaywall()

@@ -266,7 +266,9 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             UserDefaults.standard.set(activePlan.rawValue, forKey: planKey)
         } else {
             // Check if we had a cached plan that's no longer valid
-            let dailyCount = UserDefaults.standard.integer(forKey: dailyCountKey)
+            // SECURITY FIX: Use secureStorage instead of UserDefaults for daily count
+            // This ensures consistency with persistUsage() and prevents limit bypass
+            let dailyCount = secureStorage.getInt(forKey: dailyCountKey) ?? 0
             status = SubscriptionStatus(
                 plan: .free,
                 isActive: false,
@@ -386,7 +388,8 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             dailyUsageLimit: .max
         )
         UserDefaults.standard.set(plan.rawValue, forKey: planKey)
-        UserDefaults.standard.set(0, forKey: dailyCountKey)
+        // SECURITY FIX: Use secureStorage instead of UserDefaults for daily count
+        secureStorage.set(0, forKey: dailyCountKey)
     }
 
     /// Synchronous restore wrapper for UI
