@@ -161,7 +161,7 @@ struct RatingRequestView: View {
             }) {
                 Text(AppStrings.Rating.next)
                     .font(.appBodyMedium)
-                    .foregroundStyle(.appAccent)
+                    .foregroundStyle(Color.appAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(Color.white)

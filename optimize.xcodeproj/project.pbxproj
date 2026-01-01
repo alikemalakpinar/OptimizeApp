@@ -10,9 +10,22 @@
 		A904E26F2F03DB0F00B44DBB /* optimize.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = optimize.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A9296B3F2F06ED070046251F /* Exceptions for "optimize" folder in "optimize" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A904E26E2F03DB0F00B44DBB /* optimize */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A904E2712F03DB0F00B44DBB /* optimize */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A9296B3F2F06ED070046251F /* Exceptions for "optimize" folder in "optimize" target */,
+			);
 			path = optimize;
 			sourceTree = "<group>";
 		};
@@ -90,7 +103,6 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				tr,
 				Base,
 			);
 			mainGroup = A904E2662F03DB0F00B44DBB;
@@ -269,7 +281,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AliKemalAkpinar.optimize;
+				PRODUCT_BUNDLE_IDENTIFIER = optimize;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -308,7 +320,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.AliKemalAkpinar.optimize;
+				PRODUCT_BUNDLE_IDENTIFIER = optimize;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
