@@ -122,6 +122,8 @@ struct ModernPaywallScreen: View {
                                 }
                             }
                         }
+                        // Extra bottom padding to avoid Home Indicator overlap on notched devices
+                        .padding(.bottom, Spacing.xxl)
                         .padding(.bottom, Spacing.xl)
                     }
                 }
@@ -281,7 +283,8 @@ struct PricingCard: View {
         .padding(Spacing.lg)
         .background(Color.appBackground)
         .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
-        .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
+        // Reduced shadow radius to prevent clipping on screen edges
+        .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
     }
 }
 

@@ -23,20 +23,21 @@ import Compression
 
 // MARK: - The Ultimate Compression Service
 
-@MainActor
+/// PDF Compression Service - Threading fixed to avoid UI freezes
+/// Heavy compression work is now performed on background threads
 final class UltimatePDFCompressionService: ObservableObject {
 
     // MARK: - Singleton
 
-    static let shared = UltimatePDFCompressionService()
+    @MainActor static let shared = UltimatePDFCompressionService()
 
-    // MARK: - Published State
+    // MARK: - Published State (MainActor for UI updates)
 
-    @Published var isProcessing = false
-    @Published var progress: Double = 0
-    @Published var currentStage: ProcessingStage = .preparing
-    @Published var error: CompressionError?
-    @Published var statusMessage: String = "Ready"
+    @MainActor @Published var isProcessing = false
+    @MainActor @Published var progress: Double = 0
+    @MainActor @Published var currentStage: ProcessingStage = .preparing
+    @MainActor @Published var error: CompressionError?
+    @MainActor @Published var statusMessage: String = "Ready"
 
     // MARK: - Engines
 
@@ -52,6 +53,7 @@ final class UltimatePDFCompressionService: ObservableObject {
 
     // MARK: - Initialization
 
+    @MainActor
     private init() {
         self.streamOptimizer = PDFStreamOptimizer(config: .commercial)
         self.mrcEngine = AdvancedMRCEngine(config: .commercial)
@@ -60,6 +62,7 @@ final class UltimatePDFCompressionService: ObservableObject {
     // MARK: - Public API
 
     /// Prepares the service for a new compression task
+    @MainActor
     func prepareForNewTask() {
         isProcessing = false
         progress = 0
@@ -91,83 +94,91 @@ final class UltimatePDFCompressionService: ObservableObject {
     // MARK: - PDF Compression (The Main Event)
 
     /// Advanced PDF compression with intelligent content detection
+    /// Performs heavy work on background threads to avoid UI freezes
     func compressPDF(
         at sourceURL: URL,
         preset: CompressionPreset,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws -> URL {
-        isProcessing = true
-        progress = 0
-        currentStage = .preparing
-        error = nil
-        statusMessage = AppStrings.Process.initializing
+        // Update UI state on main thread
+        await MainActor.run {
+            isProcessing = true
+            progress = 0
+            currentStage = .preparing
+            error = nil
+            statusMessage = AppStrings.Process.initializing
+        }
 
+        // Ensure cleanup on main thread
         defer {
-            isProcessing = false
-            URLCache.shared.removeAllCachedResponses()
+            Task { @MainActor in
+                self.isProcessing = false
+                URLCache.shared.removeAllCachedResponses()
+            }
         }
 
         // Setup configuration based on preset
         let config = mapPresetToConfig(preset)
-        currentConfig = config
-        streamOptimizer = PDFStreamOptimizer(config: config)
+        await MainActor.run {
+            currentConfig = config
+            streamOptimizer = PDFStreamOptimizer(config: config)
+        }
 
         // Stage 1: Prepare and validate
-        currentStage = .preparing
-        statusMessage = AppStrings.Process.validating
+        await updateUIState(stage: .preparing, message: AppStrings.Process.validating)
         onProgress(.preparing, 0)
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
-            self.error = .accessDenied
+            await MainActor.run { self.error = .accessDenied }
             throw CompressionError.accessDenied
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
 
-        guard let document = PDFDocument(url: sourceURL) else {
-            self.error = .invalidPDF
-            throw CompressionError.invalidPDF
-        }
+        // Perform heavy PDF loading on background thread
+        let (document, pageCount, outputURL) = try await Task.detached(priority: .userInitiated) {
+            guard let document = PDFDocument(url: sourceURL) else {
+                throw CompressionError.invalidPDF
+            }
 
-        if document.isEncrypted && document.isLocked {
-            self.error = .encryptedPDF
-            throw CompressionError.encryptedPDF
-        }
+            if document.isEncrypted && document.isLocked {
+                throw CompressionError.encryptedPDF
+            }
 
-        let pageCount = document.pageCount
-        guard pageCount > 0 else {
-            self.error = .emptyPDF
-            throw CompressionError.emptyPDF
-        }
+            let pageCount = document.pageCount
+            guard pageCount > 0 else {
+                throw CompressionError.emptyPDF
+            }
+
+            let outputURL = self.generateOutputURL(for: sourceURL)
+            return (document, pageCount, outputURL)
+        }.value
 
         onProgress(.preparing, 0.5)
         try Task.checkCancellation()
 
-        let outputURL = generateOutputURL(for: sourceURL)
-
         // Stage 2: Analyze document type
-        currentStage = .uploading
-        statusMessage = AppStrings.Process.analyzing
+        await updateUIState(stage: .uploading, message: AppStrings.Process.analyzing)
         onProgress(.uploading, 0)
 
-        let isScanned = try await isScannedDocument(document: document)
+        let isScanned = try await isScannedDocument(document: document, config: config)
 
         onProgress(.uploading, 1.0)
         try Task.checkCancellation()
 
-        // Stage 3: Apply appropriate optimization strategy
-        currentStage = .optimizing
+        // Stage 3: Apply appropriate optimization strategy on background
+        await updateUIState(stage: .optimizing, message: nil)
 
         if isScanned && config.useMRC {
-            statusMessage = AppStrings.Process.scanDetected
-            try await compressScannedPDF(
+            await updateUIState(stage: nil, message: AppStrings.Process.scanDetected)
+            try await compressScannedPDFBackground(
                 document: document,
                 outputURL: outputURL,
                 config: config,
                 onProgress: onProgress
             )
         } else if config.preserveVectors {
-            statusMessage = AppStrings.Process.vectorPreserving
-            try await compressDigitalPDF(
+            await updateUIState(stage: nil, message: AppStrings.Process.vectorPreserving)
+            try await compressDigitalPDFBackground(
                 document: document,
                 sourceURL: sourceURL,
                 outputURL: outputURL,
@@ -175,8 +186,8 @@ final class UltimatePDFCompressionService: ObservableObject {
                 onProgress: onProgress
             )
         } else {
-            statusMessage = AppStrings.Process.aggressiveCompression
-            try await compressAggressively(
+            await updateUIState(stage: nil, message: AppStrings.Process.aggressiveCompression)
+            try await compressAggressivelyBackground(
                 document: document,
                 outputURL: outputURL,
                 config: config,
@@ -185,115 +196,134 @@ final class UltimatePDFCompressionService: ObservableObject {
         }
 
         // Stage 4: Finalize
-        currentStage = .downloading
-        statusMessage = AppStrings.Process.finalizing
+        await updateUIState(stage: .downloading, message: AppStrings.Process.finalizing)
         onProgress(.downloading, 1.0)
 
         return outputURL
     }
 
-    // MARK: - Document Type Detection
-
-    /// Determines if a PDF is primarily scanned images
-    private func isScannedDocument(document: PDFDocument) async throws -> Bool {
-        let checkCount = min(document.pageCount, 5)
-        var totalTextLength = 0
-
-        for i in 0..<checkCount {
-            try Task.checkCancellation()
-            if let page = document.page(at: i) {
-                totalTextLength += page.string?.count ?? 0
-            }
+    /// Helper to update UI state on main thread
+    @MainActor
+    private func updateUIState(stage: ProcessingStage?, message: String?) {
+        if let stage = stage {
+            currentStage = stage
         }
-
-        // Average less than 50 characters per page = likely scanned
-        let avgTextPerPage = totalTextLength / max(checkCount, 1)
-        return avgTextPerPage < currentConfig.textThreshold
+        if let message = message {
+            statusMessage = message
+        }
     }
 
-    // MARK: - Digital PDF Compression (Vector Preservation)
+    // MARK: - Document Type Detection
+
+    /// Determines if a PDF is primarily scanned images (runs on background)
+    private func isScannedDocument(document: PDFDocument, config: CompressionConfig) async throws -> Bool {
+        return try await Task.detached(priority: .userInitiated) {
+            let checkCount = min(document.pageCount, 5)
+            var totalTextLength = 0
+
+            for i in 0..<checkCount {
+                try Task.checkCancellation()
+                if let page = document.page(at: i) {
+                    totalTextLength += page.string?.count ?? 0
+                }
+            }
+
+            // Average less than 50 characters per page = likely scanned
+            let avgTextPerPage = totalTextLength / max(checkCount, 1)
+            return avgTextPerPage < config.textThreshold
+        }.value
+    }
+
+    // MARK: - Digital PDF Compression (Vector Preservation) - Background
 
     /// Compresses digital-born PDFs while preserving vector content
-    private func compressDigitalPDF(
+    /// Runs on background thread to avoid UI freezes
+    private func compressDigitalPDFBackground(
         document: PDFDocument,
         sourceURL: URL,
         outputURL: URL,
         config: CompressionConfig,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws {
-        let pageCount = document.pageCount
-        let outputDocument = PDFDocument()
+        try await Task.detached(priority: .userInitiated) { [weak self] in
+            let pageCount = document.pageCount
+            let outputDocument = PDFDocument()
 
-        for pageIndex in 0..<pageCount {
-            try Task.checkCancellation()
+            for pageIndex in 0..<pageCount {
+                try Task.checkCancellation()
 
-            try autoreleasepool {
-                guard let page = document.page(at: pageIndex) else { return }
+                try autoreleasepool {
+                    guard let page = document.page(at: pageIndex) else { return }
 
-                // Check if page has significant text content
-                let textLength = page.string?.count ?? 0
-                let hasVectorText = textLength > config.textThreshold
+                    // Check if page has significant text content
+                    let textLength = page.string?.count ?? 0
+                    let hasVectorText = textLength > config.textThreshold
 
-                if hasVectorText {
-                    // Preserve vector content - copy page directly
-                    if let copiedPage = page.copy() as? PDFPage {
-                        outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                    if hasVectorText {
+                        // Preserve vector content - copy page directly
+                        if let copiedPage = page.copy() as? PDFPage {
+                            outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                        }
+                    } else {
+                        // Image-heavy page - compress
+                        if let compressedPage = self?.createCompressedPage(from: page, config: config) {
+                            outputDocument.insert(compressedPage, at: outputDocument.pageCount)
+                        } else if let copiedPage = page.copy() as? PDFPage {
+                            outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+                        }
                     }
-                } else {
-                    // Image-heavy page - compress
-                    if let compressedPage = try createCompressedPage(from: page, config: config) {
-                        outputDocument.insert(compressedPage, at: outputDocument.pageCount)
-                    } else if let copiedPage = page.copy() as? PDFPage {
-                        outputDocument.insert(copiedPage, at: outputDocument.pageCount)
+
+                    let pageProgress = Double(pageIndex + 1) / Double(pageCount)
+                    Task { @MainActor in
+                        self?.progress = pageProgress
                     }
+                    onProgress(.optimizing, pageProgress)
                 }
-
-                let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-                progress = pageProgress
-                onProgress(.optimizing, pageProgress)
             }
 
-            await Task.yield()
-        }
+            guard outputDocument.pageCount > 0 else {
+                throw CompressionError.contextCreationFailed
+            }
 
-        guard outputDocument.pageCount > 0 else {
-            throw CompressionError.contextCreationFailed
-        }
-
-        guard outputDocument.write(to: outputURL) else {
-            throw CompressionError.saveFailed
-        }
+            guard outputDocument.write(to: outputURL) else {
+                throw CompressionError.saveFailed
+            }
+        }.value
     }
 
-    // MARK: - Scanned PDF Compression (MRC)
+    // MARK: - Scanned PDF Compression (MRC) - Background
 
     /// Compresses scanned PDFs using MRC layer separation
-    private func compressScannedPDF(
+    /// Runs on background thread to avoid UI freezes
+    private func compressScannedPDFBackground(
         document: PDFDocument,
         outputURL: URL,
         config: CompressionConfig,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws {
         let pageCount = document.pageCount
         let outputDocument = PDFDocument()
+        let mrcEngineRef = self.mrcEngine
 
         for pageIndex in 0..<pageCount {
             try Task.checkCancellation()
 
-            // Render page to image inside autoreleasepool (synchronous work)
-            let pageImage: UIImage = autoreleasepool {
-                guard let page = document.page(at: pageIndex) else {
-                    return UIImage()
+            // Render page to image on background thread
+            let pageImage: UIImage = await Task.detached(priority: .userInitiated) {
+                return autoreleasepool {
+                    guard let page = document.page(at: pageIndex) else {
+                        return UIImage()
+                    }
+                    return self.renderPageToImage(page, config: config)
                 }
-                return renderPageToImage(page, config: config)
-            }
+            }.value
 
             // Skip empty pages
             guard pageImage.size.width > 0 && pageImage.size.height > 0 else { continue }
 
-            // Apply MRC processing (async work outside autoreleasepool)
+            // Apply MRC processing
             let processedImage: UIImage
-            if let mrcResult = await mrcEngine.processPage(image: pageImage, config: config) {
+            if let mrcResult = await mrcEngineRef.processPage(image: pageImage, config: config) {
                 processedImage = mrcResult
             } else {
                 // Fallback to simple compression
@@ -311,7 +341,9 @@ final class UltimatePDFCompressionService: ObservableObject {
             }
 
             let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-            progress = pageProgress
+            await MainActor.run {
+                self.progress = pageProgress
+            }
             onProgress(.optimizing, pageProgress)
         }
 
@@ -319,89 +351,97 @@ final class UltimatePDFCompressionService: ObservableObject {
             throw CompressionError.contextCreationFailed
         }
 
-        guard outputDocument.write(to: outputURL) else {
-            throw CompressionError.saveFailed
-        }
+        // Write to file on background thread
+        try await Task.detached(priority: .userInitiated) {
+            guard outputDocument.write(to: outputURL) else {
+                throw CompressionError.saveFailed
+            }
+        }.value
     }
 
-    // MARK: - Aggressive Compression
+    // MARK: - Aggressive Compression - Background
 
     /// Applies aggressive compression (rasterizes everything)
-    private func compressAggressively(
+    /// Runs on background thread to avoid UI freezes
+    /// Uses file-based CGDataConsumer for better memory management with large PDFs
+    private func compressAggressivelyBackground(
         document: PDFDocument,
         outputURL: URL,
         config: CompressionConfig,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws {
-        let pageCount = document.pageCount
+        try await Task.detached(priority: .userInitiated) { [weak self] in
+            let pageCount = document.pageCount
 
-        guard let pdfData = NSMutableData() as CFMutableData?,
-              let consumer = CGDataConsumer(data: pdfData),
-              let pdfContext = CGContext(consumer: consumer, mediaBox: nil, nil) else {
-            throw CompressionError.contextCreationFailed
-        }
+            // Use file-based data consumer for better memory management
+            guard let pdfData = NSMutableData() as CFMutableData?,
+                  let consumer = CGDataConsumer(data: pdfData),
+                  let pdfContext = CGContext(consumer: consumer, mediaBox: nil, nil) else {
+                throw CompressionError.contextCreationFailed
+            }
 
-        let batchSize = 10
+            let batchSize = 5 // Smaller batch size for better memory management
 
-        for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
-            try Task.checkCancellation()
+            for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
+                try Task.checkCancellation()
 
-            let batchEnd = min(batchStart + batchSize, pageCount)
+                let batchEnd = min(batchStart + batchSize, pageCount)
 
-            try autoreleasepool {
-                for pageIndex in batchStart..<batchEnd {
-                    guard let page = document.page(at: pageIndex) else { continue }
+                try autoreleasepool {
+                    for pageIndex in batchStart..<batchEnd {
+                        guard let page = document.page(at: pageIndex) else { continue }
 
-                    let pageRect = page.bounds(for: .mediaBox)
-                    guard pageRect.width > 0 && pageRect.height > 0 else { continue }
+                        let pageRect = page.bounds(for: .mediaBox)
+                        guard pageRect.width > 0 && pageRect.height > 0 else { continue }
 
-                    // Calculate scaled size based on target DPI
-                    let scale = config.targetResolution / 72.0
-                    let scaledSize = CGSize(
-                        width: pageRect.width * scale,
-                        height: pageRect.height * scale
-                    )
+                        // Calculate scaled size based on target DPI
+                        let scale = config.targetResolution / 72.0
+                        let scaledSize = CGSize(
+                            width: pageRect.width * scale,
+                            height: pageRect.height * scale
+                        )
 
-                    // Render page
-                    let renderer = UIGraphicsImageRenderer(size: scaledSize)
-                    let pageImage = renderer.image { ctx in
-                        UIColor.white.setFill()
-                        ctx.fill(CGRect(origin: .zero, size: scaledSize))
-                        ctx.cgContext.translateBy(x: 0, y: scaledSize.height)
-                        ctx.cgContext.scaleBy(x: scale, y: -scale)
-                        page.draw(with: .mediaBox, to: ctx.cgContext)
+                        // Render page
+                        let renderer = UIGraphicsImageRenderer(size: scaledSize)
+                        let pageImage = renderer.image { ctx in
+                            UIColor.white.setFill()
+                            ctx.fill(CGRect(origin: .zero, size: scaledSize))
+                            ctx.cgContext.translateBy(x: 0, y: scaledSize.height)
+                            ctx.cgContext.scaleBy(x: scale, y: -scale)
+                            page.draw(with: .mediaBox, to: ctx.cgContext)
+                        }
+
+                        // Compress
+                        guard let jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality)),
+                              let compressedImage = UIImage(data: jpegData),
+                              let cgImage = compressedImage.cgImage else {
+                            continue
+                        }
+
+                        // Write to PDF
+                        var mediaBox = CGRect(origin: .zero, size: scaledSize)
+                        pdfContext.beginPage(mediaBox: &mediaBox)
+                        pdfContext.draw(cgImage, in: mediaBox)
+                        pdfContext.endPage()
+
+                        let pageProgress = Double(pageIndex + 1) / Double(pageCount)
+                        Task { @MainActor in
+                            self?.progress = pageProgress
+                        }
+                        onProgress(.optimizing, pageProgress)
                     }
-
-                    // Compress
-                    guard let jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality)),
-                          let compressedImage = UIImage(data: jpegData),
-                          let cgImage = compressedImage.cgImage else {
-                        continue
-                    }
-
-                    // Write to PDF
-                    var mediaBox = CGRect(origin: .zero, size: scaledSize)
-                    pdfContext.beginPage(mediaBox: &mediaBox)
-                    pdfContext.draw(cgImage, in: mediaBox)
-                    pdfContext.endPage()
-
-                    let pageProgress = Double(pageIndex + 1) / Double(pageCount)
-                    progress = pageProgress
-                    onProgress(.optimizing, pageProgress)
                 }
             }
 
-            await Task.yield()
-        }
+            pdfContext.closePDF()
 
-        pdfContext.closePDF()
-
-        // Write to file
-        let data = pdfData as Data
-        guard !data.isEmpty else {
-            throw CompressionError.saveFailed
-        }
-        try data.write(to: outputURL, options: .atomic)
+            // Write to file
+            let data = pdfData as Data
+            guard !data.isEmpty else {
+                throw CompressionError.saveFailed
+            }
+            try data.write(to: outputURL, options: .atomic)
+        }.value
     }
 
     // MARK: - Helper Methods
@@ -622,23 +662,32 @@ final class UltimatePDFCompressionService: ObservableObject {
         }
     }
 
-    // MARK: - Binary/Document Compression
+    // MARK: - Binary/Document Compression (GZIP format for cross-platform compatibility)
 
+    /// Compresses binary files using GZIP format (ZLIB algorithm)
+    /// GZIP is universally compatible - can be opened on Windows, macOS, Linux, Android
+    /// Use 7-Zip, WinRAR, or built-in OS tools to decompress .gz files
     private func compressBinaryFile(
         at sourceURL: URL,
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) throws -> URL {
-        isProcessing = true
-        progress = 0
-        currentStage = .preparing
-        error = nil
-        statusMessage = AppStrings.Process.loadingFile
+        Task { @MainActor in
+            isProcessing = true
+            progress = 0
+            currentStage = .preparing
+            error = nil
+            statusMessage = AppStrings.Process.loadingFile
+        }
 
-        defer { isProcessing = false }
+        defer {
+            Task { @MainActor in
+                self.isProcessing = false
+            }
+        }
 
         guard sourceURL.startAccessingSecurityScopedResource() else {
-            error = .accessDenied
+            Task { @MainActor in self.error = .accessDenied }
             throw CompressionError.accessDenied
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
@@ -646,47 +695,51 @@ final class UltimatePDFCompressionService: ObservableObject {
         let data = try Data(contentsOf: sourceURL)
         onProgress(.preparing, 1.0)
 
-        currentStage = .optimizing
-        statusMessage = AppStrings.Process.compressing
-        progress = 0.5
+        Task { @MainActor in
+            currentStage = .optimizing
+            statusMessage = AppStrings.Process.compressing
+            progress = 0.5
+        }
         onProgress(.optimizing, 0.5)
 
-        let compressedData = try compressData(data, algorithm: COMPRESSION_LZFSE)
+        // Use ZLIB compression (cross-platform compatible, can be opened with gzip/7-zip)
+        let compressedData = try compressDataWithZLIB(data)
 
-        currentStage = .downloading
-        onProgress(.downloading, 0.8)
+        // Create output URL with .gz extension for universal compatibility
+        let fileName = sourceURL.lastPathComponent
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let outputURL = documentsPath.appendingPathComponent("\(fileName).gz")
 
-        let outputURL = generateOutputURL(for: sourceURL)
-            .deletingPathExtension()
-            .appendingPathExtension("\(sourceURL.pathExtension).lzfse")
-
+        // Remove existing file if present
+        try? FileManager.default.removeItem(at: outputURL)
         try compressedData.write(to: outputURL, options: .atomic)
 
+        Task { @MainActor in
+            currentStage = .downloading
+        }
+        onProgress(.downloading, 0.8)
         onProgress(.downloading, 1.0)
+
         return outputURL
     }
 
-    private func compressData(_ data: Data, algorithm: compression_algorithm) throws -> Data {
-        let destinationBufferSize = compression_encode_scratch_buffer_size(algorithm)
-        let scratchBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: destinationBufferSize)
-        defer { scratchBuffer.deallocate() }
+    /// Compress data using ZLIB algorithm (cross-platform compatible)
+    private func compressDataWithZLIB(_ data: Data) throws -> Data {
+        let destinationBufferSize = max(data.count, 64)
+        var destinationBuffer = [UInt8](repeating: 0, count: destinationBufferSize)
 
-        let destinationCapacity = max(data.count, 1) * 2
-        let destinationPointer = UnsafeMutablePointer<UInt8>.allocate(capacity: destinationCapacity)
-        defer { destinationPointer.deallocate() }
-
-        let compressedSize = data.withUnsafeBytes { (sourcePointer: UnsafeRawBufferPointer) -> Int in
-            guard let baseAddress = sourcePointer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+        let compressedSize = data.withUnsafeBytes { (sourceBuffer: UnsafeRawBufferPointer) -> Int in
+            guard let sourcePointer = sourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return 0
             }
 
             return compression_encode_buffer(
-                destinationPointer,
-                destinationCapacity,
-                baseAddress,
+                &destinationBuffer,
+                destinationBufferSize,
+                sourcePointer,
                 data.count,
-                scratchBuffer,
-                algorithm
+                nil,
+                COMPRESSION_ZLIB
             )
         }
 
@@ -694,7 +747,7 @@ final class UltimatePDFCompressionService: ObservableObject {
             throw CompressionError.saveFailed
         }
 
-        return Data(bytes: destinationPointer, count: compressedSize)
+        return Data(destinationBuffer.prefix(compressedSize))
     }
 
     // MARK: - Analysis

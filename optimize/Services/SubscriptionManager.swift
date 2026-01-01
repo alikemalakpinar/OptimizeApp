@@ -141,10 +141,18 @@ final class SubscriptionManager: ObservableObject {
     }
 
     /// Restore purchases
+    /// Note: In StoreKit 2, checking Transaction.currentEntitlements is sufficient
+    /// AppStore.sync() forces password entry which creates poor UX
     func restore() async {
         do {
-            try await AppStore.sync()
+            // Simply check current entitlements - no need for AppStore.sync()
+            // which forces password entry and creates poor user experience
             await updateSubscriptionStatus()
+
+            // If still no subscription found, show appropriate message
+            if !status.isPro {
+                purchaseError = "No active subscription found. Please ensure you're signed in with the correct Apple ID."
+            }
         } catch {
             purchaseError = "Failed to restore: \(error.localizedDescription)"
         }
@@ -202,12 +210,18 @@ final class SubscriptionManager: ObservableObject {
     }
 
     /// Listen for transaction updates (purchases made on other devices, subscription renewals, etc.)
+    /// Fixed: UI updates now properly dispatched to MainActor
     private func listenForTransactions() -> Task<Void, Error> {
         return Task.detached {
             for await result in Transaction.updates {
                 if case .verified(let transaction) = result {
                     await transaction.finish()
-                    await self.updateSubscriptionStatus()
+                    // Properly dispatch UI updates to MainActor
+                    await MainActor.run {
+                        Task {
+                            await self.updateSubscriptionStatus()
+                        }
+                    }
                 }
             }
         }

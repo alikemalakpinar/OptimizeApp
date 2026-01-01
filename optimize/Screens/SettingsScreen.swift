@@ -266,22 +266,29 @@ struct SettingsScreen: View {
         }
     }
 
+    // MARK: - IMPORTANT: Update these URLs before App Store submission!
+    // ⚠️ TODO: Replace placeholder URLs with your actual website URLs
+    // Failure to update these will result in App Store rejection
+
     private func openPrivacyPolicy() {
-        // Replace with your actual Privacy Policy URL
+        // TODO: Replace with your actual Privacy Policy URL before submission
+        // Example: "https://yourcompany.com/optimize/privacy"
         if let url = URL(string: "https://optimize-app.com/privacy") {
             UIApplication.shared.open(url)
         }
     }
 
     private func openTermsOfService() {
-        // Replace with your actual Terms of Service URL
+        // TODO: Replace with your actual Terms of Service URL before submission
+        // Example: "https://yourcompany.com/optimize/terms"
         if let url = URL(string: "https://optimize-app.com/terms") {
             UIApplication.shared.open(url)
         }
     }
 
     private func openHelp() {
-        // Replace with your actual Help/FAQ URL
+        // TODO: Replace with your actual Help/FAQ URL before submission
+        // Example: "https://yourcompany.com/optimize/help"
         if let url = URL(string: "https://optimize-app.com/help") {
             UIApplication.shared.open(url)
         }
@@ -294,6 +301,7 @@ struct SettingsScreen: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
 
+        // TODO: Replace with your actual support email before submission
         let email = "support@optimize-app.com"
         let subject = "Optimize App Destek (v\(version).\(build) - \(deviceModel) iOS \(systemVersion))"
 
@@ -303,7 +311,9 @@ struct SettingsScreen: View {
     }
 
     private func rateApp() {
-        // Replace YOUR_APP_ID with actual App Store ID
+        // TODO: Replace YOUR_APP_ID with your actual App Store ID before submission
+        // You can find this in App Store Connect after creating your app
+        // Example: "https://apps.apple.com/app/id1234567890?action=write-review"
         if let url = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review") {
             UIApplication.shared.open(url)
         }
