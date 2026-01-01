@@ -51,9 +51,12 @@ struct ProgressRing: View {
                 animatedProgress = progress
             }
         }
-        .onChange(of: progress) { _, newValue in
-            withAnimation(AppAnimation.standard) {
-                animatedProgress = newValue
+        .onChange(of: progress) { oldValue, newValue in
+            // Only animate if progress changed by at least 1% to avoid multiple updates per frame
+            if abs(newValue - animatedProgress) >= 0.01 {
+                withAnimation(AppAnimation.standard) {
+                    animatedProgress = newValue
+                }
             }
         }
     }

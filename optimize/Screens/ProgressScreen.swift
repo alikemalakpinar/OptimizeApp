@@ -135,8 +135,13 @@ struct ProgressScreen: View {
             factTimer?.invalidate()
             detailTimer?.invalidate()
         }
-        .onChange(of: compressionService.progress) { _, newProgress in
-            triggerProgressHaptic(progress: newProgress)
+        .onChange(of: compressionService.progress) { oldProgress, newProgress in
+            // Only trigger when crossing a milestone to avoid multiple updates per frame
+            let oldMilestone = Int(oldProgress * 4) // 0, 1, 2, 3, 4 for 25% increments
+            let newMilestone = Int(newProgress * 4)
+            if newMilestone > oldMilestone {
+                triggerProgressHaptic(progress: newProgress)
+            }
         }
         .onChange(of: compressionService.currentStage) { _, newStage in
             // Reset detail index when stage changes
