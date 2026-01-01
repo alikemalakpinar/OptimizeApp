@@ -240,6 +240,7 @@ struct AppStrings {
         static var history: String { String(localized: "Geçmiş", comment: "Settings: Section") }
         static var privacy: String { String(localized: "Gizlilik", comment: "Settings: Section") }
         static var support: String { String(localized: "Destek", comment: "Settings: Section") }
+        static var legal: String { String(localized: "Yasal", comment: "Settings: Section") }
 
         static var defaultPreset: String { String(localized: "Varsayılan Kalite", comment: "Settings: Row") }
         static var wifiOnly: String { String(localized: "Sadece Wi-Fi ile İşle", comment: "Settings: Row") }
