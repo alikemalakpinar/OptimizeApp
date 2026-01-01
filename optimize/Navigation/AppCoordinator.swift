@@ -69,7 +69,7 @@ class AppCoordinator: ObservableObject {
     private let maxRetries = 2
 
     // Services
-    let compressionService = PDFCompressionService.shared
+    let compressionService = UltimatePDFCompressionService.shared
     let historyManager = HistoryManager.shared
     let analytics = AnalyticsService.shared
     let subscriptionManager = SubscriptionManager.shared

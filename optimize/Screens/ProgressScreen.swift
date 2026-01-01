@@ -10,7 +10,7 @@ import SwiftUI
 struct ProgressScreen: View {
     let file: FileInfo
     let preset: CompressionPreset
-    @ObservedObject var compressionService: PDFCompressionService
+    @ObservedObject var compressionService: UltimatePDFCompressionService
     let onCancel: () -> Void
 
     @State private var currentFactIndex = 0
@@ -363,7 +363,7 @@ struct FunFactCard: View {
             fileType: .pdf
         ),
         preset: CompressionPreset.defaultPresets[0],
-        compressionService: PDFCompressionService.shared,
+        compressionService: UltimatePDFCompressionService.shared,
         onCancel: {}
     )
 }
