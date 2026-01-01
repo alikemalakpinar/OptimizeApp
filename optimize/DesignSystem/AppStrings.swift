@@ -201,6 +201,18 @@ struct AppStrings {
 
     // MARK: - Home Screen Specific
     enum Home {
+        // Dynamic Greeting - Time-based personalized greetings
+        static var greetingMorning: String { String(localized: "Günaydın", comment: "Greeting: Morning") }
+        static var greetingMorningSubtitle: String { String(localized: "Bugün dosyaları hafifletelim mi?", comment: "Greeting: Morning subtitle") }
+        static var greetingAfternoon: String { String(localized: "İyi günler", comment: "Greeting: Afternoon") }
+        static var greetingAfternoonSubtitle: String { String(localized: "Optimize etmeye hazır mısın?", comment: "Greeting: Afternoon subtitle") }
+        static var greetingEvening: String { String(localized: "İyi akşamlar", comment: "Greeting: Evening") }
+        static var greetingEveningSubtitle: String { String(localized: "Gün sonu temizliği başlasın.", comment: "Greeting: Evening subtitle") }
+        static var greetingNight: String { String(localized: "İyi geceler", comment: "Greeting: Night") }
+        static var greetingNightSubtitle: String { String(localized: "Telefonunda yer açıp uyuyabilirsin.", comment: "Greeting: Night subtitle") }
+        static var greetingWeekend: String { String(localized: "Hafta sonu keyfi", comment: "Greeting: Weekend") }
+        static var greetingWeekendSubtitle: String { String(localized: "Hafta sonu temizliği başlasın.", comment: "Greeting: Weekend subtitle") }
+
         static var recentActivity: String { String(localized: "Son İşlemler", comment: "Home: Recent Activity") }
         static var viewAll: String { String(localized: "Tümü", comment: "Home: View All") }
         static var performanceTitle: String { String(localized: "Performans Özeti", comment: "Home: Performance Title") }

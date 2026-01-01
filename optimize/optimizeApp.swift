@@ -244,28 +244,53 @@ struct RootViewWithCoordinator: View {
     /// Main app content with NavigationStack for native navigation features
     @ViewBuilder
     private var navigationContent: some View {
-        NavigationStack(path: $coordinator.navigationPath) {
-            // Root of navigation stack is HomeScreen
-            HomeScreen(
-                coordinator: coordinator,
-                subscriptionStatus: coordinator.subscriptionStatus,
-                onSelectFile: {
-                    coordinator.requestFilePicker()
-                },
-                onOpenHistory: {
-                    coordinator.openHistory()
-                },
-                onOpenSettings: {
-                    coordinator.openSettings()
-                },
-                onUpgrade: {
-                    coordinator.presentPaywall()
+        ZStack(alignment: .bottom) {
+            NavigationStack(path: $coordinator.navigationPath) {
+                // Root of navigation stack is HomeScreen
+                HomeScreen(
+                    coordinator: coordinator,
+                    subscriptionStatus: coordinator.subscriptionStatus,
+                    onSelectFile: {
+                        coordinator.requestFilePicker()
+                    },
+                    onOpenHistory: {
+                        coordinator.openHistory()
+                    },
+                    onOpenSettings: {
+                        coordinator.openSettings()
+                    },
+                    onUpgrade: {
+                        coordinator.presentPaywall()
+                    }
+                )
+                .safeAreaInset(edge: .bottom) {
+                    // Reserve space for floating tab bar only on home
+                    Color.clear
+                        .frame(height: 90)
                 }
-            )
-            .navigationDestination(for: AppScreen.self) { screen in
-                destinationView(for: screen)
+                .navigationDestination(for: AppScreen.self) { screen in
+                    destinationView(for: screen)
+                }
+            }
+
+            // Floating Tab Bar - only visible when navigation stack is empty (on Home)
+            if coordinator.navigationPath.isEmpty {
+                FloatingTabBar(
+                    selectedTab: .constant(.home),
+                    onAddTap: {
+                        coordinator.requestFilePicker()
+                    },
+                    onHistoryTap: {
+                        coordinator.openHistory()
+                    },
+                    onSettingsTap: {
+                        coordinator.openSettings()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(AppAnimation.spring, value: coordinator.navigationPath.isEmpty)
     }
 
     /// Builds the destination view for each screen type

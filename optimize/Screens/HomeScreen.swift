@@ -58,11 +58,18 @@ struct HomeScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            ScreenHeader(".optimize") {
-                HeaderIconButton(systemName: "gearshape") {
-                    onOpenSettings()
+            // Header with Dynamic Greeting
+            VStack(alignment: .leading, spacing: 0) {
+                ScreenHeader(".optimize") {
+                    HeaderIconButton(systemName: "gearshape") {
+                        onOpenSettings()
+                    }
                 }
+
+                // Dynamic Greeting based on time of day
+                DynamicGreetingView()
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.bottom, Spacing.sm)
             }
 
             ScrollView(showsIndicators: false) {
@@ -72,7 +79,7 @@ struct HomeScreen: View {
                         onUpgrade: onUpgrade
                     )
                     .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.sm)
+                    .padding(.top, Spacing.xs)
 
                     // Main CTA Section with Breathing Effect
                     VStack(spacing: Spacing.lg) {
@@ -847,6 +854,75 @@ struct CapabilityPill: View {
             Capsule()
                 .stroke(isActive ? Color.appMint.opacity(0.3) : Color.clear, lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Dynamic Greeting View
+/// Time-based personalized greeting that creates emotional connection with the user
+/// Changes based on: Morning (5-12), Afternoon (12-17), Evening (17-21), Night (21-5), Weekend
+struct DynamicGreetingView: View {
+    @State private var greeting: (title: String, subtitle: String) = ("", "")
+    @State private var iconName: String = "sun.max.fill"
+    @State private var iconColor: Color = .warmOrange
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // Animated icon
+            Image(systemName: iconName)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(iconColor)
+                .symbolBounce(trigger: true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting.title)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                Text(greeting.subtitle)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .onAppear {
+            updateGreeting()
+        }
+    }
+
+    private func updateGreeting() {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: Date())
+        let weekday = calendar.component(.weekday, from: Date())
+
+        // Weekend check (Saturday = 7, Sunday = 1)
+        let isWeekend = weekday == 1 || weekday == 7
+
+        if isWeekend {
+            greeting = (AppStrings.Home.greetingWeekend, AppStrings.Home.greetingWeekendSubtitle)
+            iconName = "sparkles"
+            iconColor = .premiumPurple
+        } else if hour >= 5 && hour < 12 {
+            // Morning
+            greeting = (AppStrings.Home.greetingMorning, AppStrings.Home.greetingMorningSubtitle)
+            iconName = "sun.max.fill"
+            iconColor = .warmOrange
+        } else if hour >= 12 && hour < 17 {
+            // Afternoon
+            greeting = (AppStrings.Home.greetingAfternoon, AppStrings.Home.greetingAfternoonSubtitle)
+            iconName = "sun.min.fill"
+            iconColor = .warmOrange
+        } else if hour >= 17 && hour < 21 {
+            // Evening
+            greeting = (AppStrings.Home.greetingEvening, AppStrings.Home.greetingEveningSubtitle)
+            iconName = "sunset.fill"
+            iconColor = .warmCoral
+        } else {
+            // Night (21-5)
+            greeting = (AppStrings.Home.greetingNight, AppStrings.Home.greetingNightSubtitle)
+            iconName = "moon.stars.fill"
+            iconColor = .premiumIndigo
+        }
     }
 }
 
