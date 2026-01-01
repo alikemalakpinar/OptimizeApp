@@ -3,6 +3,7 @@
 //  optimize
 //
 //  Premium Settings Design with Apple-style Inset Grouped List
+//  Includes Commitment Signature Card for psychological retention
 //
 
 import SwiftUI
@@ -16,6 +17,7 @@ struct SettingsScreen: View {
     @AppStorage("enableAnalytics") private var enableAnalytics: Bool = true
 
     @State private var showClearHistoryAlert = false
+    @State private var signatureImage: UIImage?
 
     @ObservedObject private var historyManager = HistoryManager.shared
 
@@ -38,6 +40,15 @@ struct SettingsScreen: View {
     var body: some View {
         NavigationStack {
             List {
+                // MARK: - Commitment Signature Card (Motivation)
+                if signatureImage != nil {
+                    Section {
+                        CommitmentSignatureCard(signatureImage: signatureImage)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                }
+
                 // MARK: - Premium Banner Section
                 Section {
                     PremiumBannerRow(
@@ -206,6 +217,17 @@ struct SettingsScreen: View {
         } message: {
             Text(AppStrings.Settings.clearHistoryMessage(historyManager.items.count))
         }
+        .onAppear {
+            loadSignatureImage()
+        }
+    }
+
+    // MARK: - Load Signature Image
+    private func loadSignatureImage() {
+        if let data = UserDefaults.standard.data(forKey: "user_commitment_signature"),
+           let image = UIImage(data: data) {
+            signatureImage = image
+        }
     }
 
     // MARK: - Helper Properties
@@ -325,4 +347,61 @@ struct PremiumBannerRow: View {
         onUpgrade: {},
         onBack: {}
     )
+}
+
+// MARK: - Commitment Signature Card
+/// Shows the user's onboarding signature as a "contract" reminder
+/// Psychology: Commitment & Consistency principle - users who sign are more likely to stay
+struct CommitmentSignatureCard: View {
+    let signatureImage: UIImage?
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            // Header
+            HStack {
+                Image(systemName: "seal.fill")
+                    .foregroundStyle(Color.goldAccent)
+                    .font(.system(size: 16))
+
+                Text("KENDİNE VERDİĞİN SÖZ")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+
+            // Signature Display
+            if let image = signatureImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 50)
+                    .colorMultiply(colorScheme == .dark ? .white : .primary)
+                    .opacity(colorScheme == .dark ? 0.9 : 1.0)
+            }
+
+            // Commitment Text
+            Text("Dosyalarımı her zaman optimize edeceğime ve dijital kirlilik yaratmayacağıma söz veriyorum.")
+                .font(.system(size: 11, design: .serif))
+                .italic()
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .fill(colorScheme == .dark
+                    ? Color(.systemGray6)
+                    : Color.signatureCardBG
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(Color.goldAccent.opacity(0.3), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+    }
 }
