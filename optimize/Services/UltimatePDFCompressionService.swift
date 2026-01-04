@@ -23,6 +23,7 @@ import UIKit
 import CoreGraphics
 import AVFoundation
 import Compression
+import Accelerate  // For SSIM calculation
 
 // MARK: - Compression Service Protocol (Dependency Injection)
 
@@ -474,18 +475,23 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 try autoreleasepool {
                     guard let page = document.page(at: pageIndex) else { return }
 
-                    // Check if page has significant text content
-                    let textLength = page.string?.count ?? 0
-                    let hasVectorText = textLength > config.textThreshold
+                    // Use multi-signal vector detection
+                    let hasVectorContent = self?.isVectorPage(
+                        page,
+                        pageIndex: pageIndex,
+                        vectorHeavyPages: [],  // No pre-scan for digital PDFs
+                        isDigitalDocument: true,
+                        config: config
+                    ) ?? true  // Default to preserving if detection fails
 
-                    if hasVectorText {
+                    if hasVectorContent {
                         // Preserve vector content - copy page directly
                         if let copiedPage = page.copy() as? PDFPage {
                             outputDocument.insert(copiedPage, at: outputDocument.pageCount)
                         }
                     } else {
-                        // Image-heavy page - compress
-                        if let compressedPage = try? self?.createCompressedPage(from: page, config: config) {
+                        // Image-heavy page - compress with quality guard
+                        if let compressedPage = try? self?.createCompressedPageWithQualityGuard(from: page, config: config) {
                             outputDocument.insert(compressedPage, at: outputDocument.pageCount)
                         } else if let copiedPage = page.copy() as? PDFPage {
                             outputDocument.insert(copiedPage, at: outputDocument.pageCount)
@@ -684,11 +690,16 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                         let pageRect = page.bounds(for: .mediaBox)
                         guard pageRect.width > 0 && pageRect.height > 0 else { return }
 
-                        // VECTOR PROTECTION: Check if this page should be preserved
-                        let textLength = page.string?.count ?? 0
-                        let isVectorPage = textLength > 200 || vectorHeavyPages.contains(pageIndex) || isDigitalDocument
+                        // VECTOR PROTECTION: Use multi-signal detection
+                        let shouldPreserveVector = self?.isVectorPage(
+                            page,
+                            pageIndex: pageIndex,
+                            vectorHeavyPages: vectorHeavyPages,
+                            isDigitalDocument: isDigitalDocument,
+                            config: config
+                        ) ?? false
 
-                        if isVectorPage && config.preserveVectors {
+                        if shouldPreserveVector && config.preserveVectors {
                             // PRESERVE VECTOR: Copy page as-is (no rasterization)
                             var mediaBox = pageRect
                             pdfContext.beginPage(mediaBox: &mediaBox)
@@ -728,10 +739,23 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
                             guard let cgImage = bitmapContext.makeImage() else { return }
 
-                            // JPEG compression
+                            // JPEG compression with SSIM quality guard
                             let tempImage = UIImage(cgImage: cgImage)
-                            guard let jpegData = tempImage.jpegData(compressionQuality: CGFloat(config.quality)),
-                                  let jpegSource = CGImageSourceCreateWithData(jpegData as CFData, nil),
+
+                            // Use quality guard if enabled
+                            let jpegData: Data?
+                            if config.enableAdaptiveQualityFloor {
+                                jpegData = self?.compressWithQualityGuard(
+                                    image: tempImage,
+                                    config: config,
+                                    minSSIM: config.minSSIMThreshold
+                                )
+                            } else {
+                                jpegData = tempImage.jpegData(compressionQuality: CGFloat(config.quality))
+                            }
+
+                            guard let validJpegData = jpegData,
+                                  let jpegSource = CGImageSourceCreateWithData(validJpegData as CFData, nil),
                                   let compressedCGImage = CGImageSourceCreateImageAtIndex(jpegSource, 0, nil) else {
                                 return
                             }
@@ -751,6 +775,203 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
             pdfContext.closePDF()
         }.value
+    }
+
+    // MARK: - Multi-Signal Vector Detection (NEW)
+
+    /// Advanced vector detection using multiple signals
+    /// This prevents "Vector Suicide" - wrongly rasterizing digital PDFs
+    ///
+    /// Signals used:
+    /// 1. Text length (even short text indicates vector content)
+    /// 2. Annotation count (annotations = interactive/vector content)
+    /// 3. Page rotation (rotated pages often are CAD/architectural)
+    /// 4. Trim box difference (precise trim = vector graphics)
+    /// 5. Unusual aspect ratios (invoices, receipts, forms)
+    /// 6. Page dimensions (large pages often are technical drawings)
+    private func isVectorPage(
+        _ page: PDFPage,
+        pageIndex: Int,
+        vectorHeavyPages: Set<Int>,
+        isDigitalDocument: Bool,
+        config: CompressionConfig
+    ) -> Bool {
+        // If multi-signal detection is disabled, use legacy text-only check
+        guard config.useMultiSignalDetection else {
+            let textLength = page.string?.count ?? 0
+            return textLength > config.textThreshold
+        }
+
+        // Signal 1: Text content (primary signal)
+        let textLength = page.string?.count ?? 0
+        let hasText = textLength > 30  // Even 30 chars indicates some text
+
+        // Signal 2: Annotations (forms, links, comments)
+        let annotationCount = page.annotations.count
+        let hasAnnotations = annotationCount > 0
+
+        // Signal 3: Page rotation (CAD drawings, architectural plans)
+        let hasRotation = page.rotation != 0
+
+        // Signal 4: Trim box vs Media box difference (precise vector graphics)
+        let mediaBox = page.bounds(for: .mediaBox)
+        let trimBox = page.bounds(for: .trimBox)
+        let hasTrimDifference = mediaBox != trimBox
+
+        // Signal 5: Unusual aspect ratio (forms, receipts, invoices)
+        let aspectRatio = mediaBox.width / max(mediaBox.height, 1)
+        let isUnusualAspect = aspectRatio < 0.5 || aspectRatio > 2.0
+
+        // Signal 6: Large page dimensions (technical drawings, posters)
+        let isLargePage = mediaBox.width > 1000 || mediaBox.height > 1000
+
+        // Signal 7: Already detected as vector-heavy in first pass
+        let isInVectorSet = vectorHeavyPages.contains(pageIndex)
+
+        // Signal 8: Document-level detection
+        let documentIsDigital = isDigitalDocument
+
+        // Decision matrix: Score-based approach
+        var vectorScore = 0
+
+        if hasText { vectorScore += 3 }
+        if textLength > config.textThreshold { vectorScore += 5 }
+        if hasAnnotations { vectorScore += 4 }
+        if hasRotation { vectorScore += 3 }
+        if hasTrimDifference { vectorScore += 2 }
+        if isUnusualAspect { vectorScore += 1 }
+        if isLargePage { vectorScore += 2 }
+        if isInVectorSet { vectorScore += 5 }
+        if documentIsDigital { vectorScore += 3 }
+
+        // Threshold: 5+ score = vector page
+        return vectorScore >= 5
+    }
+
+    // MARK: - SSIM Quality Guard (NEW)
+
+    /// Calculates Structural Similarity Index (SSIM) between two images
+    /// Used to ensure compressed image quality meets minimum threshold
+    /// Returns value between 0.0 (completely different) and 1.0 (identical)
+    private func calculateSSIM(original: UIImage, compressed: UIImage) -> Float {
+        guard let originalCG = original.cgImage,
+              let compressedCG = compressed.cgImage else {
+            return 1.0  // If we can't compare, assume acceptable
+        }
+
+        // Ensure same dimensions
+        let width = min(originalCG.width, compressedCG.width)
+        let height = min(originalCG.height, compressedCG.height)
+
+        guard width > 0 && height > 0 else { return 1.0 }
+
+        // Convert to grayscale for comparison (faster and more accurate for structure)
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue)
+
+        guard let originalContext = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
+        ),
+        let compressedContext = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
+        ) else {
+            return 1.0
+        }
+
+        let rect = CGRect(x: 0, y: 0, width: width, height: height)
+        originalContext.draw(originalCG, in: rect)
+        compressedContext.draw(compressedCG, in: rect)
+
+        guard let originalData = originalContext.data,
+              let compressedData = compressedContext.data else {
+            return 1.0
+        }
+
+        let originalPtr = originalData.bindMemory(to: UInt8.self, capacity: width * height)
+        let compressedPtr = compressedData.bindMemory(to: UInt8.self, capacity: width * height)
+
+        // Calculate SSIM using simplified algorithm
+        // SSIM = (2 * μx * μy + C1) * (2 * σxy + C2) / ((μx² + μy² + C1) * (σx² + σy² + C2))
+        let pixelCount = width * height
+        var sumX: Float = 0
+        var sumY: Float = 0
+        var sumX2: Float = 0
+        var sumY2: Float = 0
+        var sumXY: Float = 0
+
+        for i in 0..<pixelCount {
+            let x = Float(originalPtr[i])
+            let y = Float(compressedPtr[i])
+            sumX += x
+            sumY += y
+            sumX2 += x * x
+            sumY2 += y * y
+            sumXY += x * y
+        }
+
+        let n = Float(pixelCount)
+        let meanX = sumX / n
+        let meanY = sumY / n
+        let varX = (sumX2 / n) - (meanX * meanX)
+        let varY = (sumY2 / n) - (meanY * meanY)
+        let covarXY = (sumXY / n) - (meanX * meanY)
+
+        // SSIM constants
+        let C1: Float = 6.5025   // (0.01 * 255)²
+        let C2: Float = 58.5225  // (0.03 * 255)²
+
+        let ssim = ((2 * meanX * meanY + C1) * (2 * covarXY + C2)) /
+                   ((meanX * meanX + meanY * meanY + C1) * (varX + varY + C2))
+
+        return max(0, min(1, ssim))
+    }
+
+    /// Compresses image with quality guard - ensures minimum SSIM threshold
+    /// If compressed image falls below threshold, increases quality iteratively
+    private func compressWithQualityGuard(
+        image: UIImage,
+        config: CompressionConfig,
+        minSSIM: Float
+    ) -> Data? {
+        var currentQuality = config.quality
+        let qualityStep: Float = 0.1
+        let maxAttempts = 5
+
+        for attempt in 0..<maxAttempts {
+            guard let jpegData = image.jpegData(compressionQuality: CGFloat(currentQuality)),
+                  let compressedImage = UIImage(data: jpegData) else {
+                continue
+            }
+
+            let ssim = calculateSSIM(original: image, compressed: compressedImage)
+
+            if ssim >= minSSIM {
+                return jpegData
+            }
+
+            // Quality too low, increase it
+            currentQuality = min(1.0, currentQuality + qualityStep)
+
+            // If we've reached max quality and still failing, return what we have
+            if currentQuality >= 1.0 {
+                return jpegData
+            }
+        }
+
+        // Fallback: use original quality
+        return image.jpegData(compressionQuality: CGFloat(config.quality))
     }
 
     // MARK: - Helper Methods
@@ -778,6 +999,30 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
         guard let jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality)),
               let compressedImage = UIImage(data: jpegData) else {
+            return nil
+        }
+
+        return PDFPage(image: compressedImage)
+    }
+
+    /// Creates compressed page with SSIM quality guard
+    /// Ensures output quality meets minimum threshold
+    private func createCompressedPageWithQualityGuard(from page: PDFPage, config: CompressionConfig) throws -> PDFPage? {
+        let pageImage = renderPageToImage(page, config: config)
+
+        let jpegData: Data?
+        if config.enableAdaptiveQualityFloor {
+            jpegData = compressWithQualityGuard(
+                image: pageImage,
+                config: config,
+                minSSIM: config.minSSIMThreshold
+            )
+        } else {
+            jpegData = pageImage.jpegData(compressionQuality: CGFloat(config.quality))
+        }
+
+        guard let validData = jpegData,
+              let compressedImage = UIImage(data: validData) else {
             return nil
         }
 

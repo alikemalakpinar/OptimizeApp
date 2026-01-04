@@ -2,9 +2,9 @@
 //  ModernPaywallScreen.swift
 //  optimize
 //
-//  Apple-Standard Premium Paywall
+//  Apple-Standard Premium Paywall v2.0
 //  No scroll - Everything visible at once
-//  Clean, minimal, conversion-focused design
+//  Timeline + Social Proof + Conversion-focused design
 //
 
 import SwiftUI
@@ -13,6 +13,7 @@ struct ModernPaywallScreen: View {
     @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var isLoading = false
     @State private var animateContent = false
+    @State private var animateTimeline = false
     @Environment(\.colorScheme) private var colorScheme
 
     let onSubscribe: (SubscriptionPlan) -> Void
@@ -23,6 +24,8 @@ struct ModernPaywallScreen: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let isCompact = geometry.size.height < 700
+
             ZStack {
                 // Background
                 ApplePaywallBackground()
@@ -44,12 +47,10 @@ struct ModernPaywallScreen: View {
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.sm)
+                    .padding(.top, Spacing.xs)
 
-                    Spacer()
-
-                    // Hero Section
-                    VStack(spacing: Spacing.md) {
+                    // Hero Section - Compact
+                    VStack(spacing: isCompact ? 6 : Spacing.sm) {
                         // Premium Icon
                         ZStack {
                             Circle()
@@ -60,10 +61,10 @@ struct ModernPaywallScreen: View {
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .frame(width: 72, height: 72)
+                                .frame(width: isCompact ? 56 : 64, height: isCompact ? 56 : 64)
 
                             Image(systemName: "crown.fill")
-                                .font(.system(size: 32, weight: .medium))
+                                .font(.system(size: isCompact ? 24 : 28, weight: .medium))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.premiumPurple, Color.premiumBlue],
@@ -73,37 +74,40 @@ struct ModernPaywallScreen: View {
                                 )
                         }
 
-                        // Title
                         Text("Premium'a Geç")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .font(.system(size: isCompact ? 22 : 26, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
                     }
                     .opacity(animateContent ? 1 : 0)
-                    .offset(y: animateContent ? 0 : 15)
-
-                    Spacer()
-
-                    // Features - Compact 2x2 Grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        CompactFeatureCell(icon: "infinity", title: "Sınırsız", color: .appMint)
-                        CompactFeatureCell(icon: "wand.and.stars", title: "Akıllı AI", color: .premiumPurple)
-                        CompactFeatureCell(icon: "lock.shield.fill", title: "Güvenli", color: .premiumBlue)
-                        CompactFeatureCell(icon: "sparkles", title: "Reklamsız", color: .warmOrange)
-                    }
-                    .padding(.horizontal, Spacing.lg)
-                    .opacity(animateContent ? 1 : 0)
                     .offset(y: animateContent ? 0 : 10)
+                    .padding(.top, isCompact ? 4 : Spacing.sm)
 
-                    Spacer()
+                    Spacer().frame(height: isCompact ? 8 : 16)
+
+                    // Timeline Section (NEW)
+                    TrialTimelineView(isCompact: isCompact)
+                        .padding(.horizontal, Spacing.lg)
+                        .opacity(animateTimeline ? 1 : 0)
+                        .offset(y: animateTimeline ? 0 : 10)
+
+                    Spacer().frame(height: isCompact ? 8 : 14)
+
+                    // Social Proof (NEW)
+                    SocialProofBar(isCompact: isCompact)
+                        .padding(.horizontal, Spacing.lg)
+                        .opacity(animateContent ? 1 : 0)
+
+                    Spacer().frame(height: isCompact ? 8 : 14)
 
                     // Plan Selection - Compact Cards
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         CompactPlanCard(
                             title: "Haftalık",
                             price: "₺39,99",
                             period: "/hafta",
                             isSelected: selectedPlan == .monthly,
-                            badge: nil
+                            badge: nil,
+                            isCompact: isCompact
                         ) {
                             withAnimation(.spring(response: 0.3)) {
                                 selectedPlan = .monthly
@@ -115,7 +119,8 @@ struct ModernPaywallScreen: View {
                             price: "₺249,99",
                             period: "/yıl",
                             isSelected: selectedPlan == .yearly,
-                            badge: "%70 Tasarruf"
+                            badge: "%70 Tasarruf",
+                            isCompact: isCompact
                         ) {
                             withAnimation(.spring(response: 0.3)) {
                                 selectedPlan = .yearly
@@ -128,7 +133,7 @@ struct ModernPaywallScreen: View {
                     Spacer()
 
                     // CTA Section
-                    VStack(spacing: Spacing.md) {
+                    VStack(spacing: isCompact ? 8 : Spacing.sm) {
                         // Main CTA Button
                         Button(action: {
                             Haptics.impact(style: .medium)
@@ -141,13 +146,13 @@ struct ModernPaywallScreen: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                         .scaleEffect(0.8)
                                 } else {
-                                    Text("7 Gün Ücretsiz Dene")
-                                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                                    Text("7 Gün Ücretsiz Başla")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                             }
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 54)
+                            .frame(height: isCompact ? 48 : 52)
                             .background(
                                 LinearGradient(
                                     colors: [Color.premiumPurple, Color.premiumBlue],
@@ -156,62 +161,264 @@ struct ModernPaywallScreen: View {
                                 )
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .shadow(color: Color.premiumPurple.opacity(0.3), radius: 12, x: 0, y: 6)
+                            .shadow(color: Color.premiumPurple.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
                         .buttonStyle(.plain)
                         .disabled(isLoading)
                         .padding(.horizontal, Spacing.lg)
 
+                        // Price info after trial
+                        Text("7 gün sonra \(selectedPlan == .yearly ? "₺249,99/yıl" : "₺39,99/hafta")")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.tertiary)
+
                         // Trial Info
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                                 .foregroundStyle(Color.appMint)
                             Text("İstediğin zaman iptal et")
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(.secondary)
                         }
 
                         // Footer Links
-                        HStack(spacing: Spacing.lg) {
+                        HStack(spacing: Spacing.md) {
                             Button(action: {
                                 Haptics.selection()
                                 onRestore()
                             }) {
                                 Text("Geri Yükle")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(.secondary)
                             }
 
                             Text("•")
                                 .foregroundStyle(.quaternary)
+                                .font(.system(size: 10))
 
                             Button(action: onPrivacy) {
                                 Text("Gizlilik")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(.tertiary)
                             }
 
                             Text("•")
                                 .foregroundStyle(.quaternary)
+                                .font(.system(size: 10))
 
                             Button(action: onTerms) {
                                 Text("Koşullar")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 11))
                                     .foregroundStyle(.tertiary)
                             }
                         }
                     }
-                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? Spacing.md : Spacing.lg)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 8 : Spacing.md)
                 }
             }
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1)) {
                 animateContent = true
             }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.25)) {
+                animateTimeline = true
+            }
         }
+    }
+}
+
+// MARK: - Trial Timeline View (NEW - Blinkist Style)
+
+private struct TrialTimelineView: View {
+    let isCompact: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Day 1 - Today
+            TimelineStep(
+                day: "Bugün",
+                title: "Başla",
+                icon: "play.fill",
+                color: .appMint,
+                isFirst: true,
+                isLast: false,
+                isCompact: isCompact
+            )
+
+            // Connection line
+            TimelineConnector()
+
+            // Day 5 - Reminder
+            TimelineStep(
+                day: "5. Gün",
+                title: "Hatırlatma",
+                icon: "bell.fill",
+                color: .warmOrange,
+                isFirst: false,
+                isLast: false,
+                isCompact: isCompact
+            )
+
+            // Connection line
+            TimelineConnector()
+
+            // Day 7 - Billing
+            TimelineStep(
+                day: "7. Gün",
+                title: "Ödeme",
+                icon: "creditcard.fill",
+                color: .premiumPurple,
+                isFirst: false,
+                isLast: true,
+                isCompact: isCompact
+            )
+        }
+        .padding(.vertical, isCompact ? 10 : 12)
+        .padding(.horizontal, isCompact ? 12 : 16)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+private struct TimelineStep: View {
+    let day: String
+    let title: String
+    let icon: String
+    let color: Color
+    let isFirst: Bool
+    let isLast: Bool
+    let isCompact: Bool
+
+    var body: some View {
+        VStack(spacing: isCompact ? 4 : 6) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: isCompact ? 28 : 32, height: isCompact ? 28 : 32)
+
+                Image(systemName: icon)
+                    .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+
+            // Day label
+            Text(day)
+                .font(.system(size: isCompact ? 9 : 10, weight: .bold, design: .rounded))
+                .foregroundStyle(isFirst ? color : .secondary)
+
+            // Title
+            Text(title)
+                .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct TimelineConnector: View {
+    var body: some View {
+        Rectangle()
+            .fill(
+                LinearGradient(
+                    colors: [Color.appMint.opacity(0.5), Color.premiumPurple.opacity(0.5)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(height: 2)
+            .frame(maxWidth: 30)
+    }
+}
+
+// MARK: - Social Proof Bar (NEW)
+
+private struct SocialProofBar: View {
+    let isCompact: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: isCompact ? 12 : 16) {
+            // App Store Rating
+            SocialProofItem(
+                icon: "star.fill",
+                value: "4.8",
+                label: "Puan",
+                color: .yellow,
+                isCompact: isCompact
+            )
+
+            Divider()
+                .frame(height: isCompact ? 24 : 28)
+
+            // Users
+            SocialProofItem(
+                icon: "person.2.fill",
+                value: "50K+",
+                label: "Kullanıcı",
+                color: .premiumBlue,
+                isCompact: isCompact
+            )
+
+            Divider()
+                .frame(height: isCompact ? 24 : 28)
+
+            // Saved Space
+            SocialProofItem(
+                icon: "arrow.down.circle.fill",
+                value: "2TB+",
+                label: "Tasarruf",
+                color: .appMint,
+                isCompact: isCompact
+            )
+        }
+        .padding(.vertical, isCompact ? 8 : 10)
+        .padding(.horizontal, isCompact ? 16 : 20)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground).opacity(0.5) : .white.opacity(0.8))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+private struct SocialProofItem: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    let isCompact: Bool
+
+    var body: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
+                    .foregroundStyle(color)
+
+                Text(value)
+                    .font(.system(size: isCompact ? 13 : 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+            }
+
+            Text(label)
+                .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -230,7 +437,7 @@ private struct ApplePaywallBackground: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.premiumPurple.opacity(colorScheme == .dark ? 0.15 : 0.08),
+                                Color.premiumPurple.opacity(colorScheme == .dark ? 0.12 : 0.06),
                                 Color.clear
                             ],
                             center: .center,
@@ -246,7 +453,7 @@ private struct ApplePaywallBackground: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.premiumBlue.opacity(colorScheme == .dark ? 0.1 : 0.06),
+                                Color.premiumBlue.opacity(colorScheme == .dark ? 0.08 : 0.04),
                                 Color.clear
                             ],
                             center: .center,
@@ -262,48 +469,15 @@ private struct ApplePaywallBackground: View {
     }
 }
 
-// MARK: - Compact Feature Cell
-private struct CompactFeatureCell: View {
-    let icon: String
-    let title: String
-    let color: Color
-    @Environment(\.colorScheme) private var colorScheme
+// MARK: - Compact Plan Card (Updated)
 
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: 32, height: 32)
-                .background(color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            Text(title)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
-
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.cardBorder, lineWidth: 0.5)
-        )
-    }
-}
-
-// MARK: - Compact Plan Card
 private struct CompactPlanCard: View {
     let title: String
     let price: String
     let period: String
     let isSelected: Bool
     let badge: String?
+    var isCompact: Bool = false
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -314,33 +488,33 @@ private struct CompactPlanCard: View {
             action()
         }) {
             ZStack(alignment: .top) {
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: isCompact ? 11 : 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
-                        .padding(.top, badge != nil ? 22 : 14)
+                        .padding(.top, badge != nil ? (isCompact ? 18 : 20) : (isCompact ? 10 : 12))
 
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
                         Text(price)
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .font(.system(size: isCompact ? 18 : 20, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
 
                         Text(period)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 100)
+                .frame(height: isCompact ? 80 : 90)
                 .background(
                     ZStack {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
 
                         if isSelected {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(
                                     LinearGradient(
                                         colors: [Color.premiumPurple.opacity(0.05), Color.premiumBlue.opacity(0.02)],
@@ -352,7 +526,7 @@ private struct CompactPlanCard: View {
                     }
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(
                             isSelected
                                 ? LinearGradient(colors: [Color.premiumPurple, Color.premiumBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -360,15 +534,15 @@ private struct CompactPlanCard: View {
                             lineWidth: isSelected ? 2 : 1
                         )
                 )
-                .shadow(color: isSelected ? Color.premiumPurple.opacity(0.12) : .clear, radius: 8, x: 0, y: 4)
+                .shadow(color: isSelected ? Color.premiumPurple.opacity(0.1) : .clear, radius: 6, x: 0, y: 3)
 
                 // Badge
                 if let badge = badge {
                     Text(badge)
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
                         .background(
                             LinearGradient(
                                 colors: [Color.appMint, Color.appTeal],
@@ -377,7 +551,7 @@ private struct CompactPlanCard: View {
                             )
                         )
                         .clipShape(Capsule())
-                        .offset(y: -10)
+                        .offset(y: -8)
                 }
 
                 // Checkmark
@@ -386,7 +560,7 @@ private struct CompactPlanCard: View {
                         HStack {
                             Spacer()
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: isCompact ? 16 : 18))
                                 .foregroundStyle(
                                     LinearGradient(
                                         colors: [Color.premiumPurple, Color.premiumBlue],
@@ -394,8 +568,8 @@ private struct CompactPlanCard: View {
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .background(Circle().fill(Color(.systemBackground)).frame(width: 16, height: 16))
-                                .padding(8)
+                                .background(Circle().fill(Color(.systemBackground)).frame(width: 12, height: 12))
+                                .padding(6)
                         }
                         Spacer()
                     }
@@ -426,4 +600,15 @@ private struct CompactPlanCard: View {
         onTerms: {}
     )
     .preferredColorScheme(.dark)
+}
+
+#Preview("Compact (iPhone SE)") {
+    ModernPaywallScreen(
+        onSubscribe: { plan in print("Subscribe: \(plan)") },
+        onRestore: {},
+        onDismiss: {},
+        onPrivacy: {},
+        onTerms: {}
+    )
+    .previewDevice("iPhone SE (3rd generation)")
 }
