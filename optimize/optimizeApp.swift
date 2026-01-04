@@ -178,6 +178,7 @@ struct RootViewWithCoordinator: View {
         .sheet(isPresented: $coordinator.showModernPaywall) {
             ModernPaywallScreen(
                 subscriptionManager: coordinator.subscriptionManager,
+                context: coordinator.paywallContext,  // MASTER: Pass feature-specific context
                 onSubscribe: { plan in
                     Task {
                         do {

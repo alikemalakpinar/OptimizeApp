@@ -20,11 +20,32 @@ struct ModernPaywallScreen: View {
     // CRITICAL FIX: Get real prices from StoreKit instead of hardcoded values
     @ObservedObject var subscriptionManager: SubscriptionManager
 
+    // MASTER ARCHITECTURE: Feature-specific paywall context
+    var context: PaywallContext?
+
     let onSubscribe: (SubscriptionPlan) -> Void
     let onRestore: () -> Void
     let onDismiss: () -> Void
     let onPrivacy: () -> Void
     let onTerms: () -> Void
+
+    // MARK: - Computed Context Properties
+
+    private var displayTitle: String {
+        context?.title ?? "Premium'a Geç"
+    }
+
+    private var displaySubtitle: String? {
+        context?.subtitle
+    }
+
+    private var displayIcon: String {
+        context?.icon ?? "crown.fill"
+    }
+
+    private var ctaButtonText: String {
+        context?.ctaText ?? "7 Gün Ücretsiz Başla"
+    }
 
     // MARK: - Dynamic Price Helpers
 
@@ -85,8 +106,9 @@ struct ModernPaywallScreen: View {
                     .padding(.top, Spacing.xs)
 
                     // Hero Section - Compact
+                    // DYNAMIC: Uses context-specific icon and title
                     VStack(spacing: isCompact ? 6 : Spacing.sm) {
-                        // Premium Icon
+                        // Premium Icon - Dynamic based on context
                         ZStack {
                             Circle()
                                 .fill(
@@ -98,7 +120,7 @@ struct ModernPaywallScreen: View {
                                 )
                                 .frame(width: isCompact ? 56 : 64, height: isCompact ? 56 : 64)
 
-                            Image(systemName: "crown.fill")
+                            Image(systemName: displayIcon)
                                 .font(.system(size: isCompact ? 24 : 28, weight: .medium))
                                 .foregroundStyle(
                                     LinearGradient(
@@ -109,9 +131,19 @@ struct ModernPaywallScreen: View {
                                 )
                         }
 
-                        Text("Premium'a Geç")
+                        // Dynamic title from context
+                        Text(displayTitle)
                             .font(.system(size: isCompact ? 22 : 26, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
+
+                        // Subtitle if context provides one
+                        if let subtitle = displaySubtitle {
+                            Text(subtitle)
+                                .font(.system(size: isCompact ? 12 : 14, weight: .medium, design: .rounded))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, Spacing.lg)
+                        }
                     }
                     .opacity(animateContent ? 1 : 0)
                     .offset(y: animateContent ? 0 : 10)
@@ -170,7 +202,7 @@ struct ModernPaywallScreen: View {
 
                     // CTA Section
                     VStack(spacing: isCompact ? 8 : Spacing.sm) {
-                        // Main CTA Button
+                        // Main CTA Button - Dynamic text from context
                         Button(action: {
                             Haptics.impact(style: .medium)
                             isLoading = true
@@ -182,7 +214,7 @@ struct ModernPaywallScreen: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                         .scaleEffect(0.8)
                                 } else {
-                                    Text("7 Gün Ücretsiz Başla")
+                                    Text(ctaButtonText)
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                             }
@@ -625,9 +657,34 @@ private struct CompactPlanCard: View {
 }
 
 // MARK: - Preview
-#Preview {
+#Preview("Default") {
     ModernPaywallScreen(
         subscriptionManager: SubscriptionManager.shared,
+        context: nil,
+        onSubscribe: { plan in print("Subscribe: \(plan)") },
+        onRestore: {},
+        onDismiss: {},
+        onPrivacy: {},
+        onTerms: {}
+    )
+}
+
+#Preview("Batch Processing") {
+    ModernPaywallScreen(
+        subscriptionManager: SubscriptionManager.shared,
+        context: .batchProcessing,
+        onSubscribe: { plan in print("Subscribe: \(plan)") },
+        onRestore: {},
+        onDismiss: {},
+        onPrivacy: {},
+        onTerms: {}
+    )
+}
+
+#Preview("File Converter") {
+    ModernPaywallScreen(
+        subscriptionManager: SubscriptionManager.shared,
+        context: .converter,
         onSubscribe: { plan in print("Subscribe: \(plan)") },
         onRestore: {},
         onDismiss: {},
@@ -639,6 +696,7 @@ private struct CompactPlanCard: View {
 #Preview("Dark Mode") {
     ModernPaywallScreen(
         subscriptionManager: SubscriptionManager.shared,
+        context: .advancedPresets,
         onSubscribe: { plan in print("Subscribe: \(plan)") },
         onRestore: {},
         onDismiss: {},
@@ -646,16 +704,4 @@ private struct CompactPlanCard: View {
         onTerms: {}
     )
     .preferredColorScheme(.dark)
-}
-
-#Preview("Compact (iPhone SE)") {
-    ModernPaywallScreen(
-        subscriptionManager: SubscriptionManager.shared,
-        onSubscribe: { plan in print("Subscribe: \(plan)") },
-        onRestore: {},
-        onDismiss: {},
-        onPrivacy: {},
-        onTerms: {}
-    )
-    .previewDevice("iPhone SE (3rd generation)")
 }
