@@ -11,6 +11,7 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 import PDFKit
 import AVFoundation
 import UniformTypeIdentifiers

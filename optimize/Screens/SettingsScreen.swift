@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsScreen: View {
     // MARK: - Persistent Settings with @AppStorage
