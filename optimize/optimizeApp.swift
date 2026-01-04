@@ -17,6 +17,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 /// App entry point - Composition Root for Dependency Injection
 @main
