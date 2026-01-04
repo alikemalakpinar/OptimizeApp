@@ -8,6 +8,11 @@
 //           Videos ↔ Videos (format conversion)
 //           Documents ↔ PDF
 //
+//  MASTER LEVEL ARCHITECTURE:
+//  - Premium-gated file conversion
+//  - Feature-specific paywall triggers
+//  - Proper error handling with recovery suggestions
+//
 
 import Foundation
 import SwiftUI
@@ -17,11 +22,49 @@ import AVFoundation
 import UniformTypeIdentifiers
 import QuickLook
 
+// MARK: - Conversion Errors
+
+/// Conversion-specific errors with recovery suggestions
+enum ConversionError: LocalizedError {
+    case featureLocked(reason: String)
+    case unsupportedFormat(from: String, to: String)
+    case fileNotFound
+    case conversionFailed(underlying: Error)
+    case cancelled
+
+    var errorDescription: String? {
+        switch self {
+        case .featureLocked(let reason):
+            return reason
+        case .unsupportedFormat(let from, let to):
+            return "\(from) -> \(to) dönüşümü desteklenmiyor."
+        case .fileNotFound:
+            return "Dosya bulunamadı."
+        case .conversionFailed(let error):
+            return "Dönüşüm başarısız: \(error.localizedDescription)"
+        case .cancelled:
+            return "Dönüşüm iptal edildi."
+        }
+    }
+
+    /// Whether this error should trigger a paywall
+    var shouldShowPaywall: Bool {
+        if case .featureLocked = self {
+            return true
+        }
+        return false
+    }
+}
+
 // MARK: - File Converter Service
 
 @MainActor
 final class FileConverterService: ObservableObject {
     static let shared = FileConverterService()
+
+    // MARK: - Dependencies
+
+    private let subscriptionManager: SubscriptionManager
 
     // MARK: - Published State
 
@@ -31,7 +74,32 @@ final class FileConverterService: ObservableObject {
 
     // MARK: - Initialization
 
-    private init() {}
+    private init(subscriptionManager: SubscriptionManager = .shared) {
+        self.subscriptionManager = subscriptionManager
+    }
+
+    // MARK: - Premium Access Check
+
+    /// Check if file conversion is available for the user
+    /// Throws ConversionError.featureLocked if not available
+    func checkConversionAccess() throws {
+        guard subscriptionManager.canPerformFileConversion else {
+            throw ConversionError.featureLocked(
+                reason: "Dosya dönüştürme özelliği Premium üyelik gerektirir."
+            )
+        }
+    }
+
+    /// Check access and trigger paywall if needed
+    /// Returns: true if conversion is allowed
+    @discardableResult
+    func requestConversionAccess() -> Bool {
+        if !subscriptionManager.canPerformFileConversion {
+            subscriptionManager.checkFeatureAccess(.fileConversion)
+            return false
+        }
+        return true
+    }
 
     // MARK: - Supported Conversions
 
@@ -60,12 +128,16 @@ final class FileConverterService: ObservableObject {
     // MARK: - Conversion API
 
     /// Convert file to specified format
+    /// - Throws: ConversionError.featureLocked if user doesn't have Pro subscription
     func convert(
         url: URL,
         to format: ConversionFormat,
         options: ConversionOptions = .default,
         progressHandler: ((Double) -> Void)? = nil
     ) async throws -> URL {
+        // PREMIUM CHECK: File conversion requires Pro subscription
+        try checkConversionAccess()
+
         isConverting = true
         progress = 0
         currentOperation = "Donusturuluyor..."

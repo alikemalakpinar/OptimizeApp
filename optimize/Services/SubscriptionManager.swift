@@ -34,24 +34,144 @@ protocol SubscriptionManagerProtocol: AnyObject {
     func verifyEntitlementForCriticalOperation() async -> Bool
 }
 
-// MARK: - Paywall Context
+// MARK: - Paywall Context (Master Level - Feature-Specific Upsells)
+
+/// Context for paywall presentation - customized per feature
+/// Each context is designed to highlight the specific value proposition
 struct PaywallContext: Equatable {
     let title: String
     let subtitle: String
+    let icon: String  // SF Symbol name for hero section
     let highlights: [String]
     let limitDescription: String?
+    let ctaText: String  // Call-to-action button text
+
+    // MARK: - Default Context
 
     static let proRequired = PaywallContext(
-        title: "Go Pro to continue",
-        subtitle: "Unlock unlimited, ad-free optimization with professional quality.",
+        title: "Premium'a Geç",
+        subtitle: "Sınırsız, reklamsız optimizasyon ile profesyonel kaliteyi aç.",
+        icon: "crown.fill",
         highlights: [
-            "No ads, ever",
-            "Unlimited conversions & larger files",
-            "Priority-grade compression profiles",
-            "Works with PDFs, images, videos & docs"
+            "Reklamsız deneyim",
+            "Sınırsız dönüştürme",
+            "Profesyonel sıkıştırma",
+            "PDF, görsel, video desteği"
         ],
-        limitDescription: nil
+        limitDescription: nil,
+        ctaText: "7 Gün Ücretsiz Başla"
     )
+
+    // MARK: - Feature-Specific Contexts
+
+    /// Batch Processing - Time-saving focus
+    static let batchProcessing = PaywallContext(
+        title: "Zamandan Tasarruf Et",
+        subtitle: "Tek tek uğraşma! Sınırsız dosyayı aynı anda küçült.",
+        icon: "square.stack.3d.up.fill",
+        highlights: [
+            "Toplu Dosya İşleme",
+            "4x Paralel İşlem Gücü",
+            "Sırada Bekleme Yok",
+            "Arka Planda Çalışma"
+        ],
+        limitDescription: "Ücretsiz sürümde en fazla 2 dosya işleyebilirsiniz.",
+        ctaText: "Toplu İşlemi Aç"
+    )
+
+    /// File Conversion - Format freedom focus
+    static let converter = PaywallContext(
+        title: "Format Özgürlüğü",
+        subtitle: "PDF, Word, Görsel... İstediğin dosyayı istediğin formata çevir.",
+        icon: "arrow.triangle.2.circlepath.circle.fill",
+        highlights: [
+            "Tüm Formatlar Açık",
+            "PDF ↔ Görsel Dönüşümü",
+            "Video Sıkıştırma & GIF",
+            "Kalite Kaybı Yok"
+        ],
+        limitDescription: nil,
+        ctaText: "Dönüştürmeyi Aç"
+    )
+
+    /// Advanced Presets - Quality control focus
+    static let advancedPresets = PaywallContext(
+        title: "Profesyonel Kontrol",
+        subtitle: "Maksimum sıkıştırma, yüksek kalite veya özel ayarlar - sen seç.",
+        icon: "slider.horizontal.3",
+        highlights: [
+            "Maksimum Sıkıştırma Modu",
+            "Yüksek Kalite Modu",
+            "Özel DPI Ayarı",
+            "Vektör Koruma"
+        ],
+        limitDescription: "Ücretsiz sürümde sadece 'Dengeli' mod kullanılabilir.",
+        ctaText: "Gelişmiş Ayarları Aç"
+    )
+
+    /// Customization - Personalization focus
+    static let customization = PaywallContext(
+        title: "Kişiselleştir",
+        subtitle: "Uygulamayı kendin yap. Özel ikonlar ve temalar seni bekliyor.",
+        icon: "paintpalette.fill",
+        highlights: [
+            "6 Özel Uygulama İkonu",
+            "Karanlık Mod İkonu",
+            "Altın Premium İkonu",
+            "Retro Klasik İkon"
+        ],
+        limitDescription: nil,
+        ctaText: "İkonları Aç"
+    )
+
+    /// Background Processing - Productivity focus
+    static let backgroundProcessing = PaywallContext(
+        title: "Çoklu Görev Ustası",
+        subtitle: "Uygulamayı kapat, işlem devam etsin. Bildirimi bekle.",
+        icon: "arrow.down.circle.fill",
+        highlights: [
+            "Arka Plan İşleme",
+            "Uygulama Kapalıyken Çalışır",
+            "Bildirimle Sonuç Alma",
+            "Kesintisiz Çalışma"
+        ],
+        limitDescription: "Ücretsiz sürümde uygulama açık kalmalıdır.",
+        ctaText: "Arka Planı Aç"
+    )
+
+    /// Daily limit reached
+    static func dailyLimitReached(used: Int, limit: Int) -> PaywallContext {
+        PaywallContext(
+            title: "Günlük Limit Doldu",
+            subtitle: "Bugün \(used)/\(limit) hakkını kullandın. Premium ile sınırsız devam et.",
+            icon: "clock.badge.exclamationmark.fill",
+            highlights: [
+                "Sınırsız Günlük Kullanım",
+                "Büyük Dosya Desteği (500MB+)",
+                "Öncelikli İşlem Kuyruğu",
+                "7/24 Premium Destek"
+            ],
+            limitDescription: "Yarın saat 00:00'da \(limit) hak yenilenir.",
+            ctaText: "Sınırı Kaldır"
+        )
+    }
+
+    /// File too large for free tier
+    static func fileTooLarge(sizeMB: Double, limitMB: Double) -> PaywallContext {
+        PaywallContext(
+            title: "Dosya Çok Büyük",
+            subtitle: String(format: "%.0f MB'lık dosya, %.0f MB limitini aşıyor.", sizeMB, limitMB),
+            icon: "doc.badge.arrow.up.fill",
+            highlights: [
+                "500MB'a Kadar Dosya Desteği",
+                "4K Video Sıkıştırma",
+                "Çok Sayfalı PDF İşleme",
+                "Yüksek Çözünürlük Koruma"
+            ],
+            limitDescription: String(format: "Ücretsiz limit: %.0f MB", limitMB),
+            ctaText: "Büyük Dosyaları Aç"
+        )
+    }
 }
 
 // MARK: - Subscription Manager
@@ -552,4 +672,154 @@ enum SubscriptionError: LocalizedError {
             return "An unknown error occurred. Please try again."
         }
     }
+}
+
+// MARK: - Feature Entitlements (Master Level Architecture)
+
+/// Centralized feature access control
+/// This eliminates scattered "if isPremium" checks throughout the codebase
+/// and provides a single source of truth for feature gating
+extension SubscriptionManager {
+
+    // MARK: - Feature Flags
+
+    /// Can perform batch (multi-file) processing?
+    /// Free: No (or max 2 files)
+    /// Pro: Unlimited
+    var canPerformBatchProcessing: Bool {
+        status.isPro
+    }
+
+    /// Can perform file format conversion?
+    /// Free: No
+    /// Pro: All formats (PDF ↔ Image, Video → GIF, etc.)
+    var canPerformFileConversion: Bool {
+        status.isPro
+    }
+
+    /// Maximum concurrent operations allowed
+    /// Free: 1 (sequential only)
+    /// Pro: 4 (parallel processing)
+    var maxConcurrentOperations: Int {
+        status.isPro ? 4 : 1
+    }
+
+    /// Maximum files in batch queue
+    /// Free: 2 files (teaser)
+    /// Pro: Unlimited
+    var maxBatchQueueSize: Int {
+        status.isPro ? .max : 2
+    }
+
+    /// Can use advanced compression presets?
+    /// Free: Only "Balanced" preset
+    /// Pro: All presets (Maximum, High Quality, Custom)
+    var canUseAdvancedPresets: Bool {
+        status.isPro
+    }
+
+    /// Can change app icon?
+    /// Free: No
+    /// Pro: Yes (Dark, Gold, Retro icons)
+    var canChangeAppIcon: Bool {
+        status.isPro
+    }
+
+    /// Can process files in background?
+    /// Free: No (app must stay open)
+    /// Pro: Yes (continues when minimized)
+    var canProcessInBackground: Bool {
+        status.isPro
+    }
+
+    // MARK: - Feature Check with Paywall Trigger
+
+    /// Check if a feature is available, optionally triggering paywall
+    /// Returns true if feature is available, false if blocked
+    @discardableResult
+    func checkFeatureAccess(_ feature: PremiumFeature, triggerPaywall: Bool = true) -> Bool {
+        let hasAccess: Bool
+
+        switch feature {
+        case .batchProcessing:
+            hasAccess = canPerformBatchProcessing
+        case .fileConversion:
+            hasAccess = canPerformFileConversion
+        case .advancedPresets:
+            hasAccess = canUseAdvancedPresets
+        case .customAppIcon:
+            hasAccess = canChangeAppIcon
+        case .backgroundProcessing:
+            hasAccess = canProcessInBackground
+        case .unlimitedUsage:
+            hasAccess = status.isPro
+        }
+
+        if !hasAccess && triggerPaywall {
+            // Post notification to trigger paywall with appropriate context
+            NotificationCenter.default.post(
+                name: .showPaywallForFeature,
+                object: nil,
+                userInfo: ["feature": feature]
+            )
+        }
+
+        return hasAccess
+    }
+}
+
+// MARK: - Premium Features Enum
+
+/// All premium features that can be gated
+enum PremiumFeature: String, CaseIterable {
+    case batchProcessing = "batch_processing"
+    case fileConversion = "file_conversion"
+    case advancedPresets = "advanced_presets"
+    case customAppIcon = "custom_app_icon"
+    case backgroundProcessing = "background_processing"
+    case unlimitedUsage = "unlimited_usage"
+
+    /// Paywall context for this feature
+    var paywallContext: PaywallContext {
+        switch self {
+        case .batchProcessing:
+            return .batchProcessing
+        case .fileConversion:
+            return .converter
+        case .advancedPresets:
+            return .advancedPresets
+        case .customAppIcon:
+            return .customization
+        case .backgroundProcessing:
+            return .backgroundProcessing
+        case .unlimitedUsage:
+            return .proRequired
+        }
+    }
+
+    /// Localized title for feature
+    var title: String {
+        switch self {
+        case .batchProcessing:
+            return String(localized: "Toplu İşlem", comment: "Batch processing feature")
+        case .fileConversion:
+            return String(localized: "Format Dönüştürme", comment: "File conversion feature")
+        case .advancedPresets:
+            return String(localized: "Gelişmiş Ayarlar", comment: "Advanced presets feature")
+        case .customAppIcon:
+            return String(localized: "Özel İkonlar", comment: "Custom app icon feature")
+        case .backgroundProcessing:
+            return String(localized: "Arka Plan İşleme", comment: "Background processing feature")
+        case .unlimitedUsage:
+            return String(localized: "Sınırsız Kullanım", comment: "Unlimited usage feature")
+        }
+    }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    /// Posted when a premium feature is accessed without subscription
+    /// UserInfo contains "feature": PremiumFeature
+    static let showPaywallForFeature = Notification.Name("showPaywallForFeature")
 }

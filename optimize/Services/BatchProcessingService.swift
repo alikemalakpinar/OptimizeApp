@@ -5,10 +5,17 @@
 //  Batch file compression with queue management
 //  Supports parallel processing, progress tracking, and cancellation
 //
+//  MASTER LEVEL ARCHITECTURE:
+//  - Premium-gated batch processing
+//  - Dynamic concurrent task limits based on subscription
+//  - Background task support for Pro users
+//  - Queue size limits for free tier
+//
 
 import Foundation
 import SwiftUI
 import Combine
+import UIKit
 
 // MARK: - Batch Processing Service
 
@@ -16,10 +23,21 @@ import Combine
 final class BatchProcessingService: ObservableObject {
     static let shared = BatchProcessingService()
 
+    // MARK: - Dependencies
+
+    private let subscriptionManager: SubscriptionManager
+
     // MARK: - Configuration
 
-    /// Maximum concurrent compressions
-    private let maxConcurrentTasks = 3
+    /// Maximum concurrent compressions - DYNAMIC based on subscription
+    private var maxConcurrentTasks: Int {
+        subscriptionManager.maxConcurrentOperations
+    }
+
+    /// Maximum queue size for free users
+    private var maxQueueSize: Int {
+        subscriptionManager.maxBatchQueueSize
+    }
 
     // MARK: - Published State
 
@@ -28,20 +46,44 @@ final class BatchProcessingService: ObservableObject {
     @Published private(set) var isProcessing = false
     @Published private(set) var currentProgress: BatchProgress = .idle
 
+    /// Indicates if queue is at capacity for free users
+    @Published private(set) var isQueueAtLimit = false
+
     // MARK: - Private State
 
     private var processingTask: Task<Void, Never>?
     private var itemTasks: [UUID: Task<Void, Never>] = [:]
 
+    /// Background task identifier for iOS background execution
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+
     // MARK: - Initialization
 
-    private init() {}
+    private init(subscriptionManager: SubscriptionManager = .shared) {
+        self.subscriptionManager = subscriptionManager
+    }
 
     // MARK: - Public API
 
     /// Add files to the batch queue
-    func addFiles(_ urls: [URL], preset: CompressionPreset = CompressionPreset.defaultPresets[1]) {
-        let newItems = urls.map { url in
+    /// Returns: Number of files actually added (may be limited for free users)
+    @discardableResult
+    func addFiles(_ urls: [URL], preset: CompressionPreset = CompressionPreset.defaultPresets[1]) -> Int {
+        // Calculate how many files we can add
+        let currentCount = queue.count
+        let availableSlots = max(0, maxQueueSize - currentCount)
+
+        // For free users, limit the number of files
+        let filesToAdd: [URL]
+        if !subscriptionManager.canPerformBatchProcessing {
+            filesToAdd = Array(urls.prefix(availableSlots))
+            isQueueAtLimit = filesToAdd.count < urls.count || (currentCount + filesToAdd.count) >= maxQueueSize
+        } else {
+            filesToAdd = urls
+            isQueueAtLimit = false
+        }
+
+        let newItems = filesToAdd.map { url in
             BatchItem(
                 id: UUID(),
                 sourceURL: url,
@@ -54,6 +96,8 @@ final class BatchProcessingService: ObservableObject {
 
         queue.append(contentsOf: newItems)
         updateProgress()
+
+        return newItems.count
     }
 
     /// Add single file to queue
@@ -61,14 +105,62 @@ final class BatchProcessingService: ObservableObject {
         addFiles([url], preset: preset)
     }
 
+    /// Check if batch processing is available for the user
+    /// Returns true if available, false if paywall should be shown
+    func checkBatchAccess() -> Bool {
+        // If queue has more than 2 items, batch processing is needed
+        if queue.count > 2 && !subscriptionManager.canPerformBatchProcessing {
+            // Trigger paywall notification
+            subscriptionManager.checkFeatureAccess(.batchProcessing)
+            return false
+        }
+        return true
+    }
+
     /// Start processing the queue
-    func startProcessing() {
-        guard !isProcessing, !queue.isEmpty else { return }
+    /// Returns: true if processing started, false if blocked by subscription
+    @discardableResult
+    func startProcessing() -> Bool {
+        guard !isProcessing, !queue.isEmpty else { return false }
+
+        // PREMIUM CHECK: If queue has more than 2 items, require Pro
+        if queue.count > 2 && !subscriptionManager.canPerformBatchProcessing {
+            // Trigger paywall for batch processing
+            subscriptionManager.checkFeatureAccess(.batchProcessing)
+            return false
+        }
 
         isProcessing = true
+
+        // BACKGROUND TASK: Request background execution time (Pro feature)
+        beginBackgroundTask()
+
         processingTask = Task {
             await processQueue()
+            endBackgroundTask()
         }
+
+        return true
+    }
+
+    // MARK: - Background Task Management
+
+    /// Begin background task to continue processing when app is minimized
+    private func beginBackgroundTask() {
+        guard subscriptionManager.canProcessInBackground else { return }
+
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "BatchCompression") { [weak self] in
+            // System is about to terminate - clean up
+            self?.endBackgroundTask()
+        }
+    }
+
+    /// End background task
+    private func endBackgroundTask() {
+        guard backgroundTaskID != .invalid else { return }
+
+        UIApplication.shared.endBackgroundTask(backgroundTaskID)
+        backgroundTaskID = .invalid
     }
 
     /// Pause processing (current items continue, no new items start)

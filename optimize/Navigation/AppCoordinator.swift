@@ -281,6 +281,30 @@ class AppCoordinator: ObservableObject {
                 self?.subscriptionStatus = status
             }
             .store(in: &cancellables)
+
+        // MASTER ARCHITECTURE: Listen for feature-specific paywall requests
+        setupPaywallNotificationListener()
+    }
+
+    // MARK: - Paywall Notification Listener
+
+    /// Listen for premium feature access requests and show appropriate paywall
+    private func setupPaywallNotificationListener() {
+        NotificationCenter.default.publisher(for: .showPaywallForFeature)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let feature = notification.userInfo?["feature"] as? PremiumFeature else {
+                    return
+                }
+
+                // Present paywall with feature-specific context
+                self.presentPaywall(context: feature.paywallContext, useModernStyle: true)
+
+                // Track analytics
+                self.analytics.track(.paywallViewed)
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - ViewModel Callback Setup
