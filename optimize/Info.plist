@@ -2,6 +2,54 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- ============================== -->
+    <!-- LIVE ACTIVITY SUPPORT (iOS 16.1+) -->
+    <!-- ============================== -->
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+
+    <!-- ============================== -->
+    <!-- BACKGROUND MODES -->
+    <!-- ============================== -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <!-- Background processing for compression tasks -->
+        <string>processing</string>
+        <!-- Background fetch for checking subscription status -->
+        <string>fetch</string>
+    </array>
+
+    <!-- Background Task Identifier for BGTaskScheduler -->
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.optimize.compression.background</string>
+        <string>com.optimize.subscription.refresh</string>
+    </array>
+
+    <!-- ============================== -->
+    <!-- PRIVACY USAGE DESCRIPTIONS -->
+    <!-- ============================== -->
+
+    <!-- Photo Library Access (for image compression) -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>OptimizeApp, fotoğraflarınızı sıkıştırmak ve depolama alanınızı optimize etmek için fotoğraf kütüphanenize erişim gerektirir.</string>
+
+    <!-- Photo Library Add Permission (for saving compressed files) -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>OptimizeApp, sıkıştırılmış fotoğrafları kameranıza kaydetmek için izin gerektirir.</string>
+
+    <!-- Camera Access (optional - for future features) -->
+    <key>NSCameraUsageDescription</key>
+    <string>OptimizeApp, fotoğraf çekerek doğrudan sıkıştırma yapabilmeniz için kamera erişimi ister.</string>
+
+    <!-- Face ID / Touch ID (for secure premium features) -->
+    <key>NSFaceIDUsageDescription</key>
+    <string>Premium özelliklerinizi korumak için Face ID kullanılabilir.</string>
+
+    <!-- ============================== -->
+    <!-- FILE SHARING & DOCUMENTS -->
+    <!-- ============================== -->
+
     <!-- Enable iTunes/Finder file sharing -->
     <key>UIFileSharingEnabled</key>
     <true/>
@@ -35,6 +83,9 @@
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.image</string>
+                <string>public.jpeg</string>
+                <string>public.png</string>
+                <string>public.heic</string>
             </array>
         </dict>
         <dict>
@@ -47,8 +98,63 @@
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.movie</string>
+                <string>public.mpeg-4</string>
+                <string>com.apple.quicktime-movie</string>
             </array>
         </dict>
     </array>
+
+    <!-- Exported Type Identifiers (for custom file types if needed) -->
+    <key>UTExportedTypeDeclarations</key>
+    <array/>
+
+    <!-- Imported Type Identifiers -->
+    <key>UTImportedTypeDeclarations</key>
+    <array/>
+
+    <!-- ============================== -->
+    <!-- APP TRANSPORT SECURITY -->
+    <!-- ============================== -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <!-- Require HTTPS for all connections (App Store requirement) -->
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+    </dict>
+
+    <!-- ============================== -->
+    <!-- USER INTERFACE -->
+    <!-- ============================== -->
+
+    <!-- Support all orientations on iPad, portrait only on iPhone -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <!-- Status bar style -->
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleDefault</string>
+
+    <!-- View controller-based status bar appearance -->
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <true/>
+
+    <!-- ============================== -->
+    <!-- STOREKIT CONFIGURATION -->
+    <!-- ============================== -->
+
+    <!-- StoreKit Configuration File (for testing) -->
+    <key>SKStoreProductParameterProductIdentifier</key>
+    <string>com.optimize.premium</string>
+
 </dict>
 </plist>

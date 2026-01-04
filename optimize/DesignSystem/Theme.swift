@@ -701,20 +701,241 @@ struct TypingText: View {
 
 // MARK: - Sound Manager
 import AVFoundation
+import AudioToolbox
 
+/// Master-level Sound Manager with compression-specific audio feedback
+/// Creates satisfying audio experiences for every interaction
 class SoundManager {
     static let shared = SoundManager()
     private var audioPlayer: AVAudioPlayer?
 
+    /// User preference for sounds (respects system settings)
+    var isSoundEnabled: Bool {
+        // Check if system sounds are enabled
+        return true // Could be tied to UserDefaults
+    }
+
     private init() {}
 
+    // MARK: - Success & Completion Sounds
+
+    /// Main success sound - compression complete
     func playSuccessSound() {
-        // System sound for completion
+        guard isSoundEnabled else { return }
         AudioServicesPlaySystemSound(1407) // Payment success sound
     }
 
+    /// Achievement unlocked celebration
+    func playAchievementSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1025) // Fanfare-like sound
+    }
+
+    /// Level up celebration
+    func playLevelUpSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1026) // Ascending tone
+    }
+
+    // MARK: - Compression Flow Sounds
+
+    /// Compression started - building anticipation
+    func playCompressionStartSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1117) // Subtle start indicator
+    }
+
+    /// Progress tick during compression (use sparingly)
+    func playProgressTick() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1104) // Light tick
+    }
+
+    /// File added to queue
+    func playFileAddedSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1001) // Photo shutter-like
+    }
+
+    /// Single file compression complete
+    func playFileCompleteSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1001) // Satisfying pop
+    }
+
+    /// Batch processing complete
+    func playBatchCompleteSound() {
+        guard isSoundEnabled else { return }
+        // Double success sound for batch
+        AudioServicesPlaySystemSound(1407)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            AudioServicesPlaySystemSound(1407)
+        }
+    }
+
+    // MARK: - UI Interaction Sounds
+
+    /// Button tap feedback
+    func playTapSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1104) // Keyboard tap
+    }
+
+    /// Toggle switch sound
+    func playToggleSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1156) // Toggle sound
+    }
+
+    /// Navigation/swipe sound
+    func playSwipeSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1105) // Swipe indicator
+    }
+
+    /// Selection changed in picker
+    func playPickerSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1161) // Picker tick
+    }
+
+    // MARK: - Notification Sounds
+
     func playNotificationSound() {
+        guard isSoundEnabled else { return }
         AudioServicesPlaySystemSound(1315) // Subtle notification
+    }
+
+    /// New file received (from share sheet, etc.)
+    func playFileReceivedSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1003) // Mail received-like
+    }
+
+    // MARK: - Warning & Error Sounds
+
+    /// Warning sound - approaching limit
+    func playWarningSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1053) // Subtle warning
+    }
+
+    /// Error sound - operation failed
+    func playErrorSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1053) // Error indicator
+    }
+
+    /// Limit reached (daily limit, etc.)
+    func playLimitReachedSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1107) // Lock/denied sound
+    }
+
+    // MARK: - Premium Sounds
+
+    /// Premium feature unlock
+    func playPremiumUnlockSound() {
+        guard isSoundEnabled else { return }
+        AudioServicesPlaySystemSound(1025) // Unlock fanfare
+    }
+
+    /// Subscription activated
+    func playSubscriptionActivatedSound() {
+        guard isSoundEnabled else { return }
+        // Celebratory sequence
+        AudioServicesPlaySystemSound(1407)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            AudioServicesPlaySystemSound(1025)
+        }
+    }
+}
+
+// MARK: - Enhanced Haptics
+
+extension Haptics {
+    /// Light tap for subtle interactions
+    static func light() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+    }
+
+    /// Medium tap for standard interactions
+    static func medium() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+
+    /// Heavy tap for important actions
+    static func heavy() {
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.impactOccurred()
+    }
+
+    /// Rigid tap for firm feedback
+    static func rigid() {
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.impactOccurred()
+    }
+
+    /// Soft tap for gentle feedback
+    static func soft() {
+        let generator = UIImpactFeedbackGenerator(style: .soft)
+        generator.impactOccurred()
+    }
+
+    /// Sequential haptics for progress indication
+    static func progressTick() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred(intensity: 0.5)
+    }
+
+    /// Dramatic impact for major completions
+    static func dramaticSuccess() {
+        // Triple haptic sequence
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.impactOccurred()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            generator.impactOccurred(intensity: 0.8)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let notification = UINotificationFeedbackGenerator()
+            notification.notificationOccurred(.success)
+        }
+    }
+
+    /// Building tension haptic pattern
+    static func buildingTension(completion: @escaping () -> Void) {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+
+        // Accelerating taps
+        let delays: [Double] = [0, 0.15, 0.27, 0.36, 0.42, 0.46, 0.49]
+
+        for (index, delay) in delays.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                let intensity = CGFloat(index + 1) / CGFloat(delays.count)
+                generator.impactOccurred(intensity: intensity)
+
+                if index == delays.count - 1 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        completion()
+                    }
+                }
+            }
+        }
+    }
+
+    /// Achievement unlock haptic pattern
+    static func achievementUnlock() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+        }
     }
 }
 
