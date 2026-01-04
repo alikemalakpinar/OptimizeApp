@@ -6,12 +6,16 @@
 //  OPTIMIZED: Uses statistical sampling and fast-path vision for large files.
 //
 
-import CoreGraphics
-import CoreImage
 import Foundation
 import PDFKit
-import UIKit
 import Vision
+
+#if canImport(UIKit)
+import UIKit
+#endif
+
+import CoreGraphics
+import CoreImage
 
 // MARK: - Data Models
 
