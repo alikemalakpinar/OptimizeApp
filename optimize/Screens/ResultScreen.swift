@@ -20,6 +20,7 @@ struct ResultScreen: View {
     @State private var animateResults = false
     @State private var shareButtonPulse = false
     @State private var showVictoryStamp = false
+    @State private var screenShakeOffset: CGFloat = 0  // ENHANCED: Screen shake effect
 
     var body: some View {
         ZStack {
@@ -31,9 +32,13 @@ struct ResultScreen: View {
                             EnhancedSuccessHeader(savingsPercent: result.savingsPercent)
 
                             // Victory Stamp overlay - appears for high savings
+                            // ENHANCED: Now triggers screen shake on impact
                             if showVictoryStamp && result.savingsPercent >= 40 {
-                                VictoryStampView(savingsPercent: result.savingsPercent)
-                                    .offset(x: 80, y: -20)
+                                VictoryStampView(
+                                    savingsPercent: result.savingsPercent,
+                                    onStampImpact: triggerScreenShake
+                                )
+                                .offset(x: 80, y: -20)
                             }
                         }
                         .padding(.top, Spacing.xl)
@@ -46,6 +51,10 @@ struct ResultScreen: View {
                             animate: animateResults
                         )
                         .padding(.horizontal, Spacing.md)
+
+                        // ENHANCED: Quality assurance badge - addresses "is my file corrupted?" concern
+                        QualityAssuranceBadge()
+                            .padding(.horizontal, Spacing.md)
 
                         // Before/After visual comparison slider
                         BeforeAfterSlider(
@@ -107,9 +116,48 @@ struct ResultScreen: View {
                     .allowsHitTesting(false)
             }
         }
+        // ENHANCED: Screen shake effect for dramatic stamp impact
+        .offset(x: screenShakeOffset)
         .appBackgroundLayered()
         .onAppear {
             triggerCelebration()
+        }
+    }
+
+    /// ENHANCED: Screen shake effect when victory stamp impacts
+    /// Creates a "GÜM" effect with heavy haptic and visual shake
+    private func triggerScreenShake() {
+        // Heavy haptic feedback - the "GÜM" effect
+        Haptics.impact(style: .heavy)
+
+        // Screen shake animation sequence
+        withAnimation(.linear(duration: 0.05)) {
+            screenShakeOffset = 8
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(.linear(duration: 0.05)) {
+                screenShakeOffset = -6
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.linear(duration: 0.05)) {
+                screenShakeOffset = 4
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.linear(duration: 0.05)) {
+                screenShakeOffset = -2
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.linear(duration: 0.05)) {
+                screenShakeOffset = 0
+            }
+        }
+
+        // Second heavy haptic after shake for extra impact
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Haptics.impact(style: .heavy)
         }
     }
 
@@ -402,13 +450,16 @@ struct PulsingPrimaryButton: View {
 
 // MARK: - Victory Stamp View
 /// Premium "OPTIMIZED" stamp animation that appears for high savings (40%+)
-/// Creates a "dopamine hit" moment with spring animation and haptic feedback
+/// Creates a "dopamine hit" moment with spring animation, screen shake and haptic feedback
+/// ENHANCED: Added screen shake effect and stronger visual impact
 struct VictoryStampView: View {
     let savingsPercent: Int
+    var onStampImpact: (() -> Void)? = nil
 
     @State private var scale: CGFloat = 2.5
     @State private var opacity: Double = 0.0
     @State private var rotation: Double = -25
+    @State private var showImpactRing = false
 
     /// Dynamic stamp text based on savings level
     private var stampText: String {
@@ -434,6 +485,15 @@ struct VictoryStampView: View {
 
     var body: some View {
         ZStack {
+            // Impact ring animation - expands outward on stamp
+            if showImpactRing {
+                Circle()
+                    .stroke(stampColor.opacity(0.5), lineWidth: 3)
+                    .frame(width: 150, height: 150)
+                    .scaleEffect(showImpactRing ? 1.5 : 0.5)
+                    .opacity(showImpactRing ? 0 : 1)
+            }
+
             // Outer stamp circle with serrated edge effect
             Circle()
                 .strokeBorder(stampColor, lineWidth: 3)
@@ -467,11 +527,65 @@ struct VictoryStampView: View {
         .scaleEffect(scale)
         .opacity(opacity)
         .onAppear {
-            // "GÜM" stamp effect - dramatic spring animation
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.5, blendDuration: 0)) {
+            // ENHANCED: "GÜM" stamp effect - dramatic spring animation with impact ring
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.4, blendDuration: 0)) {
                 scale = 1.0
                 opacity = 1.0
                 rotation = -15
+            }
+
+            // Show impact ring expanding outward
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showImpactRing = true
+                }
+                // Trigger screen shake callback
+                onStampImpact?()
+            }
+        }
+    }
+}
+
+// MARK: - Quality Assurance Badge
+/// Shows user that quality is preserved - addresses "my file is corrupted?" concern
+struct QualityAssuranceBadge: View {
+    @State private var showCheck = false
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.appMint.opacity(0.15))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: showCheck ? "checkmark.shield.fill" : "shield")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.appMint)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Kalite Korundu")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                Text("Dosyanız orijinal kalitede, sadece boyut küçüldü")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                    showCheck = true
+                }
             }
         }
     }

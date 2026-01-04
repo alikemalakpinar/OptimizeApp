@@ -177,6 +177,7 @@ struct RootViewWithCoordinator: View {
         }
         .sheet(isPresented: $coordinator.showModernPaywall) {
             ModernPaywallScreen(
+                subscriptionManager: coordinator.subscriptionManager,
                 onSubscribe: { plan in
                     Task {
                         do {
@@ -237,6 +238,18 @@ struct RootViewWithCoordinator: View {
             }
         } message: {
             Text(String(localized: "İşlem başarısız oldu. Tekrar denemek ister misiniz?", comment: "Retry message"))
+        }
+        // ARCHITECTURE FIX: Commitment and Rating screens shown as fullScreenCovers
+        // This preserves the NavigationStack so users don't lose their Result screen
+        .fullScreenCover(isPresented: $coordinator.showCommitmentSheet) {
+            CommitmentSigningView {
+                coordinator.commitmentComplete()
+            }
+        }
+        .fullScreenCover(isPresented: $coordinator.showRatingSheet) {
+            RatingRequestView {
+                coordinator.ratingRequestComplete()
+            }
         }
     }
 

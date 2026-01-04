@@ -170,6 +170,12 @@ class AppCoordinator: ObservableObject {
     @Published var errorTitle = ""
     @Published var paywallContext: PaywallContext?
 
+    // ARCHITECTURE FIX: Use sheets for Commitment/Rating to preserve navigation stack
+    // Previously, setting currentScreen = .commitment would destroy NavigationStack
+    // and cause users to lose their Result screen, breaking the back navigation.
+    @Published var showCommitmentSheet = false
+    @Published var showRatingSheet = false
+
     // MARK: - Processing State (Forwarded from ViewModels)
 
     @Published var currentFile: FileInfo?
@@ -295,17 +301,17 @@ class AppCoordinator: ObservableObject {
             self.currentResult = result
             self.retryCount = 0
 
-            // Check if commitment screen should be shown
-            if self.shouldShowCommitmentAfterCompression {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(AppAnimation.standard) {
-                        self.currentScreen = .commitment
-                    }
-                }
-            }
-
             // ARCHITECTURE: Use NavigationStack for native navigation
             self.push(.result(result))
+
+            // ARCHITECTURE FIX: Show commitment as sheet instead of replacing screen
+            // This preserves the NavigationStack so users can see their Result
+            // and navigate back naturally using swipe gestures
+            if self.shouldShowCommitmentAfterCompression {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    self.showCommitmentSheet = true
+                }
+            }
         }
 
         vm.onRetryAvailable = { [weak self] error in
@@ -329,9 +335,8 @@ class AppCoordinator: ObservableObject {
     private func setupResultViewModelCallbacks(_ vm: ResultViewModel) {
         vm.onShouldShowCommitment = { [weak self] in
             guard let self = self else { return }
-            withAnimation(AppAnimation.standard) {
-                self.currentScreen = .commitment
-            }
+            // ARCHITECTURE FIX: Use sheet to preserve navigation
+            self.showCommitmentSheet = true
         }
 
         vm.onShare = { [weak self] _ in
@@ -386,9 +391,13 @@ class AppCoordinator: ObservableObject {
     func commitmentComplete() {
         hasSeenCommitment = true
         analytics.track(.commitmentSigned)
-        withAnimation(AppAnimation.standard) {
-            // Navigate to rating request after commitment
-            currentScreen = .ratingRequest
+
+        // ARCHITECTURE FIX: Dismiss sheet and show rating sheet
+        showCommitmentSheet = false
+
+        // Short delay before showing rating sheet
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.showRatingSheet = true
         }
     }
 
@@ -397,10 +406,9 @@ class AppCoordinator: ObservableObject {
         analytics.track(.ratingRequested)
         // Clear the pending flag
         UserDefaults.standard.set(false, forKey: pendingCommitmentKey)
-        withAnimation(AppAnimation.standard) {
-            // Navigate to home
-            currentScreen = .home
-        }
+
+        // ARCHITECTURE FIX: Dismiss sheet - user stays on Result screen
+        showRatingSheet = false
     }
 
     /// Check if we should show commitment screen after successful compression

@@ -477,12 +477,36 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     }
 
     // MARK: - Helpers
+
+    /// Refreshes daily usage count with TIME MANIPULATION PROTECTION
+    ///
+    /// SECURITY: Detects and handles "time travel" exploits where users
+    /// change their device clock to reset daily limits. If the last usage
+    /// date is in the future, we know the user set their clock back.
+    ///
+    /// Protection strategies:
+    /// 1. If lastDate > now: User manipulated clock backward - DON'T reset limits
+    /// 2. If lastDate is today: Normal usage - keep current count
+    /// 3. If lastDate is in the past (yesterday or earlier): Reset count for new day
     private func refreshDailyUsage(lastDate: Date?) {
         guard let lastDate else {
             persistUsage()
             return
         }
 
+        let now = Date()
+
+        // SECURITY: Time manipulation detection
+        // If last usage date is in the future, user set clock back after using the app
+        // This is a clear sign of manipulation - DO NOT reset the limit
+        if lastDate > now {
+            // Time travel detected! User manipulated their clock.
+            // Keep the existing usage count - don't reward cheating
+            // Optionally: Could add analytics tracking here for monitoring
+            return
+        }
+
+        // Normal flow: Reset count if it's a new day
         if !Calendar.current.isDateInToday(lastDate) {
             status = SubscriptionStatus(
                 plan: status.plan,
