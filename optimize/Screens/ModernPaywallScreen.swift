@@ -239,7 +239,7 @@ private struct TrialTimelineView: View {
     var body: some View {
         HStack(spacing: 0) {
             // Day 1 - Today
-            TimelineStep(
+            TrialStep(
                 day: "Bugün",
                 title: "Başla",
                 icon: "play.fill",
@@ -253,7 +253,7 @@ private struct TrialTimelineView: View {
             TimelineConnector()
 
             // Day 5 - Reminder
-            TimelineStep(
+            TrialStep(
                 day: "5. Gün",
                 title: "Hatırlatma",
                 icon: "bell.fill",
@@ -267,7 +267,7 @@ private struct TrialTimelineView: View {
             TimelineConnector()
 
             // Day 7 - Billing
-            TimelineStep(
+            TrialStep(
                 day: "7. Gün",
                 title: "Ödeme",
                 icon: "creditcard.fill",
@@ -290,7 +290,7 @@ private struct TrialTimelineView: View {
     }
 }
 
-private struct TimelineStep: View {
+private struct TrialStep: View {
     let day: String
     let title: String
     let icon: String

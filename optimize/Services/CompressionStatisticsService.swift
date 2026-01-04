@@ -47,7 +47,7 @@ final class CompressionStatisticsService: ObservableObject {
         stats.totalFilesCompressed += 1
         stats.totalBytesProcessed += result.originalFile.size
         stats.totalBytesSaved += bytesSaved
-        stats.totalCompressionTime += result.processingTime
+        // Note: processingTime tracked separately if needed
 
         // Update file type stats
         updateFileTypeStats(extension: fileExtension, bytesSaved: bytesSaved, originalSize: result.originalFile.size)
