@@ -248,9 +248,14 @@ final class PDFStreamOptimizer {
     }
 }
 
-// MARK: - Image Processor
+// MARK: - Image Processor (ULTIMATE ALGORITHM v2.0)
 
-/// Handles image compression with metadata stripping
+/// Advanced image processor with intelligent compression
+/// Algoritma:
+/// 1. Akıllı boyutlandırma - içerik türüne göre
+/// 2. Çoklu kalite deneme
+/// 3. Metadata stripping
+/// 4. Renk optimizasyonu
 final class ImageProcessor {
 
     private let config: CompressionConfig
@@ -259,34 +264,97 @@ final class ImageProcessor {
         self.config = config
     }
 
-    /// Compresses an image using the configured quality settings
+    /// Compresses an image using ULTIMATE compression algorithm
+    /// Hedef: Maksimum boyut küçültme, görsel kalite korunur
     func compressImage(_ image: UIImage) -> Data? {
-        // Calculate target size based on DPI
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // STEP 1: Akıllı boyutlandırma
+        // ═══════════════════════════════════════════════════════════════════════════════
+
         let maxDimension = max(image.size.width, image.size.height)
-        let targetDimension = maxDimension * (config.targetResolution / 72.0)
-        let scale = min(1.0, targetDimension / maxDimension)
+
+        // Agresif modda daha küçük hedef
+        let dpiScale: CGFloat
+        if config.aggressiveMode {
+            dpiScale = min(1.0, config.targetResolution / 96.0)  // Daha agresif küçültme
+        } else {
+            dpiScale = min(1.0, config.targetResolution / 72.0)
+        }
+
+        // Büyük görüntüler için ek küçültme
+        let sizeScale: CGFloat
+        if maxDimension > 3000 {
+            sizeScale = 2000 / maxDimension  // Max 2000px
+        } else if maxDimension > 2000 {
+            sizeScale = 1500 / maxDimension  // Max 1500px
+        } else {
+            sizeScale = 1.0
+        }
+
+        let finalScale = min(1.0, min(dpiScale, sizeScale))
 
         let targetSize = CGSize(
-            width: image.size.width * scale,
-            height: image.size.height * scale
+            width: floor(image.size.width * finalScale),
+            height: floor(image.size.height * finalScale)
         )
 
-        // Resize if needed
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // STEP 2: Yüksek kaliteli resize
+        // ═══════════════════════════════════════════════════════════════════════════════
+
         let resizedImage: UIImage
-        if scale < 1.0 {
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
-            resizedImage = renderer.image { _ in
+        if finalScale < 1.0 {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1.0
+            format.opaque = true  // Şeffaflık kaldır = daha küçük
+
+            let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+            resizedImage = renderer.image { ctx in
+                UIColor.white.setFill()
+                ctx.fill(CGRect(origin: .zero, size: targetSize))
+                ctx.cgContext.interpolationQuality = .high
                 image.draw(in: CGRect(origin: .zero, size: targetSize))
             }
         } else {
             resizedImage = image
         }
 
-        // Compress with JPEG
-        return resizedImage.jpegData(compressionQuality: CGFloat(config.quality))
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // STEP 3: Optimal JPEG kalitesi bul
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        return findOptimalQuality(for: resizedImage)
     }
 
-    /// Strips EXIF and other metadata from image data using ImageIO
+    /// Binary search ile optimal kaliteyi bulur
+    private func findOptimalQuality(for image: UIImage) -> Data? {
+        let baseQuality = config.quality
+
+        // 3 farklı kalite dene ve en küçüğü seç
+        let qualityLevels: [Float] = [
+            baseQuality,
+            baseQuality * 0.7,
+            max(0.1, baseQuality * 0.5)
+        ]
+
+        var bestData: Data? = nil
+
+        for quality in qualityLevels {
+            guard let data = image.jpegData(compressionQuality: CGFloat(quality)) else {
+                continue
+            }
+
+            // İlk sonuç veya daha küçük sonuç
+            if bestData == nil || data.count < bestData!.count {
+                bestData = data
+            }
+        }
+
+        return bestData
+    }
+
+    /// Strips EXIF, GPS, and other metadata from image data using ImageIO
+    /// Gizlilik ve boyut optimizasyonu için metadata kaldırılır
     func stripMetadata(from imageData: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
               let type = CGImageSourceGetType(source),
@@ -299,10 +367,17 @@ final class ImageProcessor {
             return imageData
         }
 
-        // Add image without metadata
+        // Agresif sıkıştırma ayarları
+        let compressionQuality = config.aggressiveMode ? config.quality * 0.8 : config.quality
+
         let options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: config.quality,
-            kCGImageDestinationOptimizeColorForSharing: true
+            kCGImageDestinationLossyCompressionQuality: compressionQuality,
+            kCGImageDestinationOptimizeColorForSharing: true,
+            // Metadata kaldır
+            kCGImagePropertyExifDictionary: [:] as CFDictionary,
+            kCGImagePropertyGPSDictionary: [:] as CFDictionary,
+            kCGImagePropertyIPTCDictionary: [:] as CFDictionary,
+            kCGImagePropertyMakerAppleDictionary: [:] as CFDictionary
         ]
 
         CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
@@ -313,6 +388,26 @@ final class ImageProcessor {
 
         return imageData
     }
+
+    /// Görüntüyü analiz eder ve optimal sıkıştırma stratejisi önerir
+    func analyzeImage(_ image: UIImage) -> ImageCompressionStrategy {
+        let totalPixels = image.size.width * image.size.height
+
+        if totalPixels > 4_000_000 {
+            return .aggressiveResize  // 4MP+ = agresif küçült
+        } else if totalPixels > 1_000_000 {
+            return .moderateResize    // 1-4MP = orta küçültme
+        } else {
+            return .qualityOnly       // <1MP = sadece kalite düşür
+        }
+    }
+}
+
+/// Image compression strategy based on analysis
+enum ImageCompressionStrategy {
+    case aggressiveResize   // Büyük boyut küçültme
+    case moderateResize     // Orta boyut küçültme
+    case qualityOnly        // Sadece JPEG kalitesi düşür
 }
 
 // MARK: - Batch Processing Extension

@@ -3,10 +3,12 @@
 //  optimize
 //
 //  Interactive before/after comparison slider for visual quality verification
+//  UNIVERSAL FILE SUPPORT v2.0 - PDF, Images, Videos
 //
 
 import SwiftUI
 import PDFKit
+import AVFoundation
 
 // MARK: - Before/After Slider Component
 struct BeforeAfterSlider: View {
@@ -19,21 +21,31 @@ struct BeforeAfterSlider: View {
     @State private var isLoading = true
     @State private var isDragging = false
 
+    /// Detect file type from URL
+    private var fileType: ComparisonFileType {
+        ComparisonFileType.from(extension: originalURL.pathExtension)
+    }
+
     var body: some View {
         GlassCard {
             VStack(spacing: Spacing.sm) {
-                // Header
+                // Header with file type indicator
                 HStack {
-                    Text("Kalite Karsilastirmasi")
-                        .font(.appCaptionMedium)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: Spacing.xxs) {
+                        Image(systemName: fileType.icon)
+                            .font(.system(size: 12))
+                            .foregroundStyle(fileType.color)
+                        Text("Kalite Karşılaştırması")
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
 
                     // Drag hint
                     HStack(spacing: Spacing.xxs) {
                         Image(systemName: "hand.draw")
                             .font(.system(size: 12))
-                        Text("Kaydir")
+                        Text("Kaydır")
                             .font(.appCaption)
                     }
                     .foregroundStyle(.tertiary)
@@ -61,9 +73,22 @@ struct BeforeAfterSlider: View {
 
     private func loadImages() {
         Task {
-            // Load original PDF first page
-            originalImage = await renderPDFFirstPage(url: originalURL)
-            compressedImage = await renderPDFFirstPage(url: compressedURL)
+            // Load based on file type
+            switch fileType {
+            case .pdf:
+                originalImage = await renderPDFFirstPage(url: originalURL)
+                compressedImage = await renderPDFFirstPage(url: compressedURL)
+            case .image:
+                originalImage = await loadImageThumbnail(url: originalURL)
+                compressedImage = await loadImageThumbnail(url: compressedURL)
+            case .video:
+                originalImage = await generateVideoThumbnail(url: originalURL)
+                compressedImage = await generateVideoThumbnail(url: compressedURL)
+            case .other:
+                // For other types, try generic thumbnail
+                originalImage = await loadGenericThumbnail(url: originalURL)
+                compressedImage = await loadGenericThumbnail(url: compressedURL)
+            }
 
             await MainActor.run {
                 withAnimation(.easeOut(duration: 0.3)) {
@@ -73,10 +98,11 @@ struct BeforeAfterSlider: View {
         }
     }
 
+    // MARK: - PDF Rendering
+
     private func renderPDFFirstPage(url: URL) async -> UIImage? {
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                // Access security-scoped resource if needed
                 let shouldStopAccess = url.startAccessingSecurityScopedResource()
                 defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
 
@@ -106,6 +132,170 @@ struct BeforeAfterSlider: View {
 
                 continuation.resume(returning: image)
             }
+        }
+    }
+
+    // MARK: - Image Loading
+
+    private func loadImageThumbnail(url: URL) async -> UIImage? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let shouldStopAccess = url.startAccessingSecurityScopedResource()
+                defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
+
+                // Use ImageIO for efficient thumbnail generation
+                let options: [CFString: Any] = [
+                    kCGImageSourceThumbnailMaxPixelSize: 600,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true
+                ]
+
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                    // Fallback: Load full image
+                    if let data = try? Data(contentsOf: url),
+                       let image = UIImage(data: data) {
+                        continuation.resume(returning: image.resizedForComparison(maxDimension: 600))
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                    return
+                }
+
+                continuation.resume(returning: UIImage(cgImage: cgImage))
+            }
+        }
+    }
+
+    // MARK: - Video Thumbnail
+
+    private func generateVideoThumbnail(url: URL) async -> UIImage? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let shouldStopAccess = url.startAccessingSecurityScopedResource()
+                defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
+
+                let asset = AVURLAsset(url: url)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 600, height: 600)
+
+                // Get frame at 1 second or 10% into video
+                let durationSeconds = CMTimeGetSeconds(asset.duration)
+                let time = CMTime(seconds: min(1.0, durationSeconds * 0.1), preferredTimescale: 600)
+
+                do {
+                    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
+                    continuation.resume(returning: UIImage(cgImage: cgImage))
+                } catch {
+                    // Try at start
+                    do {
+                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+                        continuation.resume(returning: UIImage(cgImage: cgImage))
+                    } catch {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Generic Thumbnail
+
+    private func loadGenericThumbnail(url: URL) async -> UIImage? {
+        // Try QuickLook first, then fall back to icon
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let shouldStopAccess = url.startAccessingSecurityScopedResource()
+                defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
+
+                // Create a placeholder with file icon
+                let size = CGSize(width: 300, height: 300)
+                let renderer = UIGraphicsImageRenderer(size: size)
+                let image = renderer.image { ctx in
+                    UIColor.systemGray6.setFill()
+                    ctx.fill(CGRect(origin: .zero, size: size))
+
+                    // Draw file icon
+                    let icon = UIImage(systemName: "doc.fill")?.withTintColor(.systemGray)
+                    let iconSize: CGFloat = 80
+                    let iconRect = CGRect(
+                        x: (size.width - iconSize) / 2,
+                        y: (size.height - iconSize) / 2 - 20,
+                        width: iconSize,
+                        height: iconSize
+                    )
+                    icon?.draw(in: iconRect)
+
+                    // Draw filename
+                    let filename = url.lastPathComponent
+                    let paragraphStyle = NSMutableParagraphStyle()
+                    paragraphStyle.alignment = .center
+                    let attrs: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: 14, weight: .medium),
+                        .foregroundColor: UIColor.darkGray,
+                        .paragraphStyle: paragraphStyle
+                    ]
+                    let textRect = CGRect(x: 20, y: size.height - 60, width: size.width - 40, height: 40)
+                    filename.draw(in: textRect, withAttributes: attrs)
+                }
+
+                continuation.resume(returning: image)
+            }
+        }
+    }
+}
+
+// MARK: - Comparison File Type
+
+private enum ComparisonFileType {
+    case pdf
+    case image
+    case video
+    case other
+
+    static func from(extension ext: String) -> ComparisonFileType {
+        switch ext.lowercased() {
+        case "pdf":
+            return .pdf
+        case "jpg", "jpeg", "png", "heic", "heif", "gif", "webp", "bmp", "tiff", "tif":
+            return .image
+        case "mp4", "mov", "avi", "mkv", "m4v", "webm", "3gp":
+            return .video
+        default:
+            return .other
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .pdf: return "doc.fill"
+        case .image: return "photo.fill"
+        case .video: return "film.fill"
+        case .other: return "doc.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .pdf: return .red
+        case .image: return .blue
+        case .video: return .purple
+        case .other: return .gray
+        }
+    }
+}
+
+// MARK: - UIImage Extension
+
+private extension UIImage {
+    func resizedForComparison(maxDimension: CGFloat) -> UIImage {
+        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 }
