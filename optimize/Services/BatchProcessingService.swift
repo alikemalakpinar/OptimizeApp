@@ -40,7 +40,7 @@ final class BatchProcessingService: ObservableObject {
     // MARK: - Public API
 
     /// Add files to the batch queue
-    func addFiles(_ urls: [URL], preset: CompressionPreset = .commercial) {
+    func addFiles(_ urls: [URL], preset: CompressionPreset = CompressionPreset.defaultPresets[1]) {
         let newItems = urls.map { url in
             BatchItem(
                 id: UUID(),
@@ -57,7 +57,7 @@ final class BatchProcessingService: ObservableObject {
     }
 
     /// Add single file to queue
-    func addFile(_ url: URL, preset: CompressionPreset = .commercial) {
+    func addFile(_ url: URL, preset: CompressionPreset = CompressionPreset.defaultPresets[1]) {
         addFiles([url], preset: preset)
     }
 
@@ -208,14 +208,27 @@ final class BatchProcessingService: ObservableObject {
             let compressionService = UltimatePDFCompressionService.shared
 
             // Compress file
-            let result = try await compressionService.compress(
-                fileAt: item.sourceURL,
+            let compressedURL = try await compressionService.compressFile(
+                at: item.sourceURL,
                 preset: item.preset,
-                progressHandler: { [weak self] progress in
+                onProgress: { [weak self] _, progress in
                     Task { @MainActor in
                         self?.updateItemProgress(item.id, progress: progress)
                     }
                 }
+            )
+
+            // Create result from compressed file
+            let compressedSize = (try? FileManager.default.attributesOfItem(atPath: compressedURL.path)[.size] as? Int64) ?? 0
+            let originalFileInfo = FileInfo(
+                name: item.fileName,
+                url: item.sourceURL,
+                size: item.fileSize
+            )
+            let result = CompressionResult(
+                originalFile: originalFileInfo,
+                compressedURL: compressedURL,
+                compressedSize: compressedSize
             )
 
             // Mark as completed
