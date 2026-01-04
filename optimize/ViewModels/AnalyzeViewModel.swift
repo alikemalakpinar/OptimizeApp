@@ -40,6 +40,7 @@ enum AnalysisState: Equatable {
 
 // MARK: - Analyze ViewModel Protocol
 
+@MainActor
 protocol AnalyzeViewModelProtocol: ObservableObject {
     var state: AnalysisState { get }
     var file: FileInfo? { get }

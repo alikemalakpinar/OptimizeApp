@@ -45,6 +45,7 @@ enum CompressionStatus: Equatable {
 
 // MARK: - Compression ViewModel Protocol
 
+@MainActor
 protocol CompressionViewModelProtocol: ObservableObject {
     var status: CompressionStatus { get }
     var progress: Double { get }

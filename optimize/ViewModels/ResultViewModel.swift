@@ -19,6 +19,7 @@ import UIKit
 
 // MARK: - Result ViewModel Protocol
 
+@MainActor
 protocol ResultViewModelProtocol: ObservableObject {
     var result: CompressionResult? { get }
     var showShareSheet: Bool { get set }
