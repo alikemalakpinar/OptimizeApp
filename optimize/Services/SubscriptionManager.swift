@@ -20,6 +20,7 @@ import Security
 // MARK: - Subscription Manager Protocol (Dependency Injection)
 
 /// Protocol for subscription management - enables testability and mocking
+@MainActor
 protocol SubscriptionManagerProtocol: AnyObject {
     var status: SubscriptionStatus { get }
     var products: [Product] { get }

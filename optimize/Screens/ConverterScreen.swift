@@ -486,28 +486,28 @@ private struct ConversionFeaturesCard: View {
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: Spacing.sm) {
-                    FeatureRow(
+                    ConverterFeatureRow(
                         icon: "doc.fill",
                         color: .red,
                         title: "PDF",
                         description: "→ PNG, JPG, HEIC, TIFF"
                     )
 
-                    FeatureRow(
+                    ConverterFeatureRow(
                         icon: "photo.fill",
                         color: .blue,
                         title: "Resimler",
                         description: "→ PDF, PNG, JPG, HEIC, WebP"
                     )
 
-                    FeatureRow(
+                    ConverterFeatureRow(
                         icon: "film.fill",
                         color: .purple,
                         title: "Videolar",
                         description: "→ MP4, MOV, GIF"
                     )
 
-                    FeatureRow(
+                    ConverterFeatureRow(
                         icon: "doc.text.fill",
                         color: .indigo,
                         title: "Belgeler",
@@ -519,7 +519,7 @@ private struct ConversionFeaturesCard: View {
     }
 }
 
-private struct FeatureRow: View {
+private struct ConverterFeatureRow: View {
     let icon: String
     let color: Color
     let title: String
@@ -627,14 +627,14 @@ private struct ConversionResultSheet: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheet(items: [resultURL])
+            ConverterShareSheet(items: [resultURL])
         }
     }
 }
 
-// MARK: - Share Sheet
+// MARK: - Converter Share Sheet
 
-private struct ShareSheet: UIViewControllerRepresentable {
+private struct ConverterShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {

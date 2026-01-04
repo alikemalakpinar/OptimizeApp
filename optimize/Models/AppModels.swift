@@ -112,6 +112,23 @@ struct CompressionPreset: Identifiable, Equatable {
             isProOnly: true
         )
     ]
+
+    // MARK: - Static Convenience Properties
+    static var mail: CompressionPreset {
+        defaultPresets.first { $0.id == "mail" }!
+    }
+
+    static var commercial: CompressionPreset {
+        defaultPresets.first { $0.id == "whatsapp" }!
+    }
+
+    static var highQuality: CompressionPreset {
+        defaultPresets.first { $0.id == "quality" }!
+    }
+
+    static var extreme: CompressionPreset {
+        defaultPresets.first { $0.id == "custom" }!
+    }
 }
 
 // MARK: - Compression Result
