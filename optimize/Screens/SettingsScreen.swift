@@ -19,6 +19,11 @@ struct SettingsScreen: View {
     @State private var showClearHistoryAlert = false
     @State private var signatureImage: UIImage?
 
+    // Navigation states for new screens
+    @State private var showBatchProcessing = false
+    @State private var showConverter = false
+    @State private var showStatistics = false
+
     @ObservedObject private var historyManager = HistoryManager.shared
 
     let subscriptionStatus: SubscriptionStatus
@@ -56,6 +61,47 @@ struct SettingsScreen: View {
                     )
                 }
                 .listRowBackground(Color(UIColor.secondarySystemGroupedBackground))
+
+                // MARK: - Tools Section
+                Section {
+                    // Batch Processing
+                    Button {
+                        showBatchProcessing = true
+                    } label: {
+                        ToolsRow(
+                            icon: "square.stack.3d.up.fill",
+                            title: "Toplu İşlem",
+                            subtitle: "Birden fazla dosyayı aynı anda sıkıştır",
+                            color: .blue
+                        )
+                    }
+
+                    // File Converter
+                    Button {
+                        showConverter = true
+                    } label: {
+                        ToolsRow(
+                            icon: "arrow.triangle.2.circlepath",
+                            title: "Dosya Dönüştürücü",
+                            subtitle: "PDF, resim ve video formatlarını dönüştür",
+                            color: .purple
+                        )
+                    }
+
+                    // Statistics
+                    Button {
+                        showStatistics = true
+                    } label: {
+                        ToolsRow(
+                            icon: "chart.bar.fill",
+                            title: "İstatistikler",
+                            subtitle: "Kullanım analizi ve başarımlar",
+                            color: .orange
+                        )
+                    }
+                } header: {
+                    Text("Araçlar")
+                }
 
                 // MARK: - Compression Settings
                 Section {
@@ -221,6 +267,21 @@ struct SettingsScreen: View {
             }
         } message: {
             Text(AppStrings.Settings.clearHistoryMessage(historyManager.items.count))
+        }
+        .fullScreenCover(isPresented: $showBatchProcessing) {
+            BatchProcessingScreen {
+                showBatchProcessing = false
+            }
+        }
+        .fullScreenCover(isPresented: $showConverter) {
+            ConverterScreen {
+                showConverter = false
+            }
+        }
+        .fullScreenCover(isPresented: $showStatistics) {
+            StatisticsScreen {
+                showStatistics = false
+            }
         }
         .onAppear {
             loadSignatureImage()
@@ -421,5 +482,47 @@ struct CommitmentSignatureCard: View {
                 .stroke(Color.goldAccent.opacity(0.3), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Tools Row
+struct ToolsRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            // Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                    .fill(color.opacity(0.15))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+
+            // Text
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
     }
 }
