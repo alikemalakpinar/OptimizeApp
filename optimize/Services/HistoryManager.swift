@@ -22,6 +22,7 @@ import Foundation
 // MARK: - History Manager Protocol (Dependency Injection)
 
 /// Protocol for history management - enables testability and mocking
+@MainActor
 protocol HistoryManagerProtocol: AnyObject {
     var items: [HistoryItem] { get }
     var totalBytesSaved: Int64 { get }

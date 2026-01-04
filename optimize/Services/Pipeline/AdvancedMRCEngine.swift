@@ -101,7 +101,7 @@ final class AdvancedMRCEngine {
         }
 
         // Calculate text coverage to determine if MRC is beneficial
-        let textCoverage = await calculateTextCoverage(mask: enhancedMask)
+        let textCoverage = calculateTextCoverage(mask: enhancedMask)
         let hasSignificantText = textCoverage > 0.05 // At least 5% text coverage
 
         return MRCLayerResult(

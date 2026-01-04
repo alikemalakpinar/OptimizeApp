@@ -152,7 +152,7 @@ struct ProgressScreen: View {
 
     private func startFactRotation() {
         let factsCount = funFacts.count
-        factTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak factTimer] _ in
+        factTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
             Task { @MainActor in
                 // Fade out
                 withAnimation(.easeOut(duration: 0.3)) {
@@ -170,7 +170,7 @@ struct ProgressScreen: View {
     }
 
     private func startDetailRotation() {
-        detailTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak detailTimer] _ in
+        detailTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { _ in
             Task { @MainActor [weak compressionService] in
                 guard let service = compressionService else { return }
                 let messages = service.currentStage.detailMessages
