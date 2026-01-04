@@ -42,6 +42,10 @@ protocol SecureStorageProtocol {
 
 /// Secure storage implementation using iOS Keychain
 /// This is the recommended storage for sensitive data that must persist across reinstalls
+///
+/// SECURITY ENHANCEMENT: iCloud Keychain Sync
+/// Usage limits are now synced across user's devices via iCloud Keychain.
+/// This prevents the exploit where users use multiple devices to get more free usage.
 final class KeychainStorage: SecureStorageProtocol {
 
     // MARK: - Singleton
@@ -56,11 +60,16 @@ final class KeychainStorage: SecureStorageProtocol {
     /// Access group for keychain sharing (nil = app only)
     private let accessGroup: String?
 
+    /// Whether to sync keychain items across devices via iCloud
+    /// SECURITY: Set to true to prevent multi-device limit bypass
+    private let synchronizable: Bool
+
     // MARK: - Initialization
 
-    init(service: String? = nil, accessGroup: String? = nil) {
+    init(service: String? = nil, accessGroup: String? = nil, synchronizable: Bool = true) {
         self.service = service ?? Bundle.main.bundleIdentifier ?? "com.optimize.app"
         self.accessGroup = accessGroup
+        self.synchronizable = synchronizable
     }
 
     // MARK: - Public API
@@ -88,6 +97,9 @@ final class KeychainStorage: SecureStorageProtocol {
         // Create query for new item
         var query = baseQuery(forKey: key)
         query[kSecValueData as String] = value
+
+        // SECURITY: Use appropriate accessibility based on sync setting
+        // When synchronizable, use kSecAttrAccessibleAfterFirstUnlock which is compatible with iCloud sync
         query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
         let status = SecItemAdd(query as CFDictionary, nil)
@@ -186,6 +198,13 @@ final class KeychainStorage: SecureStorageProtocol {
 
         if let accessGroup = accessGroup {
             query[kSecAttrAccessGroup as String] = accessGroup
+        }
+
+        // SECURITY: Enable iCloud Keychain sync to prevent multi-device limit bypass
+        // When enabled, usage counts are synced across all user's devices
+        // This means using 1 free compression on iPhone counts on iPad too
+        if synchronizable {
+            query[kSecAttrSynchronizable as String] = kCFBooleanTrue
         }
 
         return query
