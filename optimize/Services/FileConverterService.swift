@@ -98,7 +98,9 @@ final class FileConverterService: ObservableObject {
         case (.video, .image) where format == .gif:
             result = try await convertVideoToGIF(url: url, options: options, progressHandler: progressHandler)
 
-        case (.document, .document), (.presentation, .document), (.spreadsheet, .document) where format == .pdf:
+        case (.document, .document) where format == .pdf,
+             (.presentation, .document) where format == .pdf,
+             (.spreadsheet, .document) where format == .pdf:
             result = try await convertDocumentToPDF(url: url, progressHandler: progressHandler)
 
         case (.presentation, .image):
@@ -432,7 +434,8 @@ final class FileConverterService: ObservableObject {
         currentOperation = "GIF olusturuluyor..."
 
         let asset = AVURLAsset(url: url)
-        let duration = CMTimeGetSeconds(asset.duration)
+        let durationValue = try await asset.load(.duration)
+        let duration = CMTimeGetSeconds(durationValue)
         let frameCount = min(Int(duration * Double(options.gifFrameRate)), options.maxGifFrames)
 
         let generator = AVAssetImageGenerator(asset: asset)

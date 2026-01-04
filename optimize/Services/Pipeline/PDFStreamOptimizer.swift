@@ -90,9 +90,9 @@ final class PDFStreamOptimizer {
 
         // Process each page
         for pageIndex in 0..<pageCount {
-            try autoreleasepool {
+            autoreleasepool {
                 guard let page = document.page(at: pageIndex) else {
-                    throw ProcessingError.pageProcessingFailed(page: pageIndex)
+                    return
                 }
 
                 // Analyze page content
@@ -101,11 +101,11 @@ final class PDFStreamOptimizer {
                 // Choose optimization strategy
                 if shouldPreserveVector(pageAnalysis) && config.preserveVectors {
                     // Preserve vector content - intelligent hybrid approach
-                    try optimizePageHybrid(page, in: pdfContext, analysis: pageAnalysis)
+                    optimizePageHybrid(page, in: pdfContext, analysis: pageAnalysis)
                     vectorPagesPreserved += 1
                 } else {
                     // Rasterize with quality optimization
-                    try rasterizePageOptimized(page, in: pdfContext)
+                    rasterizePageOptimized(page, in: pdfContext)
                     imagesCompressed += 1
                 }
 
@@ -191,7 +191,7 @@ final class PDFStreamOptimizer {
     /// Optimizes page while preserving vector content.
     /// This is the core innovation - drawing the page directly to PDF context
     /// preserves all vector data while we can intercept and compress images.
-    private func optimizePageHybrid(_ page: PDFPage, in context: CGContext, analysis: PageContentAnalysis) throws {
+    private func optimizePageHybrid(_ page: PDFPage, in context: CGContext, analysis: PageContentAnalysis) {
         let bounds = page.bounds(for: .mediaBox)
 
         // Begin new PDF page with original dimensions
@@ -208,7 +208,7 @@ final class PDFStreamOptimizer {
     // MARK: - Rasterization (Quality Optimized)
 
     /// Rasterizes a page with quality-preserving compression
-    private func rasterizePageOptimized(_ page: PDFPage, in context: CGContext) throws {
+    private func rasterizePageOptimized(_ page: PDFPage, in context: CGContext) {
         let bounds = page.bounds(for: .mediaBox)
 
         // Calculate render size based on target DPI
@@ -237,7 +237,12 @@ final class PDFStreamOptimizer {
         guard let compressedData = imageProcessor.compressImage(pageImage),
               let compressedImage = UIImage(data: compressedData),
               let cgImage = compressedImage.cgImage else {
-            throw ProcessingError.renderFailed
+            // Fallback: draw original page directly
+            var mediaBox = bounds
+            context.beginPage(mediaBox: &mediaBox)
+            page.draw(with: .mediaBox, to: context)
+            context.endPage()
+            return
         }
 
         // Write to PDF context at original bounds

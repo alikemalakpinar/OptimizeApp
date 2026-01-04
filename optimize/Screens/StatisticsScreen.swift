@@ -405,17 +405,17 @@ private struct DetailsCard: View {
                     .foregroundStyle(.primary)
 
                 VStack(spacing: Spacing.sm) {
-                    DetailRow(
+                    StatDetailRow(
                         title: "En İyi Sıkıştırma",
                         value: stats.bestCompressionFile.isEmpty ? "-" : String(format: "%.0f%% (%@)", stats.bestCompressionRatio, stats.bestCompressionFile)
                     )
 
-                    DetailRow(
+                    StatDetailRow(
                         title: "Ortalama İşlem Süresi",
                         value: String(format: "%.1f sn", stats.averageProcessingTime)
                     )
 
-                    DetailRow(
+                    StatDetailRow(
                         title: "Toplam İşlem Süresi",
                         value: formatDuration(stats.totalCompressionTime)
                     )
@@ -435,7 +435,7 @@ private struct DetailsCard: View {
     }
 }
 
-private struct DetailRow: View {
+private struct StatDetailRow: View {
     let title: String
     let value: String
 
