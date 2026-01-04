@@ -86,7 +86,7 @@ final class FileConverterService: ObservableObject {
         case (.pdf, .image):
             result = try await convertPDFToImages(url: url, format: format, options: options, progressHandler: progressHandler)
 
-        case (.image, .pdf):
+        case (.image, .document) where format == .pdf:
             result = try await convertImagesToPDF(urls: [url], options: options, progressHandler: progressHandler)
 
         case (.image, .image):
@@ -98,7 +98,7 @@ final class FileConverterService: ObservableObject {
         case (.video, .image) where format == .gif:
             result = try await convertVideoToGIF(url: url, options: options, progressHandler: progressHandler)
 
-        case (.document, .pdf), (.presentation, .pdf), (.spreadsheet, .pdf):
+        case (.document, .document), (.presentation, .document), (.spreadsheet, .document) where format == .pdf:
             result = try await convertDocumentToPDF(url: url, progressHandler: progressHandler)
 
         case (.presentation, .image):
@@ -135,34 +135,7 @@ final class FileConverterService: ObservableObject {
                 continue
             }
 
-            // Create PDF page from image
-            let pageRect = CGRect(
-                x: 0, y: 0,
-                width: options.pageSize.width,
-                height: options.pageSize.height
-            )
-
-            let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-            let pdfData = renderer.pdfData { ctx in
-                ctx.beginPage()
-
-                // Calculate scaled size to fit page
-                let scale = min(
-                    pageRect.width / image.size.width,
-                    pageRect.height / image.size.height
-                )
-                let scaledSize = CGSize(
-                    width: image.size.width * scale,
-                    height: image.size.height * scale
-                )
-                let origin = CGPoint(
-                    x: (pageRect.width - scaledSize.width) / 2,
-                    y: (pageRect.height - scaledSize.height) / 2
-                )
-
-                image.draw(in: CGRect(origin: origin, size: scaledSize))
-            }
-
+            // Create PDF page from image using PDFPage directly
             if let page = PDFPage(image: image) {
                 pdfDocument.insert(page, at: pdfDocument.pageCount)
             }
