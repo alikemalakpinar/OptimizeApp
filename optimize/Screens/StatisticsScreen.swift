@@ -319,7 +319,7 @@ private struct StreakCard: View {
 // MARK: - Achievements Section
 
 private struct AchievementsSection: View {
-    let achievements: [Achievement]
+    let achievements: [StatisticsAchievement]
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -337,7 +337,7 @@ private struct AchievementsSection: View {
 }
 
 private struct AchievementRow: View {
-    let achievement: Achievement
+    let achievement: StatisticsAchievement
 
     var body: some View {
         GlassCard {

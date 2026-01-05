@@ -452,7 +452,7 @@ final class FileConverterService: ObservableObject {
             return data as Data
 
         default:
-            throw ConversionError.unsupportedFormat
+            throw ConversionError.unsupportedFormat(from: "image", to: format.rawValue)
         }
     }
 
