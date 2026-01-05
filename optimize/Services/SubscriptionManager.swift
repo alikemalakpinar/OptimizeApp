@@ -446,13 +446,15 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             return PaywallContext(
                 title: "Daily limit reached",
                 subtitle: "Free plan includes \(freeDailyLimit) optimization per day.",
+                icon: "clock.badge.exclamationmark.fill",
                 highlights: [
                     "Unlimited conversions with Pro",
                     "Priority compression tuned for quality",
                     "Target sizes & custom presets",
                     "All file types supported"
                 ],
-                limitDescription: "You have used \(status.dailyUsageCount) / \(freeDailyLimit) free conversions today."
+                limitDescription: "You have used \(status.dailyUsageCount) / \(freeDailyLimit) free conversions today.",
+                ctaText: "Sınırı Kaldır"
             )
         }
 
@@ -460,12 +462,14 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             return PaywallContext(
                 title: "Large file detected",
                 subtitle: "Files over \(Int(freeMaxFileSizeMB)) MB need Pro for reliable compression.",
+                icon: "doc.badge.arrow.up.fill",
                 highlights: [
                     "Handles files up to 1 GB",
                     "Loss-aware profiles for scans & photos",
                     "Batch-ready pipeline with no ads"
                 ],
-                limitDescription: "\(file.name) is \(Int(file.sizeMB)) MB"
+                limitDescription: "\(file.name) is \(Int(file.sizeMB)) MB",
+                ctaText: "Büyük Dosyaları Aç"
             )
         }
 
@@ -473,12 +477,14 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             return PaywallContext(
                 title: "Custom targets are Pro",
                 subtitle: "Dial-in a precise output size and unlock smarter profiles.",
+                icon: "slider.horizontal.3",
                 highlights: [
                     "Target-size slider",
                     "Best quality & mail presets",
                     "Unlimited conversions"
                 ],
-                limitDescription: nil
+                limitDescription: nil,
+                ctaText: "Gelişmiş Ayarları Aç"
             )
         }
 

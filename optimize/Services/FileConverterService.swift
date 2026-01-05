@@ -31,6 +31,11 @@ enum ConversionError: LocalizedError {
     case fileNotFound
     case conversionFailed(underlying: Error)
     case cancelled
+    case invalidInput
+    case unsupportedConversion
+    case encodingFailed
+    case exportFailed
+    case saveFailed
 
     var errorDescription: String? {
         switch self {
@@ -44,6 +49,16 @@ enum ConversionError: LocalizedError {
             return "Dönüşüm başarısız: \(error.localizedDescription)"
         case .cancelled:
             return "Dönüşüm iptal edildi."
+        case .invalidInput:
+            return "Gecersiz giris dosyasi"
+        case .unsupportedConversion:
+            return "Bu donusum desteklenmiyor"
+        case .encodingFailed:
+            return "Kodlama basarisiz"
+        case .exportFailed:
+            return "Disari aktarma basarisiz"
+        case .saveFailed:
+            return "Kaydetme basarisiz"
         }
     }
 
@@ -806,22 +821,3 @@ enum VideoQuality: String, CaseIterable {
     case original = "Orijinal"
 }
 
-enum ConversionError: LocalizedError {
-    case invalidInput
-    case unsupportedConversion
-    case unsupportedFormat
-    case encodingFailed
-    case exportFailed
-    case saveFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidInput: return "Gecersiz giris dosyasi"
-        case .unsupportedConversion: return "Bu donusum desteklenmiyor"
-        case .unsupportedFormat: return "Desteklenmeyen format"
-        case .encodingFailed: return "Kodlama basarisiz"
-        case .exportFailed: return "Disari aktarma basarisiz"
-        case .saveFailed: return "Kaydetme basarisiz"
-        }
-    }
-}
