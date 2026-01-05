@@ -22,17 +22,21 @@ struct ProgressScreen: View {
     @State private var detailOpacity: Double = 1
     @State private var detailTimer: Timer?
     @State private var lastHapticProgress: Double = 0
+    @State private var showContent = false
+    @State private var pulseAnimation = false
+
+    @Environment(\.colorScheme) private var colorScheme
 
     // Fun facts / "Did you know" messages
     private let funFacts = [
-        "Did you know? 40% of PDFs contain data invisible to the human eye.",
-        "Currently putting your fonts on a diet...",
-        "Every compressed MB makes a kitten happy. (Source: Us)",
-        "Trimming the excess from your file...",
-        "Applying digital detox...",
-        "Saying goodbye to unnecessary pixels one by one...",
-        "Mastering the art of fitting your file into an email...",
-        "Hunting down invisible metadata..."
+        "Biliyor muydunuz? PDF'lerin %40'ı gözle görülemeyen veri içerir.",
+        "Fontlarınızı diyete sokuyoruz...",
+        "Her sıkıştırılan MB bir kedi mutlu ediyor. (Kaynak: Biz)",
+        "Dosyanızdaki fazlalıkları kesiyoruz...",
+        "Dijital detoks uyguluyoruz...",
+        "Gereksiz piksellere tek tek veda ediyoruz...",
+        "Dosyanızı e-postaya sığdırma sanatında ustalaşıyoruz...",
+        "Görünmez metadata avına çıkıyoruz..."
     ]
 
     private var completedStages: Set<ProcessingStage> {
@@ -54,99 +58,131 @@ struct ProgressScreen: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            ScreenHeader("Processing")
+        ZStack {
+            // Enhanced background
+            ProgressBackgroundGradient()
 
-            Spacer()
+            VStack(spacing: 0) {
+                // Header
+                ScreenHeader("Processing")
 
-            VStack(spacing: Spacing.xl) {
-                // Animated processing visual
-                ProcessingAnimation(
-                    stage: compressionService.currentStage,
-                    progress: compressionService.progress
-                )
+                Spacer()
 
-                // File being processed
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: file.fileType.icon)
-                        .foregroundStyle(Color.appAccent)
-                    Text(file.name)
-                        .font(.appBodyMedium)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, Spacing.md)
+                VStack(spacing: Spacing.lg) {
+                    // Enhanced circular progress visualization
+                    EnhancedProcessingRing(
+                        progress: compressionService.progress,
+                        stage: compressionService.currentStage,
+                        pulseAnimation: pulseAnimation
+                    )
+                    .opacity(showContent ? 1 : 0)
+                    .scaleEffect(showContent ? 1 : 0.9)
 
-                // Stage Timeline
-                GlassCard {
-                    StageTimeline(
+                    // File info card
+                    FileInfoCard(file: file)
+                        .padding(.horizontal, Spacing.md)
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 10)
+
+                    // Stage Timeline - Enhanced
+                    EnhancedStageTimeline(
                         currentStage: compressionService.currentStage,
                         completedStages: completedStages
                     )
+                    .padding(.horizontal, Spacing.md)
+                    .opacity(showContent ? 1 : 0)
+
+                    // Detailed progress card
+                    EnhancedDetailedProgressCard(
+                        stage: compressionService.currentStage,
+                        progress: compressionService.progress,
+                        currentDetailIndex: currentDetailIndex,
+                        detailOpacity: detailOpacity
+                    )
+                    .padding(.horizontal, Spacing.md)
+                    .opacity(showContent ? 1 : 0)
+
+                    // Progress percentage - Large and prominent
+                    if compressionService.currentStage == .optimizing {
+                        Text("\(Int(compressionService.progress * 100))%")
+                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.appMint, Color.appTeal],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .contentTransition(.numericText(value: compressionService.progress))
+                            .accessibilityLabel("Sıkıştırma ilerlemesi: \(Int(compressionService.progress * 100)) yüzde")
+                    }
+
+                    // Fun fact card
+                    EnhancedFunFactCard(
+                        fact: funFacts[currentFactIndex],
+                        opacity: factOpacity
+                    )
+                    .padding(.horizontal, Spacing.md)
+                    .opacity(showContent ? 1 : 0)
+                }
+
+                Spacer()
+
+                // Cancel button - Enhanced
+                VStack(spacing: Spacing.sm) {
+                    Button(action: {
+                        Haptics.warning()
+                        factTimer?.invalidate()
+                        onCancel()
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("İptal")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        )
+                    }
                 }
                 .padding(.horizontal, Spacing.md)
-
-                // Detailed progress card
-                DetailedProgressCard(
-                    stage: compressionService.currentStage,
-                    progress: compressionService.progress,
-                    currentDetailIndex: currentDetailIndex,
-                    detailOpacity: detailOpacity
-                )
-                .padding(.horizontal, Spacing.md)
-
-                // Progress percentage
-                if compressionService.currentStage == .optimizing {
-                    Text("\(Int(compressionService.progress * 100))%")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.appMint)
-                        .accessibilityLabel("Compression progress: \(Int(compressionService.progress * 100)) percent")
-                }
-
-                // Fun fact card
-                FunFactCard(
-                    fact: funFacts[currentFactIndex],
-                    opacity: factOpacity
-                )
-                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.md)
             }
-
-            Spacer()
-
-            // Cancel button
-            VStack(spacing: Spacing.sm) {
-                SecondaryButton(title: "Cancel", icon: "xmark") {
-                    Haptics.warning()
-                    factTimer?.invalidate()
-                    onCancel()
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.md)
         }
-        .appBackgroundLayered()
         .onAppear {
             startFactRotation()
             startDetailRotation()
-            Haptics.impact(style: .light) // Initial haptic on screen appear
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                showContent = true
+            }
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                pulseAnimation = true
+            }
+            Haptics.impact(style: .light)
         }
         .onDisappear {
             factTimer?.invalidate()
             detailTimer?.invalidate()
         }
         .onChange(of: compressionService.progress) { oldProgress, newProgress in
-            // Only trigger when crossing a milestone to avoid multiple updates per frame
-            let oldMilestone = Int(oldProgress * 4) // 0, 1, 2, 3, 4 for 25% increments
+            let oldMilestone = Int(oldProgress * 4)
             let newMilestone = Int(newProgress * 4)
             if newMilestone > oldMilestone {
                 triggerProgressHaptic(progress: newProgress)
             }
         }
         .onChange(of: compressionService.currentStage) { _, newStage in
-            // Reset detail index when stage changes
             currentDetailIndex = 0
-            Haptics.impact(style: .medium) // Haptic on stage change
+            Haptics.impact(style: .medium)
         }
     }
 
@@ -355,6 +391,400 @@ struct FunFactCard: View {
         .background(Color.appSurface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         .opacity(opacity)
+    }
+}
+
+// MARK: - Progress Background Gradient
+private struct ProgressBackgroundGradient: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+
+            GeometryReader { geo in
+                // Top teal gradient orb
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.appTeal.opacity(colorScheme == .dark ? 0.12 : 0.06),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: geo.size.width * 0.4
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.8, height: geo.size.height * 0.35)
+                    .offset(x: geo.size.width * 0.1, y: -geo.size.height * 0.05)
+
+                // Bottom mint gradient
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.appMint.opacity(colorScheme == .dark ? 0.1 : 0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: geo.size.width * 0.3
+                        )
+                    )
+                    .frame(width: geo.size.width * 0.5, height: geo.size.height * 0.3)
+                    .offset(x: 0, y: geo.size.height * 0.65)
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// MARK: - Enhanced Processing Ring
+private struct EnhancedProcessingRing: View {
+    let progress: Double
+    let stage: ProcessingStage
+    let pulseAnimation: Bool
+
+    @State private var rotation: Double = 0
+
+    private var stageIcon: String {
+        switch stage {
+        case .preparing: return "doc.text.magnifyingglass"
+        case .uploading: return "arrow.up.doc"
+        case .optimizing: return "gearshape.2"
+        case .downloading: return "checkmark.circle"
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Outer glow ring
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.appTeal.opacity(0.2), Color.appMint.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 3
+                )
+                .frame(width: 160, height: 160)
+                .scaleEffect(pulseAnimation ? 1.1 : 1.0)
+
+            // Background track
+            Circle()
+                .stroke(Color.appMint.opacity(0.15), lineWidth: 8)
+                .frame(width: 130, height: 130)
+
+            // Progress arc
+            Circle()
+                .trim(from: 0, to: stage == .optimizing ? progress : (stage == .downloading ? 1.0 : 0.0))
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.appMint, Color.appTeal],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                )
+                .frame(width: 130, height: 130)
+                .rotationEffect(.degrees(-90))
+                .animation(.easeOut(duration: 0.3), value: progress)
+
+            // Inner circle with icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.appMint.opacity(0.15), Color.appTeal.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 100, height: 100)
+
+                // Rotating inner decoration
+                Circle()
+                    .stroke(Color.appTeal.opacity(0.1), lineWidth: 1)
+                    .frame(width: 85, height: 85)
+                    .rotationEffect(.degrees(rotation))
+
+                // Icon
+                Image(systemName: stageIcon)
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.appMint, Color.appTeal],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
+        }
+    }
+}
+
+// MARK: - File Info Card
+private struct FileInfoCard: View {
+    let file: FileInfo
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // File icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.appAccent.opacity(0.1))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: file.fileType.icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.appAccent)
+            }
+
+            // File name
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.name)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(file.sizeFormatted)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Enhanced Stage Timeline
+private struct EnhancedStageTimeline: View {
+    let currentStage: ProcessingStage
+    let completedStages: Set<ProcessingStage>
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let stages: [ProcessingStage] = [.preparing, .uploading, .optimizing, .downloading]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(stages.indices, id: \.self) { index in
+                let stage = stages[index]
+                let isCompleted = completedStages.contains(stage)
+                let isCurrent = currentStage == stage
+
+                EnhancedTimelineStep(
+                    icon: stage.icon,
+                    label: stage.displayName,
+                    isCompleted: isCompleted,
+                    isCurrent: isCurrent
+                )
+
+                if index < stages.count - 1 {
+                    TimelineStepConnector(isCompleted: completedStages.contains(stages[index + 1]) || currentStage == stages[index + 1])
+                }
+            }
+        }
+        .padding(.vertical, Spacing.sm)
+        .padding(.horizontal, Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+private struct EnhancedTimelineStep: View {
+    let icon: String
+    let label: String
+    let isCompleted: Bool
+    let isCurrent: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(
+                        isCompleted ? Color.appMint.opacity(0.15) :
+                        (isCurrent ? Color.appAccent.opacity(0.15) : Color.secondary.opacity(0.08))
+                    )
+                    .frame(width: 32, height: 32)
+
+                if isCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.appMint)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isCurrent ? Color.appAccent : .secondary)
+                }
+            }
+
+            Text(label)
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundStyle(isCompleted || isCurrent ? .primary : .tertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct TimelineStepConnector: View {
+    let isCompleted: Bool
+
+    var body: some View {
+        Rectangle()
+            .fill(isCompleted ? Color.appMint.opacity(0.5) : Color.secondary.opacity(0.2))
+            .frame(height: 2)
+            .frame(maxWidth: 20)
+    }
+}
+
+// MARK: - Enhanced Detailed Progress Card
+private struct EnhancedDetailedProgressCard: View {
+    let stage: ProcessingStage
+    let progress: Double
+    let currentDetailIndex: Int
+    let detailOpacity: Double
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var dotAnimating = false
+
+    private var currentMessage: String {
+        let messages = stage.detailMessages
+        guard !messages.isEmpty else { return "" }
+        let safeIndex = currentDetailIndex % messages.count
+        return messages[safeIndex]
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // Animated dots indicator
+            HStack(spacing: 3) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.appMint)
+                        .frame(width: 5, height: 5)
+                        .scaleEffect(dotAnimating ? 1.0 : 0.6)
+                        .animation(
+                            .easeInOut(duration: 0.5)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(index) * 0.2),
+                            value: dotAnimating
+                        )
+                }
+            }
+            .frame(width: 25)
+
+            // Detail message
+            Text(currentMessage)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .opacity(detailOpacity)
+
+            Spacer()
+
+            // Stage badge
+            Text(stage.rawValue)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.appMint)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.appMint.opacity(0.1))
+                .clipShape(Capsule())
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+        .onAppear {
+            dotAnimating = true
+        }
+    }
+}
+
+// MARK: - Enhanced Fun Fact Card
+private struct EnhancedFunFactCard: View {
+    let fact: String
+    let opacity: Double
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.goldAccent.opacity(0.15))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.goldAccent)
+            }
+
+            Text(fact)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            Spacer()
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : Color(.tertiarySystemBackground))
+        )
+        .opacity(opacity)
+    }
+}
+
+// MARK: - Processing Stage Extensions
+private extension ProcessingStage {
+    var icon: String {
+        switch self {
+        case .preparing: return "doc.text.magnifyingglass"
+        case .uploading: return "arrow.up.doc"
+        case .optimizing: return "gearshape.2"
+        case .downloading: return "checkmark.circle"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .preparing: return "Hazırlık"
+        case .uploading: return "Analiz"
+        case .optimizing: return "Optimizasyon"
+        case .downloading: return "Tamamlama"
+        }
     }
 }
 

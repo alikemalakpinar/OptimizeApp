@@ -44,6 +44,13 @@ enum AnalyticsEvent: String {
     case settingsOpened = "settings_opened"
     case settingChanged = "setting_changed"
 
+    // Batch Processing & Converter
+    case batchProcessingOpened = "batch_processing_opened"
+    case converterOpened = "converter_opened"
+    case batchProcessingStarted = "batch_processing_started"
+    case conversionStarted = "conversion_started"
+    case conversionCompleted = "conversion_completed"
+
     // Errors
     case errorOccurred = "error_occurred"
 }

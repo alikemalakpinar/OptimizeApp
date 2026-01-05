@@ -268,7 +268,9 @@ struct RootViewWithCoordinator: View {
                     onSelectFile: { coordinator.requestFilePicker() },
                     onOpenHistory: { coordinator.openHistory() },
                     onOpenSettings: { coordinator.openSettings() },
-                    onUpgrade: { coordinator.presentPaywall() }
+                    onUpgrade: { coordinator.presentPaywall() },
+                    onBatchProcessing: { coordinator.openBatchProcessing() },
+                    onConverter: { coordinator.openConverter() }
                 )
                 .safeAreaInset(edge: .bottom) {
                     Color.clear.frame(height: 90) // Tab bar boşluğu
@@ -355,6 +357,18 @@ struct RootViewWithCoordinator: View {
                 onBack: { coordinator.goBack() }
             )
             .navigationBarBackButtonHidden(true) // Coordinator'ın yönettiği özel back butonu için
+
+        case .batchProcessing:
+            BatchProcessingScreen(
+                onBack: { coordinator.goBack() }
+            )
+            .toolbar(.hidden, for: .navigationBar)
+
+        case .converter:
+            ConverterScreen(
+                onBack: { coordinator.goBack() }
+            )
+            .toolbar(.hidden, for: .navigationBar)
 
         default:
             EmptyView()
