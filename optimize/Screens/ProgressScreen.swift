@@ -592,7 +592,7 @@ private struct EnhancedStageTimeline: View {
 
                 EnhancedTimelineStep(
                     icon: stage.icon,
-                    label: stage.displayName,
+                    label: stage.localizedName,
                     isCompleted: isCompleted,
                     isCurrent: isCurrent
                 )
@@ -769,16 +769,8 @@ private struct EnhancedFunFactCard: View {
 
 // MARK: - Processing Stage Extensions
 private extension ProcessingStage {
-    var icon: String {
-        switch self {
-        case .preparing: return "doc.text.magnifyingglass"
-        case .uploading: return "arrow.up.doc"
-        case .optimizing: return "gearshape.2"
-        case .downloading: return "checkmark.circle"
-        }
-    }
-
-    var displayName: String {
+    /// Turkish localized names for processing stages
+    var localizedName: String {
         switch self {
         case .preparing: return "Hazırlık"
         case .uploading: return "Analiz"
