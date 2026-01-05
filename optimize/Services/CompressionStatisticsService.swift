@@ -116,11 +116,11 @@ final class CompressionStatisticsService: ObservableObject {
     }
 
     /// Get achievement progress
-    func getAchievements() -> [Achievement] {
-        var achievements: [Achievement] = []
+    func getAchievements() -> [StatisticsAchievement] {
+        var achievements: [StatisticsAchievement] = []
 
         // Space Saver achievements
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "space_saver_1",
             title: "Alan Kurtarici",
             description: "100 MB tasarruf et",
@@ -129,7 +129,7 @@ final class CompressionStatisticsService: ObservableObject {
             isUnlocked: stats.totalBytesSaved >= 100 * 1024 * 1024
         ))
 
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "space_saver_2",
             title: "Depolama Ustasi",
             description: "1 GB tasarruf et",
@@ -139,7 +139,7 @@ final class CompressionStatisticsService: ObservableObject {
         ))
 
         // File count achievements
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "file_master_1",
             title: "Ilk Adim",
             description: "10 dosya sikistir",
@@ -148,7 +148,7 @@ final class CompressionStatisticsService: ObservableObject {
             isUnlocked: stats.totalFilesCompressed >= 10
         ))
 
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "file_master_2",
             title: "Dosya Ustasi",
             description: "100 dosya sikistir",
@@ -158,7 +158,7 @@ final class CompressionStatisticsService: ObservableObject {
         ))
 
         // Streak achievements
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "streak_1",
             title: "Duzenli Kullanici",
             description: "7 gun ust uste kullan",
@@ -169,7 +169,7 @@ final class CompressionStatisticsService: ObservableObject {
 
         // Efficiency achievement
         let avgRatio = stats.averageCompressionRatio
-        achievements.append(Achievement(
+        achievements.append(StatisticsAchievement(
             id: "efficiency_1",
             title: "Verimlilik Usta",
             description: "Ortalama %50+ sikistirma orani",
@@ -398,7 +398,7 @@ struct PieSlice: Identifiable {
     let color: Color
 }
 
-struct Achievement: Identifiable {
+struct StatisticsAchievement: Identifiable {
     let id: String
     let title: String
     let description: String
