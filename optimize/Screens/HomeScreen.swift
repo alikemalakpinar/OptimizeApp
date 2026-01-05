@@ -18,6 +18,8 @@ struct HomeScreen: View {
     let onOpenHistory: () -> Void
     let onOpenSettings: () -> Void
     let onUpgrade: () -> Void
+    let onBatchProcessing: () -> Void
+    let onConverter: () -> Void
 
     init(
         coordinator: AppCoordinator,
@@ -25,7 +27,9 @@ struct HomeScreen: View {
         onSelectFile: @escaping () -> Void,
         onOpenHistory: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void,
-        onUpgrade: @escaping () -> Void
+        onUpgrade: @escaping () -> Void,
+        onBatchProcessing: @escaping () -> Void = {},
+        onConverter: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.subscriptionStatus = subscriptionStatus
@@ -33,6 +37,8 @@ struct HomeScreen: View {
         self.onOpenHistory = onOpenHistory
         self.onOpenSettings = onOpenSettings
         self.onUpgrade = onUpgrade
+        self.onBatchProcessing = onBatchProcessing
+        self.onConverter = onConverter
     }
 
     var recentHistory: [HistoryItem] {
@@ -111,6 +117,14 @@ struct HomeScreen: View {
                     }
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)
+
+                    // Quick Actions - Batch Processing & Converter
+                    QuickActionsGrid(
+                        isPro: subscriptionStatus.isPro,
+                        onBatchProcessing: onBatchProcessing,
+                        onConverter: onConverter
+                    )
+                    .padding(.horizontal, Spacing.md)
 
                     ConversionHighlights(
                         totalSavedMB: totalSavedMB,
@@ -926,6 +940,168 @@ struct DynamicGreetingView: View {
     }
 }
 
+// MARK: - Quick Actions Grid
+/// Grid showing Batch Processing and Converter quick actions
+/// Shows premium badge for non-Pro users
+struct QuickActionsGrid: View {
+    let isPro: Bool
+    let onBatchProcessing: () -> Void
+    let onConverter: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text("Hızlı İşlemler")
+                    .font(.appSection)
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                if !isPro {
+                    HStack(spacing: 4) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("PRO")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.premiumPurple, Color.premiumBlue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(Capsule())
+                }
+            }
+
+            HStack(spacing: Spacing.sm) {
+                // Batch Processing Card
+                QuickActionCard(
+                    icon: "square.stack.3d.up.fill",
+                    title: "Toplu İşlem",
+                    subtitle: "Çoklu dosya sıkıştır",
+                    gradientColors: [Color.premiumPurple.opacity(0.8), Color.premiumBlue.opacity(0.6)],
+                    isPro: isPro,
+                    action: onBatchProcessing
+                )
+
+                // Converter Card
+                QuickActionCard(
+                    icon: "arrow.triangle.2.circlepath.circle.fill",
+                    title: "Dönüştürücü",
+                    subtitle: "Format değiştir",
+                    gradientColors: [Color.warmOrange.opacity(0.8), Color.warmCoral.opacity(0.6)],
+                    isPro: isPro,
+                    action: onConverter
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Quick Action Card
+/// Individual quick action button with icon, title and premium indicator
+struct QuickActionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let gradientColors: [Color]
+    let isPro: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: {
+            Haptics.impact()
+            action()
+        }) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Icon with gradient background
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: gradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(title)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+
+                        if !isPro {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.premiumPurple)
+                        }
+                    }
+
+                    Text(subtitle)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 110)
+            .padding(Spacing.md)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+
+                    // Subtle gradient overlay
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    gradientColors[0].opacity(0.05),
+                                    gradientColors[1].opacity(0.02),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [gradientColors[0].opacity(0.3), gradientColors[1].opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(.pressable)
+    }
+}
+
 #Preview {
     HomeScreen(
         coordinator: AppCoordinator(),
@@ -933,6 +1109,21 @@ struct DynamicGreetingView: View {
         onSelectFile: {},
         onOpenHistory: {},
         onOpenSettings: {},
-        onUpgrade: {}
+        onUpgrade: {},
+        onBatchProcessing: {},
+        onConverter: {}
+    )
+}
+
+#Preview("Pro User") {
+    HomeScreen(
+        coordinator: AppCoordinator(),
+        subscriptionStatus: .pro,
+        onSelectFile: {},
+        onOpenHistory: {},
+        onOpenSettings: {},
+        onUpgrade: {},
+        onBatchProcessing: {},
+        onConverter: {}
     )
 }

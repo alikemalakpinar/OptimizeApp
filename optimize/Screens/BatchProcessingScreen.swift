@@ -14,6 +14,9 @@ struct BatchProcessingScreen: View {
     @StateObject private var batchService = BatchProcessingService.shared
     @State private var showFilePicker = false
     @State private var selectedPreset: CompressionPreset = .commercial
+    @State private var showShareSheet = false
+    @State private var showFileSaver = false
+    @State private var selectedItemForShare: BatchItem?
 
     let onBack: () -> Void
 
@@ -86,6 +89,12 @@ struct BatchProcessingScreen: View {
                             },
                             onRetryFailed: {
                                 batchService.retryFailed()
+                            },
+                            onShare: { item in
+                                shareItem(item)
+                            },
+                            onSave: { item in
+                                saveItem(item)
                             }
                         )
                         .padding(.horizontal, Spacing.md)
@@ -101,6 +110,31 @@ struct BatchProcessingScreen: View {
                 batchService.addFiles(urls, preset: selectedPreset)
             }
         }
+        .sheet(isPresented: $showShareSheet) {
+            if let item = selectedItemForShare, let resultURL = item.result?.compressedURL {
+                BatchShareSheet(items: [resultURL])
+            }
+        }
+        .sheet(isPresented: $showFileSaver) {
+            if let item = selectedItemForShare, let resultURL = item.result?.compressedURL {
+                BatchFileExporter(url: resultURL) { success in
+                    showFileSaver = false
+                    if success {
+                        Haptics.success()
+                    }
+                }
+            }
+        }
+    }
+
+    private func shareItem(_ item: BatchItem) {
+        selectedItemForShare = item
+        showShareSheet = true
+    }
+
+    private func saveItem(_ item: BatchItem) {
+        selectedItemForShare = item
+        showFileSaver = true
     }
 }
 
@@ -416,9 +450,15 @@ private struct CompletedSection: View {
     let items: [BatchItem]
     let onClear: () -> Void
     let onRetryFailed: () -> Void
+    let onShare: (BatchItem) -> Void
+    let onSave: (BatchItem) -> Void
 
     private var hasFailedItems: Bool {
         items.contains { $0.status == .failed }
+    }
+
+    private var successfulItems: [BatchItem] {
+        items.filter { $0.status == .completed }
     }
 
     var body: some View {
@@ -445,9 +485,40 @@ private struct CompletedSection: View {
                 }
             }
 
+            // Bulk actions for all completed items
+            if successfulItems.count > 1 {
+                HStack(spacing: Spacing.sm) {
+                    Text("\(successfulItems.count) dosya hazır")
+                        .font(.appCaption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    // Share All button
+                    Button(action: {
+                        if let firstItem = successfulItems.first {
+                            onShare(firstItem)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 12))
+                            Text("Tümünü Paylaş")
+                                .font(.appCaption)
+                        }
+                        .foregroundStyle(Color.appAccent)
+                    }
+                }
+                .padding(.vertical, Spacing.xs)
+            }
+
             VStack(spacing: Spacing.xs) {
                 ForEach(items.prefix(10)) { item in
-                    CompletedItemRow(item: item)
+                    CompletedItemRow(
+                        item: item,
+                        onShare: { onShare(item) },
+                        onSave: { onSave(item) }
+                    )
                 }
 
                 if items.count > 10 {
@@ -463,46 +534,112 @@ private struct CompletedSection: View {
 
 private struct CompletedItemRow: View {
     let item: BatchItem
+    let onShare: () -> Void
+    let onSave: () -> Void
+
+    @State private var showActions = false
 
     var body: some View {
         GlassCard {
-            HStack(spacing: Spacing.sm) {
-                // Status Icon
-                Image(systemName: item.status.icon)
-                    .font(.system(size: 16))
-                    .foregroundStyle(item.status.color)
+            VStack(spacing: 0) {
+                HStack(spacing: Spacing.sm) {
+                    // Status Icon
+                    Image(systemName: item.status.icon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(item.status.color)
 
-                // File Info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.fileName)
-                        .font(.appBody)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                    // File Info
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.fileName)
+                            .font(.appBody)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
 
-                    if item.status == .completed, let result = item.result {
-                        HStack(spacing: Spacing.xs) {
-                            Text("\(item.formattedSize) → \(ByteCountFormatter.string(fromByteCount: result.compressedSize, countStyle: .file))")
+                        if item.status == .completed, let result = item.result {
+                            HStack(spacing: Spacing.xs) {
+                                Text("\(item.formattedSize) → \(ByteCountFormatter.string(fromByteCount: result.compressedSize, countStyle: .file))")
+                                    .font(.appCaption)
+                                    .foregroundStyle(.secondary)
+
+                                Text("(-\(result.savingsPercent)%)")
+                                    .font(.appCaptionMedium)
+                                    .foregroundStyle(Color.appMint)
+                            }
+                        } else if item.status == .failed {
+                            Text(item.error ?? "Bilinmeyen hata")
                                 .font(.appCaption)
-                                .foregroundStyle(.secondary)
-
-                            Text("(-\(result.savingsPercent)%)")
-                                .font(.appCaptionMedium)
-                                .foregroundStyle(Color.appMint)
+                                .foregroundStyle(.red)
                         }
-                    } else if item.status == .failed {
-                        Text(item.error ?? "Bilinmeyen hata")
+                    }
+
+                    Spacer()
+
+                    // Actions toggle for completed items
+                    if item.status == .completed {
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3)) {
+                                showActions.toggle()
+                            }
+                            Haptics.selection()
+                        }) {
+                            Image(systemName: showActions ? "chevron.up.circle.fill" : "ellipsis.circle")
+                                .font(.system(size: 22))
+                                .foregroundStyle(showActions ? Color.appAccent : .secondary)
+                        }
+                    } else if let duration = item.formattedDuration {
+                        Text(duration)
                             .font(.appCaption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
-                Spacer()
+                // Expandable action buttons
+                if showActions && item.status == .completed {
+                    HStack(spacing: Spacing.sm) {
+                        // Share Button
+                        Button(action: {
+                            Haptics.impact()
+                            onShare()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Paylaş")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.appMint, Color.appTeal],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        }
 
-                // Duration
-                if let duration = item.formattedDuration {
-                    Text(duration)
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
+                        // Save Button
+                        Button(action: {
+                            Haptics.impact()
+                            onSave()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("Kaydet")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundStyle(Color.appAccent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                            .background(Color.appAccent.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        }
+                    }
+                    .padding(.top, Spacing.sm)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
         }
@@ -538,6 +675,59 @@ private struct BatchDocumentPicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             onSelect(urls)
+        }
+    }
+}
+
+// MARK: - Batch Share Sheet
+
+private struct BatchShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        // iPad fix: prevent crash by providing sourceView
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = UIView()
+            popover.permittedArrowDirections = []
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Batch File Exporter
+
+private struct BatchFileExporter: UIViewControllerRepresentable {
+    let url: URL
+    let onComplete: (Bool) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onComplete: onComplete)
+    }
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onComplete: (Bool) -> Void
+
+        init(onComplete: @escaping (Bool) -> Void) {
+            self.onComplete = onComplete
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onComplete(true)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onComplete(false)
         }
     }
 }

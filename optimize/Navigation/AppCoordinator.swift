@@ -33,6 +33,8 @@ enum AppScreen: Hashable {
     case result(CompressionResult)
     case history
     case settings
+    case batchProcessing
+    case converter
 
     // MARK: - Hashable Conformance (Required for NavigationPath)
 
@@ -49,6 +51,8 @@ enum AppScreen: Hashable {
         case .result(let result): hasher.combine("result"); hasher.combine(result.id)
         case .history: hasher.combine("history")
         case .settings: hasher.combine("settings")
+        case .batchProcessing: hasher.combine("batchProcessing")
+        case .converter: hasher.combine("converter")
         }
     }
 
@@ -60,7 +64,9 @@ enum AppScreen: Hashable {
              (.ratingRequest, .ratingRequest),
              (.home, .home),
              (.history, .history),
-             (.settings, .settings):
+             (.settings, .settings),
+             (.batchProcessing, .batchProcessing),
+             (.converter, .converter):
             return true
         case (.analyze(let lFile), .analyze(let rFile)):
             return lFile.id == rFile.id
@@ -558,6 +564,32 @@ class AppCoordinator: ObservableObject {
         analytics.track(.settingsOpened)
         // ARCHITECTURE: Use NavigationStack for native navigation
         push(.settings)
+    }
+
+    /// Open batch processing screen with premium gate
+    func openBatchProcessing() {
+        // Check if user is Pro, otherwise show paywall
+        if !subscriptionStatus.isPro {
+            presentPaywall(context: .batchProcessing, useModernStyle: true)
+            analytics.track(.paywallViewed)
+            return
+        }
+
+        analytics.track(.batchProcessingOpened)
+        push(.batchProcessing)
+    }
+
+    /// Open file converter screen with premium gate
+    func openConverter() {
+        // Check if user is Pro, otherwise show paywall
+        if !subscriptionStatus.isPro {
+            presentPaywall(context: .converter, useModernStyle: true)
+            analytics.track(.paywallViewed)
+            return
+        }
+
+        analytics.track(.converterOpened)
+        push(.converter)
     }
 
     func goBack() {
