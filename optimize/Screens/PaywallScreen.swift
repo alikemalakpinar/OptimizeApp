@@ -437,24 +437,24 @@ private struct EnhancedPlanSelector: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            PlanCard(
+            EnhancedPlanCard(
                 title: "Haftalık",
                 price: "--",
                 period: "/hafta",
-                isSelected: selectedPlan == .monthly,
-                badge: nil
+                badge: nil,
+                isSelected: selectedPlan == .monthly
             ) {
                 withAnimation(.spring(response: 0.3)) {
                     selectedPlan = .monthly
                 }
             }
 
-            PlanCard(
+            EnhancedPlanCard(
                 title: "Yıllık",
                 price: "--",
                 period: "/yıl",
-                isSelected: selectedPlan == .yearly,
-                badge: "%70 Tasarruf"
+                badge: "%70 Tasarruf",
+                isSelected: selectedPlan == .yearly
             ) {
                 withAnimation(.spring(response: 0.3)) {
                     selectedPlan = .yearly
@@ -464,12 +464,12 @@ private struct EnhancedPlanSelector: View {
     }
 }
 
-private struct PlanCard: View {
+private struct EnhancedPlanCard: View {
     let title: String
     let price: String
     let period: String
-    let isSelected: Bool
     let badge: String?
+    let isSelected: Bool
     let action: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
