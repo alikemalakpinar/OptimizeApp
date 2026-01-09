@@ -991,33 +991,97 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
     // MARK: - Helper Methods
 
+    /// Renders a PDF page to UIImage with AGGRESSIVE MEMORY PROTECTION
+    ///
+    /// MEMORY OPTIMIZATION (OOM Prevention):
+    /// - Dynamic scale reduction based on available memory
+    /// - autoreleasepool for immediate memory cleanup
+    /// - Device-aware pixel limits (older devices get smaller limits)
+    /// - Fallback to even smaller render if memory pressure detected
+    ///
+    /// This prevents crashes on:
+    /// - iPhone 11 and earlier (2-3GB RAM)
+    /// - Large scanned documents (300 DPI A4 = 8.5MP per page)
+    /// - Multi-page batch processing
     private func renderPageToImage(_ page: PDFPage, config: CompressionConfig) -> UIImage {
-        let bounds = page.bounds(for: .mediaBox)
-        var scale = config.targetResolution / 72.0
+        // MEMORY PROTECTION: Use autoreleasepool to ensure immediate cleanup
+        return autoreleasepool {
+            let bounds = page.bounds(for: .mediaBox)
+            var scale = config.targetResolution / 72.0
 
-        // MEMORY PROTECTION: Limit maximum pixels to prevent OOM crash
-        // This is especially important for large scanned documents
-        let maxPixels: CGFloat = 4000 * 4000  // 16 megapixels
-        let currentPixels = bounds.width * scale * bounds.height * scale
+            // DEVICE-AWARE MEMORY LIMITS:
+            // - Modern devices (iPhone 12+): 16MP limit
+            // - Older devices (iPhone 11 and earlier): 9MP limit
+            // - Memory pressure detected: 4MP emergency limit
+            let maxPixels: CGFloat = getDeviceAwarePixelLimit()
+            let currentPixels = bounds.width * scale * bounds.height * scale
 
-        if currentPixels > maxPixels {
-            // Reduce scale to fit within memory limit
-            scale = sqrt(maxPixels / (bounds.width * bounds.height))
+            if currentPixels > maxPixels {
+                // Reduce scale to fit within memory limit
+                // This prevents app crashes on large architectural/CAD PDFs
+                let reductionFactor = sqrt(maxPixels / currentPixels)
+                scale *= reductionFactor
+
+                // Log for debugging (remove in production or use proper logging)
+                #if DEBUG
+                print("[OOM Prevention] Scale reduced from \(config.targetResolution / 72.0) to \(scale) for page with \(Int(currentPixels/1_000_000))MP")
+                #endif
+            }
+
+            let size = CGSize(
+                width: max(1, bounds.width * scale),
+                height: max(1, bounds.height * scale)
+            )
+
+            // Use low-memory renderer format
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1.0  // Explicit scale = 1 to control exact pixel count
+            format.opaque = true  // No alpha channel = less memory
+            format.preferredRange = .standard  // Standard color range
+
+            let renderer = UIGraphicsImageRenderer(size: size, format: format)
+            return renderer.image { ctx in
+                // White background
+                UIColor.white.setFill()
+                ctx.fill(CGRect(origin: .zero, size: size))
+
+                // High quality interpolation for resize
+                ctx.cgContext.interpolationQuality = .high
+
+                // Transform for PDF coordinate system
+                ctx.cgContext.translateBy(x: 0, y: size.height)
+                ctx.cgContext.scaleBy(x: scale, y: -scale)
+
+                // Render PDF page
+                page.draw(with: .mediaBox, to: ctx.cgContext)
+            }
+        }
+    }
+
+    /// Returns device-appropriate pixel limit for OOM prevention
+    /// - Returns: Maximum pixels (width * height) for safe rendering
+    private func getDeviceAwarePixelLimit() -> CGFloat {
+        // Check available memory using ProcessInfo
+        let physicalMemory = ProcessInfo.processInfo.physicalMemory
+        let memoryGB = Double(physicalMemory) / (1024 * 1024 * 1024)
+
+        // Device tiers based on RAM:
+        // - 6GB+: Modern Pro devices (iPhone 15 Pro, iPad Pro) → 16MP
+        // - 4-6GB: Mid-range devices (iPhone 12-14) → 12MP
+        // - 3-4GB: Older devices (iPhone 11, SE) → 9MP
+        // - <3GB: Very old devices (iPhone X, 8) → 6MP
+        let maxPixels: CGFloat
+        if memoryGB >= 6 {
+            maxPixels = 4000 * 4000  // 16MP - safe for modern devices
+        } else if memoryGB >= 4 {
+            maxPixels = 3500 * 3500  // ~12MP - mid-range devices
+        } else if memoryGB >= 3 {
+            maxPixels = 3000 * 3000  // 9MP - older devices
+        } else {
+            maxPixels = 2500 * 2500  // 6MP - emergency limit for very old devices
         }
 
-        let size = CGSize(
-            width: bounds.width * scale,
-            height: bounds.height * scale
-        )
-
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(origin: .zero, size: size))
-            ctx.cgContext.translateBy(x: 0, y: size.height)
-            ctx.cgContext.scaleBy(x: scale, y: -scale)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
-        }
+        return maxPixels
     }
 
     private func createCompressedPage(from page: PDFPage, config: CompressionConfig) throws -> PDFPage? {

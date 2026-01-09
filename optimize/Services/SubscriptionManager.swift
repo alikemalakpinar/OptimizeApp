@@ -206,8 +206,13 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     private let firstInstallDateKey = "secure.subscription.first.install"
 
     // Free-plan limits
+    // PRODUCT FIX: Increased from 1 to 3 - Give users a chance to test the app
+    // With only 1 free usage, churn is guaranteed. 3 uses allows:
+    // - Testing with different file types
+    // - Recovery from accidental file selection
+    // - Building trust before paywall conversion
     private let freeMaxFileSizeMB: Double = 50
-    private let freeDailyLimit: Int = 1
+    private let freeDailyLimit: Int = 3
 
     // SECURITY: Secure storage for critical counters
     private let secureStorage: SecureStorageProtocol

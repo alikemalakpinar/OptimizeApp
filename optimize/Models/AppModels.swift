@@ -232,7 +232,7 @@ struct SubscriptionStatus {
         isActive: true,
         expiresAt: nil,
         dailyUsageCount: 0,
-        dailyUsageLimit: 1
+        dailyUsageLimit: 3
     )
 
     static let pro = SubscriptionStatus(
