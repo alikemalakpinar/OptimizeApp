@@ -295,9 +295,11 @@ struct ModernPaywallScreen: View {
                 animateTimeline = true
             }
 
-            // UX IMPROVEMENT: Delay close button by 2.5 seconds
+            // UX IMPROVEMENT: Delay close button by 1.5 seconds
             // This increases conversion by letting users see the offer first
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            // REDUCED: 2.5s was too aggressive - Apple may reject as dark pattern
+            // 1.5s is enough to show value without frustrating users
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation {
                     showCloseButton = true
                 }

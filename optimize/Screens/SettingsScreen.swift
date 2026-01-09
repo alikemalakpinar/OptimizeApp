@@ -201,6 +201,41 @@ struct SettingsScreen: View {
                     Text(AppStrings.Settings.support)
                 }
 
+                // MARK: - Purchase & Subscription Section
+                // PRODUCT FIX: Restore Purchase must be easily visible per App Store guidelines
+                Section {
+                    if !subscriptionStatus.isPro {
+                        // Restore Purchases - Prominent for free users
+                        Button {
+                            restorePurchases()
+                        } label: {
+                            HStack {
+                                Label("Satın Alımları Geri Yükle", systemImage: "arrow.clockwise.circle.fill")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+
+                    if subscriptionStatus.isPro {
+                        Button {
+                            openManageSubscription()
+                        } label: {
+                            Label(AppStrings.Settings.manageSubscription, systemImage: "creditcard.fill")
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                } header: {
+                    Text("Abonelik")
+                } footer: {
+                    if !subscriptionStatus.isPro {
+                        Text("Daha önce Premium satın aldıysanız, satın alımlarınızı geri yükleyebilirsiniz.")
+                    }
+                }
+
                 // MARK: - Legal Section
                 Section {
                     Link(destination: privacyURL) {
@@ -211,15 +246,6 @@ struct SettingsScreen: View {
                     Link(destination: termsURL) {
                         Label(AppStrings.Settings.termsOfService, systemImage: "doc.text.fill")
                             .foregroundStyle(.primary)
-                    }
-
-                    if subscriptionStatus.isPro {
-                        Button {
-                            openManageSubscription()
-                        } label: {
-                            Label(AppStrings.Settings.manageSubscription, systemImage: "creditcard.fill")
-                                .foregroundStyle(.primary)
-                        }
                     }
                 } header: {
                     Text(AppStrings.Settings.legal)
@@ -318,6 +344,15 @@ struct SettingsScreen: View {
 
         if let url = URL(string: "mailto:\(supportEmail)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
             UIApplication.shared.open(url)
+        }
+    }
+
+    /// Restore previous purchases using SubscriptionManager
+    private func restorePurchases() {
+        Haptics.impact()
+        Task {
+            await SubscriptionManager.shared.restore()
+            Haptics.success()
         }
     }
 }

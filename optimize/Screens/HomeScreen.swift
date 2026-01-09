@@ -64,7 +64,7 @@ struct HomeScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with Dynamic Greeting
+            // Header - Clean and focused
             VStack(alignment: .leading, spacing: 0) {
                 ScreenHeader(".optimize") {
                     HeaderIconButton(systemName: "gearshape") {
@@ -72,10 +72,14 @@ struct HomeScreen: View {
                     }
                 }
 
-                // Dynamic Greeting based on time of day
-                DynamicGreetingView()
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.bottom, Spacing.sm)
+                // PRODUCT FIX: Replaced DynamicGreeting with Quick Access
+                // Users don't care about "Good morning" - they want to get work done
+                // Show last processed file for quick re-access instead
+                if let lastItem = recentHistory.first {
+                    QuickAccessBar(item: lastItem, onSelectFile: onSelectFile)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.bottom, Spacing.sm)
+                }
             }
 
             ScrollView(showsIndicators: false) {
@@ -871,9 +875,87 @@ struct CapabilityPill: View {
     }
 }
 
-// MARK: - Dynamic Greeting View
+// MARK: - Quick Access Bar
+/// Shows last processed file for quick re-access
+/// PRODUCT: Replaces DynamicGreeting - users want action, not greetings
+struct QuickAccessBar: View {
+    let item: HistoryItem
+    let onSelectFile: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            // File icon
+            ZStack {
+                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                    .fill(Color.appMint.opacity(0.15))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: "doc.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.appMint)
+            }
+
+            // File info
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Son İşlem")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(.tertiary)
+
+                Text(item.fileName)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Savings badge
+            Text("-\(item.savingsPercent)%")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.appMint)
+
+            // New file button
+            Button(action: {
+                Haptics.impact()
+                onSelectFile()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Yeni")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [Color.premiumPurple, Color.premiumBlue],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                .stroke(Color.cardBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Dynamic Greeting View (DEPRECATED - kept for backwards compatibility)
 /// Time-based personalized greeting that creates emotional connection with the user
 /// Changes based on: Morning (5-12), Afternoon (12-17), Evening (17-21), Night (21-5), Weekend
+/// NOTE: This view is no longer used on HomeScreen - replaced by QuickAccessBar
 struct DynamicGreetingView: View {
     @State private var greeting: (title: String, subtitle: String) = ("", "")
     @State private var iconName: String = "sun.max.fill"
