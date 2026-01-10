@@ -211,7 +211,12 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     // - Testing with different file types
     // - Recovery from accidental file selection
     // - Building trust before paywall conversion
-    private let freeMaxFileSizeMB: Double = 50
+    //
+    // PRODUCT FIX: Increased file size limit from 50MB to 100MB
+    // Modern iPhone photos create PDFs that easily exceed 50MB
+    // Users couldn't even "test" the app before hitting the wall
+    // 100MB covers most real-world use cases while still incentivizing Pro
+    private let freeMaxFileSizeMB: Double = 100
     private let freeDailyLimit: Int = 3
 
     // SECURITY: Secure storage for critical counters
