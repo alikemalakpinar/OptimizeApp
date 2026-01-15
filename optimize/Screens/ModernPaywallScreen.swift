@@ -2,9 +2,8 @@
 //  ModernPaywallScreen.swift
 //  optimize
 //
-//  Apple-Standard Premium Paywall v2.0
-//  No scroll - Everything visible at once
-//  Timeline + Social Proof + Conversion-focused design
+//  Holographic Optimizer HUD - Premium Paywall v3.0
+//  Interactive gauge + Bento grid features + Gamification design
 //
 
 import SwiftUI
@@ -12,15 +11,17 @@ import SwiftUI
 struct ModernPaywallScreen: View {
     @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var isLoading = false
-    @State private var animateContent = false
-    @State private var animateTimeline = false
-    @State private var showCloseButton = false  // SECURITY: Delayed close button for better conversion
+    @State private var isAnimating = false
+    @State private var showCloseButton = false
     @Environment(\.colorScheme) private var colorScheme
 
-    // CRITICAL FIX: Get real prices from StoreKit instead of hardcoded values
+    // Efficiency Gauge Animation
+    @State private var gaugeValue: CGFloat = 0.4
+
+    // StoreKit prices
     @ObservedObject var subscriptionManager: SubscriptionManager
 
-    // MASTER ARCHITECTURE: Feature-specific paywall context
+    // Feature-specific paywall context
     var context: PaywallContext?
 
     let onSubscribe: (SubscriptionPlan) -> Void
@@ -29,32 +30,26 @@ struct ModernPaywallScreen: View {
     let onPrivacy: () -> Void
     let onTerms: () -> Void
 
-    // MARK: - Computed Context Properties
+    // MARK: - Computed Properties
 
     private var displayTitle: String {
-        context?.title ?? "Premium'a Geç"
+        context?.title ?? "Sisteminizi Ozgürlestirin"
     }
 
-    private var displaySubtitle: String? {
-        context?.subtitle
+    private var displaySubtitle: String {
+        context?.subtitle ?? "OptimizeApp Premium ile sikistirma limitlerini kaldirin ve %100 verime ulasin."
     }
 
     private var displayIcon: String {
-        context?.icon ?? "crown.fill"
+        context?.icon ?? "bolt.horizontal.circle.fill"
     }
 
-    private var ctaButtonText: String {
-        context?.ctaText ?? "7 Gün Ücretsiz Başla"
-    }
-
-    // MARK: - Dynamic Price Helpers
-
-    /// Get formatted price for monthly/weekly plan from StoreKit
-    private var monthlyPrice: String {
+    /// Get formatted price for weekly plan from StoreKit
+    private var weeklyPrice: String {
         if let product = subscriptionManager.products.first(where: { $0.id.contains("monthly") }) {
             return product.displayPrice
         }
-        return "--"  // Fallback while loading
+        return "--"
     }
 
     /// Get formatted price for yearly plan from StoreKit
@@ -62,243 +57,224 @@ struct ModernPaywallScreen: View {
         if let product = subscriptionManager.products.first(where: { $0.id.contains("yearly") }) {
             return product.displayPrice
         }
-        return "--"  // Fallback while loading
+        return "--"
     }
 
-    /// Price text shown after trial ends
-    private var priceAfterTrial: String {
-        if selectedPlan == .yearly {
-            return "\(yearlyPrice)/yıl"
-        } else {
-            return "\(monthlyPrice)/hafta"
+    /// Weekly price calculation from yearly
+    private var weeklyFromYearly: String {
+        if let product = subscriptionManager.products.first(where: { $0.id.contains("yearly") }) {
+            let weeklyValue = product.price / 52
+            return weeklyValue.formatted(.currency(code: product.priceFormatStyle.currencyCode ?? "TRY"))
         }
+        return "--"
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let isCompact = geometry.size.height < 700
+        ZStack {
+            // 1. Background: Deep black with Aurora blobs
+            HolographicBackground(isAnimating: $isAnimating)
 
-            ZStack {
-                // Background
-                ApplePaywallBackground()
-
-                VStack(spacing: 0) {
-                    // Close Button - DELAYED for better conversion
-                    // UX: Users who see prices before closing have 30%+ higher conversion
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            Haptics.selection()
-                            onDismiss()
-                        }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 28, height: 28)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
-                        }
-                        .opacity(showCloseButton ? 1 : 0)
-                        .animation(.easeIn(duration: 0.3), value: showCloseButton)
-                        .disabled(!showCloseButton)
+            VStack(spacing: 0) {
+                // 2. Top Bar: Close & Restore
+                HStack {
+                    Button(action: {
+                        Haptics.selection()
+                        onDismiss()
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(10)
+                            .background(.ultraThinMaterial, in: Circle())
                     }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.xs)
-
-                    // Hero Section - Compact
-                    // DYNAMIC: Uses context-specific icon and title
-                    VStack(spacing: isCompact ? 6 : Spacing.sm) {
-                        // Premium Icon - Dynamic based on context
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: isCompact ? 56 : 64, height: isCompact ? 56 : 64)
-
-                            Image(systemName: displayIcon)
-                                .font(.system(size: isCompact ? 24 : 28, weight: .medium))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [Color.premiumPurple, Color.premiumBlue],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-
-                        // Dynamic title from context
-                        Text(displayTitle)
-                            .font(.system(size: isCompact ? 22 : 26, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-
-                        // Subtitle if context provides one
-                        if let subtitle = displaySubtitle {
-                            Text(subtitle)
-                                .font(.system(size: isCompact ? 12 : 14, weight: .medium, design: .rounded))
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, Spacing.lg)
-                        }
-                    }
-                    .opacity(animateContent ? 1 : 0)
-                    .offset(y: animateContent ? 0 : 10)
-                    .padding(.top, isCompact ? 4 : Spacing.sm)
-
-                    Spacer().frame(height: isCompact ? 8 : 16)
-
-                    // Timeline Section (NEW)
-                    TrialTimelineView(isCompact: isCompact)
-                        .padding(.horizontal, Spacing.lg)
-                        .opacity(animateTimeline ? 1 : 0)
-                        .offset(y: animateTimeline ? 0 : 10)
-
-                    Spacer().frame(height: isCompact ? 8 : 14)
-
-                    // Social Proof (NEW)
-                    SocialProofBar(isCompact: isCompact)
-                        .padding(.horizontal, Spacing.lg)
-                        .opacity(animateContent ? 1 : 0)
-
-                    Spacer().frame(height: isCompact ? 8 : 14)
-
-                    // Plan Selection - Compact Cards
-                    // CRITICAL FIX: Using dynamic prices from StoreKit
-                    HStack(spacing: 10) {
-                        CompactPlanCard(
-                            title: "Haftalık",
-                            price: monthlyPrice,
-                            period: "/hafta",
-                            isSelected: selectedPlan == .monthly,
-                            badge: nil,
-                            isCompact: isCompact
-                        ) {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedPlan = .monthly
-                            }
-                        }
-
-                        CompactPlanCard(
-                            title: "Yıllık",
-                            price: yearlyPrice,
-                            period: "/yıl",
-                            isSelected: selectedPlan == .yearly,
-                            badge: "%70 Tasarruf",
-                            isCompact: isCompact
-                        ) {
-                            withAnimation(.spring(response: 0.3)) {
-                                selectedPlan = .yearly
-                            }
-                        }
-                    }
-                    .padding(.horizontal, Spacing.lg)
-                    .opacity(animateContent ? 1 : 0)
+                    .opacity(showCloseButton ? 1 : 0)
+                    .disabled(!showCloseButton)
 
                     Spacer()
 
-                    // CTA Section
-                    VStack(spacing: isCompact ? 8 : Spacing.sm) {
-                        // Main CTA Button - Dynamic text from context
-                        Button(action: {
-                            Haptics.impact(style: .medium)
-                            isLoading = true
-                            onSubscribe(selectedPlan)
-                        }) {
-                            HStack(spacing: Spacing.sm) {
-                                if isLoading {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Text(ctaButtonText)
-                                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                                }
-                            }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: isCompact ? 48 : 52)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.premiumPurple, Color.premiumBlue],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                    Button(action: {
+                        Haptics.selection()
+                        onRestore()
+                    }) {
+                        Text("Geri Yükle")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 30) {
+
+                        // 3. HERO: Interactive Efficiency Meter
+                        VStack(spacing: 20) {
+                            EfficiencyGauge(
+                                gaugeValue: gaugeValue,
+                                selectedPlan: selectedPlan
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .shadow(color: Color.premiumPurple.opacity(0.3), radius: 10, x: 0, y: 5)
+
+                            VStack(spacing: 8) {
+                                Text(displayTitle)
+                                    .font(.displayTitle)
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+
+                                Text(displaySubtitle)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .disabled(isLoading)
-                        .padding(.horizontal, Spacing.lg)
+                        .padding(.top, 20)
 
-                        // Price info after trial - USING DYNAMIC PRICES
-                        Text("7 gün sonra \(priceAfterTrial)")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(.tertiary)
-
-                        // Trial Info
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Color.appMint)
-                            Text("İstediğin zaman iptal et")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundStyle(.secondary)
+                        // 4. BENTO GRID FEATURES
+                        VStack(spacing: 12) {
+                            HStack(spacing: 12) {
+                                HUDFeatureBox(
+                                    icon: "bolt.fill",
+                                    title: "Sinirsiz Hiz",
+                                    desc: "4x daha hizli islem",
+                                    color: .yellow
+                                )
+                                HUDFeatureBox(
+                                    icon: "lock.shield.fill",
+                                    title: "Güvenli Kasa",
+                                    desc: "Tam sifreleme",
+                                    color: .premiumBlue
+                                )
+                            }
+                            HStack(spacing: 12) {
+                                HUDFeatureBox(
+                                    icon: "photo.stack",
+                                    title: "Toplu Islem",
+                                    desc: "Ayni anda 100+ dosya",
+                                    color: .premiumPurple
+                                )
+                                HUDFeatureBox(
+                                    icon: "crown.fill",
+                                    title: "Pro Destek",
+                                    desc: "7/24 Öncelik",
+                                    color: .appMint
+                                )
+                            }
                         }
+                        .padding(.horizontal)
 
-                        // Footer Links
-                        HStack(spacing: Spacing.md) {
-                            Button(action: {
+                        // 5. PLAN SELECTOR
+                        VStack(spacing: 12) {
+                            // YEARLY PLAN (Recommended)
+                            HUDPlanCard(
+                                planType: .yearly,
+                                isSelected: selectedPlan == .yearly,
+                                price: "\(yearlyPrice) / yil",
+                                subtitle: "Haftalik \(weeklyFromYearly)'ye gelir",
+                                badge: "EN IYI TEKLIF"
+                            ) {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                    selectedPlan = .yearly
+                                    gaugeValue = 1.0
+                                }
                                 Haptics.selection()
-                                onRestore()
-                            }) {
-                                Text("Geri Yükle")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.secondary)
                             }
 
-                            Text("•")
-                                .foregroundStyle(.quaternary)
-                                .font(.system(size: 10))
-
-                            Button(action: onPrivacy) {
-                                Text("Gizlilik")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.tertiary)
+                            // WEEKLY PLAN
+                            HUDPlanCard(
+                                planType: .monthly,
+                                isSelected: selectedPlan == .monthly,
+                                price: "\(weeklyPrice) / hafta",
+                                subtitle: "Istedigin zaman iptal et",
+                                badge: nil
+                            ) {
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                    selectedPlan = .monthly
+                                    gaugeValue = 0.5
+                                }
+                                Haptics.selection()
                             }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 10)
 
-                            Text("•")
-                                .foregroundStyle(.quaternary)
-                                .font(.system(size: 10))
+                        // Legal text
+                        Text("Abonelik otomatik olarak yenilenir. Istediginiz zaman ayarlardan iptal edebilirsiniz.")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.4))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                            .padding(.bottom, 20)
+                    }
+                }
 
-                            Button(action: onTerms) {
-                                Text("Koşullar")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.tertiary)
+                // 6. STICKY BOTTOM CTA
+                VStack(spacing: 12) {
+                    Button(action: {
+                        Haptics.impact(style: .medium)
+                        isLoading = true
+                        onSubscribe(selectedPlan)
+                    }) {
+                        HStack(spacing: 8) {
+                            if isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    .scaleEffect(0.8)
+                            } else {
+                                Text(selectedPlan == .yearly ? "Tam Gücü Etkinlestir" : "Haftalik Basla")
+                                    .font(.headline.weight(.bold))
+                                Image(systemName: "arrow.right")
+                                    .font(.headline.weight(.bold))
                             }
+                        }
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(Color.appMint)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(color: Color.appMint.opacity(0.5), radius: 20, x: 0, y: 5)
+                    }
+                    .disabled(isLoading)
+                    .padding(.horizontal)
+
+                    // Footer Links
+                    HStack(spacing: Spacing.md) {
+                        Button(action: onPrivacy) {
+                            Text("Gizlilik")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+
+                        Text("•")
+                            .foregroundStyle(.white.opacity(0.3))
+                            .font(.system(size: 10))
+
+                        Button(action: onTerms) {
+                            Text("Kosullar")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.5))
                         }
                     }
-                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 8 : Spacing.md)
+                    .padding(.bottom, 10)
                 }
+                .padding(.top, 20)
+                .background(
+                    LinearGradient(
+                        colors: [.black.opacity(0), .black],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
             }
         }
-        .ignoresSafeArea(.container, edges: .bottom)
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1)) {
-                animateContent = true
-            }
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.25)) {
-                animateTimeline = true
+            isAnimating = true
+
+            // Animate gauge to full on appear (show potential)
+            withAnimation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.3)) {
+                gaugeValue = 1.0
             }
 
-            // UX IMPROVEMENT: Delay close button by 1.5 seconds
-            // This increases conversion by letting users see the offer first
-            // REDUCED: 2.5s was too aggressive - Apple may reject as dark pattern
-            // 1.5s is enough to show value without frustrating users
+            // Delayed close button for better conversion
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation {
                     showCloseButton = true
@@ -308,357 +284,230 @@ struct ModernPaywallScreen: View {
     }
 }
 
-// MARK: - Trial Timeline View (NEW - Blinkist Style)
+// MARK: - Holographic Background
 
-private struct TrialTimelineView: View {
-    let isCompact: Bool
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Day 1 - Today
-            TrialStep(
-                day: "Bugün",
-                title: "Başla",
-                icon: "play.fill",
-                color: .appMint,
-                isFirst: true,
-                isLast: false,
-                isCompact: isCompact
-            )
-
-            // Connection line
-            TimelineConnector()
-
-            // Day 5 - Reminder
-            TrialStep(
-                day: "5. Gün",
-                title: "Hatırlatma",
-                icon: "bell.fill",
-                color: .warmOrange,
-                isFirst: false,
-                isLast: false,
-                isCompact: isCompact
-            )
-
-            // Connection line
-            TimelineConnector()
-
-            // Day 7 - Billing
-            TrialStep(
-                day: "7. Gün",
-                title: "Ödeme",
-                icon: "creditcard.fill",
-                color: .premiumPurple,
-                isFirst: false,
-                isLast: true,
-                isCompact: isCompact
-            )
-        }
-        .padding(.vertical, isCompact ? 10 : 12)
-        .padding(.horizontal, isCompact ? 12 : 16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.cardBorder, lineWidth: 0.5)
-        )
-    }
-}
-
-private struct TrialStep: View {
-    let day: String
-    let title: String
-    let icon: String
-    let color: Color
-    let isFirst: Bool
-    let isLast: Bool
-    let isCompact: Bool
-
-    var body: some View {
-        VStack(spacing: isCompact ? 4 : 6) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: isCompact ? 28 : 32, height: isCompact ? 28 : 32)
-
-                Image(systemName: icon)
-                    .font(.system(size: isCompact ? 11 : 13, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-
-            // Day label
-            Text(day)
-                .font(.system(size: isCompact ? 9 : 10, weight: .bold, design: .rounded))
-                .foregroundStyle(isFirst ? color : .secondary)
-
-            // Title
-            Text(title)
-                .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct TimelineConnector: View {
-    var body: some View {
-        Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [Color.appMint.opacity(0.5), Color.premiumPurple.opacity(0.5)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(height: 2)
-            .frame(maxWidth: 30)
-    }
-}
-
-// MARK: - Social Proof Bar (NEW)
-
-private struct SocialProofBar: View {
-    let isCompact: Bool
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack(spacing: isCompact ? 12 : 16) {
-            // App Store Rating
-            SocialProofItem(
-                icon: "star.fill",
-                value: "4.8",
-                label: "Puan",
-                color: .yellow,
-                isCompact: isCompact
-            )
-
-            Divider()
-                .frame(height: isCompact ? 24 : 28)
-
-            // Users
-            SocialProofItem(
-                icon: "person.2.fill",
-                value: "50K+",
-                label: "Kullanıcı",
-                color: .premiumBlue,
-                isCompact: isCompact
-            )
-
-            Divider()
-                .frame(height: isCompact ? 24 : 28)
-
-            // Saved Space
-            SocialProofItem(
-                icon: "arrow.down.circle.fill",
-                value: "2TB+",
-                label: "Tasarruf",
-                color: .appMint,
-                isCompact: isCompact
-            )
-        }
-        .padding(.vertical, isCompact ? 8 : 10)
-        .padding(.horizontal, isCompact ? 16 : 20)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(colorScheme == .dark ? Color(.secondarySystemBackground).opacity(0.5) : .white.opacity(0.8))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.cardBorder, lineWidth: 0.5)
-        )
-    }
-}
-
-private struct SocialProofItem: View {
-    let icon: String
-    let value: String
-    let label: String
-    let color: Color
-    let isCompact: Bool
-
-    var body: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
-                    .foregroundStyle(color)
-
-                Text(value)
-                    .font(.system(size: isCompact ? 13 : 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-            }
-
-            Text(label)
-                .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Apple-Style Background
-private struct ApplePaywallBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
+private struct HolographicBackground: View {
+    @Binding var isAnimating: Bool
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.black.ignoresSafeArea()
 
-            // Subtle gradient orbs
-            GeometryReader { geo in
-                // Top purple glow
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.premiumPurple.opacity(colorScheme == .dark ? 0.12 : 0.06),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.5
-                        )
+            GeometryReader { proxy in
+                // Mint Aurora blob
+                Circle()
+                    .fill(Color.appMint.opacity(0.3))
+                    .frame(width: 300, height: 300)
+                    .blur(radius: 80)
+                    .offset(
+                        x: isAnimating ? -50 : 50,
+                        y: -100
                     )
-                    .frame(width: geo.size.width * 0.8, height: geo.size.height * 0.4)
-                    .offset(x: -geo.size.width * 0.1, y: -geo.size.height * 0.05)
+                    .animation(
+                        .easeInOut(duration: 4).repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
 
-                // Bottom blue accent
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.premiumBlue.opacity(colorScheme == .dark ? 0.08 : 0.04),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: geo.size.width * 0.4
-                        )
+                // Purple/Blue Aurora blob
+                Circle()
+                    .fill(Color.premiumPurple.opacity(0.25))
+                    .frame(width: 250, height: 250)
+                    .blur(radius: 60)
+                    .offset(
+                        x: proxy.size.width - 150,
+                        y: isAnimating ? 80 : 120
                     )
-                    .frame(width: geo.size.width * 0.6, height: geo.size.height * 0.3)
-                    .offset(x: geo.size.width * 0.4, y: geo.size.height * 0.5)
+                    .animation(
+                        .easeInOut(duration: 5).repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
+
+                // Accent blob
+                Circle()
+                    .fill(Color.premiumBlue.opacity(0.2))
+                    .frame(width: 200, height: 200)
+                    .blur(radius: 50)
+                    .offset(
+                        x: isAnimating ? proxy.size.width * 0.3 : proxy.size.width * 0.5,
+                        y: proxy.size.height * 0.6
+                    )
+                    .animation(
+                        .easeInOut(duration: 6).repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
             }
+            .ignoresSafeArea()
         }
-        .ignoresSafeArea()
     }
 }
 
-// MARK: - Compact Plan Card (Updated)
+// MARK: - Efficiency Gauge (Interactive Meter)
 
-private struct CompactPlanCard: View {
-    let title: String
-    let price: String
-    let period: String
-    let isSelected: Bool
-    let badge: String?
-    var isCompact: Bool = false
-    let action: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
+private struct EfficiencyGauge: View {
+    let gaugeValue: CGFloat
+    let selectedPlan: SubscriptionPlan
 
     var body: some View {
-        Button(action: {
-            Haptics.selection()
-            action()
-        }) {
-            ZStack(alignment: .top) {
-                VStack(spacing: 4) {
-                    Text(title)
-                        .font(.system(size: isCompact ? 11 : 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .padding(.top, badge != nil ? (isCompact ? 18 : 20) : (isCompact ? 10 : 12))
+        ZStack {
+            // Outer ring (background)
+            Circle()
+                .stroke(Color.white.opacity(0.1), lineWidth: 20)
+                .frame(width: 160, height: 160)
 
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text(price)
-                            .font(.system(size: isCompact ? 18 : 20, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-
-                        Text(period)
-                            .font(.system(size: isCompact ? 9 : 10, weight: .medium, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: isCompact ? 80 : 90)
-                .background(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
-
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.premiumPurple.opacity(0.05), Color.premiumBlue.opacity(0.02)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        }
-                    }
+            // Fill ring (animated)
+            Circle()
+                .trim(from: 0, to: gaugeValue)
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [Color.premiumPurple, Color.appMint]),
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 20, lineCap: .round)
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .frame(width: 160, height: 160)
+                .rotationEffect(.degrees(-90))
+                .shadow(color: Color.appMint.opacity(0.5), radius: 20, x: 0, y: 0)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: gaugeValue)
+
+            // Inner content
+            VStack(spacing: 4) {
+                Text("\(Int(gaugeValue * 100))%")
+                    .font(.system(size: 42, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .contentTransition(.numericText(value: gaugeValue * 100))
+                    .animation(.spring(response: 0.4), value: gaugeValue)
+
+                Text(selectedPlan == .yearly ? "MAX POWER" : "LIMITED")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(selectedPlan == .yearly ? Color.appMint : .gray)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(
+                            selectedPlan == .yearly
+                                ? Color.appMint.opacity(0.2)
+                                : Color.white.opacity(0.1)
+                        )
+                    )
+            }
+        }
+    }
+}
+
+// MARK: - Bento Feature Box
+
+private struct HUDFeatureBox: View {
+    let icon: String
+    let title: String
+    let desc: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.15))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                Text(desc)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.glassSurface)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - HUD Plan Card
+
+private struct HUDPlanCard: View {
+    let planType: SubscriptionPlan
+    let isSelected: Bool
+    let price: String
+    let subtitle: String
+    let badge: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                // Radio button
+                ZStack {
+                    Circle()
                         .stroke(
-                            isSelected
-                                ? LinearGradient(colors: [Color.premiumPurple, Color.premiumBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                                : LinearGradient(colors: [Color.cardBorder, Color.cardBorder], startPoint: .leading, endPoint: .trailing),
-                            lineWidth: isSelected ? 2 : 1
+                            isSelected ? Color.appMint : Color.white.opacity(0.3),
+                            lineWidth: 2
                         )
-                )
-                .shadow(color: isSelected ? Color.premiumPurple.opacity(0.1) : .clear, radius: 6, x: 0, y: 3)
+                        .frame(width: 24, height: 24)
 
-                // Badge
-                if let badge = badge {
-                    Text(badge)
-                        .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(
-                            LinearGradient(
-                                colors: [Color.appMint, Color.appTeal],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(Capsule())
-                        .offset(y: -8)
+                    if isSelected {
+                        Circle()
+                            .fill(Color.appMint)
+                            .frame(width: 14, height: 14)
+                    }
                 }
 
-                // Checkmark
-                if isSelected {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: isCompact ? 16 : 18))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [Color.premiumPurple, Color.premiumBlue],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .background(Circle().fill(Color(.systemBackground)).frame(width: 12, height: 12))
-                                .padding(6)
-                        }
-                        Spacer()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(planType == .yearly ? "Yillik (Pro)" : "Haftalik")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(price)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(isSelected ? Color.appMint : .white)
+
+                    if let badge = badge {
+                        Text(badge)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.proGold)
+                            .cornerRadius(4)
                     }
                 }
             }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? Color.appMint.opacity(0.1) : Color.glassSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        isSelected ? Color.appMint : Color.white.opacity(0.1),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
         }
-        .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3), value: isSelected)
     }
 }
 
 // MARK: - Preview
+
 #Preview("Default") {
     ModernPaywallScreen(
         subscriptionManager: SubscriptionManager.shared,
@@ -675,18 +524,6 @@ private struct CompactPlanCard: View {
     ModernPaywallScreen(
         subscriptionManager: SubscriptionManager.shared,
         context: .batchProcessing,
-        onSubscribe: { plan in print("Subscribe: \(plan)") },
-        onRestore: {},
-        onDismiss: {},
-        onPrivacy: {},
-        onTerms: {}
-    )
-}
-
-#Preview("File Converter") {
-    ModernPaywallScreen(
-        subscriptionManager: SubscriptionManager.shared,
-        context: .converter,
         onSubscribe: { plan in print("Subscribe: \(plan)") },
         onRestore: {},
         onDismiss: {},
