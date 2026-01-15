@@ -2,8 +2,8 @@
 //  ModernPaywallScreen.swift
 //  optimize
 //
-//  Holographic Optimizer HUD - Premium Paywall v3.0
-//  Interactive gauge + Bento grid features + Gamification design
+//  Cinematic HUD v4.0 - Premium Paywall
+//  Noise texture + Tactile gauge + Gradient borders
 //
 
 import SwiftUI
@@ -15,13 +15,10 @@ struct ModernPaywallScreen: View {
     @State private var showCloseButton = false
     @Environment(\.colorScheme) private var colorScheme
 
-    // Efficiency Gauge Animation
-    @State private var gaugeValue: CGFloat = 0.4
-
     // StoreKit prices
     @ObservedObject var subscriptionManager: SubscriptionManager
 
-    // Feature-specific paywall context
+    // Context
     var context: PaywallContext?
 
     let onSubscribe: (SubscriptionPlan) -> Void
@@ -30,18 +27,17 @@ struct ModernPaywallScreen: View {
     let onPrivacy: () -> Void
     let onTerms: () -> Void
 
+    // Animation State
+    @State private var gaugeValue: CGFloat = 0.0
+
     // MARK: - Computed Properties
 
     private var displayTitle: String {
-        context?.title ?? "Sisteminizi Ozgürlestirin"
+        context?.title ?? "Sisteminizi Özgürleştirin"
     }
 
     private var displaySubtitle: String {
-        context?.subtitle ?? "OptimizeApp Premium ile sikistirma limitlerini kaldirin ve %100 verime ulasin."
-    }
-
-    private var displayIcon: String {
-        context?.icon ?? "bolt.horizontal.circle.fill"
+        context?.subtitle ?? "OptimizeApp Premium ile sınırları kaldırın."
     }
 
     /// Get formatted price for weekly plan from StoreKit
@@ -71,21 +67,22 @@ struct ModernPaywallScreen: View {
 
     var body: some View {
         ZStack {
-            // 1. Background: Deep black with Aurora blobs
-            HolographicBackground(isAnimating: $isAnimating)
+            // 1. LAYER: Cinematic Background (Noise + Aurora)
+            CinematicBackground(isAnimating: $isAnimating)
 
             VStack(spacing: 0) {
-                // 2. Top Bar: Close & Restore
+                // 2. TOP BAR
                 HStack {
                     Button(action: {
                         Haptics.selection()
                         onDismiss()
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6))
-                            .padding(10)
-                            .background(.ultraThinMaterial, in: Circle())
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white.opacity(0.5))
+                            .padding(8)
+                            .background(Color.white.opacity(0.1), in: Circle())
+                            .overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1))
                     }
                     .opacity(showCloseButton ? 1 : 0)
                     .disabled(!showCloseButton)
@@ -97,169 +94,160 @@ struct ModernPaywallScreen: View {
                         onRestore()
                     }) {
                         Text("Geri Yükle")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white.opacity(0.7))
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.6))
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 10)
+                .padding(.top, 12)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 30) {
+                    VStack(spacing: 32) {
 
-                        // 3. HERO: Interactive Efficiency Meter
-                        VStack(spacing: 20) {
-                            EfficiencyGauge(
-                                gaugeValue: gaugeValue,
-                                selectedPlan: selectedPlan
-                            )
+                        // 3. HERO: Tactile Gauge
+                        VStack(spacing: 24) {
+                            TactileGauge(value: gaugeValue, isYearly: selectedPlan == .yearly)
+                                .frame(width: 200, height: 200)
 
-                            VStack(spacing: 8) {
+                            VStack(spacing: 12) {
                                 Text(displayTitle)
-                                    .font(.displayTitle)
+                                    .font(.system(size: 28, weight: .bold, design: .default))
                                     .foregroundColor(.white)
                                     .multilineTextAlignment(.center)
+                                    .shadow(color: Color.appMint.opacity(0.3), radius: 20, x: 0, y: 0)
 
                                 Text(displaySubtitle)
-                                    .font(.subheadline)
+                                    .font(.system(size: 15, weight: .regular, design: .rounded))
                                     .foregroundColor(.white.opacity(0.7))
                                     .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, 30)
+                                    .lineSpacing(4)
                             }
                         }
                         .padding(.top, 20)
 
-                        // 4. BENTO GRID FEATURES
+                        // 4. BENTO GRID FEATURES (Compact)
                         VStack(spacing: 12) {
                             HStack(spacing: 12) {
-                                HUDFeatureBox(
-                                    icon: "bolt.fill",
-                                    title: "Sinirsiz Hiz",
-                                    desc: "4x daha hizli islem",
-                                    color: .yellow
-                                )
-                                HUDFeatureBox(
-                                    icon: "lock.shield.fill",
-                                    title: "Güvenli Kasa",
-                                    desc: "Tam sifreleme",
-                                    color: .premiumBlue
-                                )
+                                TechFeatureBox(icon: "bolt.fill", title: "Sınırsız Hız", color: .yellow)
+                                TechFeatureBox(icon: "lock.shield.fill", title: "Güvenli Kasa", color: .premiumBlue)
                             }
                             HStack(spacing: 12) {
-                                HUDFeatureBox(
-                                    icon: "photo.stack",
-                                    title: "Toplu Islem",
-                                    desc: "Ayni anda 100+ dosya",
-                                    color: .premiumPurple
-                                )
-                                HUDFeatureBox(
-                                    icon: "crown.fill",
-                                    title: "Pro Destek",
-                                    desc: "7/24 Öncelik",
-                                    color: .appMint
-                                )
+                                TechFeatureBox(icon: "photo.stack", title: "Toplu İşlem", color: .premiumPurple)
+                                TechFeatureBox(icon: "crown.fill", title: "Pro Destek", color: .appMint)
                             }
                         }
                         .padding(.horizontal)
 
-                        // 5. PLAN SELECTOR
-                        VStack(spacing: 12) {
-                            // YEARLY PLAN (Recommended)
-                            HUDPlanCard(
-                                planType: .yearly,
+                        // 5. PLAN SELECTION
+                        VStack(spacing: 16) {
+                            // YEARLY
+                            PremiumPlanCard(
+                                title: "Yıllık Plan",
+                                price: yearlyPrice,
+                                period: "/ yıl",
+                                subtitle: "Haftalık \(weeklyFromYearly)'ye gelir",
+                                badge: "EN POPÜLER",
                                 isSelected: selectedPlan == .yearly,
-                                price: "\(yearlyPrice) / yil",
-                                subtitle: "Haftalik \(weeklyFromYearly)'ye gelir",
-                                badge: "EN IYI TEKLIF"
-                            ) {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                    selectedPlan = .yearly
-                                    gaugeValue = 1.0
+                                action: {
+                                    Haptics.impact(style: .medium)
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                        selectedPlan = .yearly
+                                        gaugeValue = 1.0
+                                    }
                                 }
-                                Haptics.selection()
-                            }
+                            )
 
-                            // WEEKLY PLAN
-                            HUDPlanCard(
-                                planType: .monthly,
+                            // WEEKLY
+                            PremiumPlanCard(
+                                title: "Haftalık Plan",
+                                price: weeklyPrice,
+                                period: "/ hafta",
+                                subtitle: "İstediğin zaman iptal et",
+                                badge: nil,
                                 isSelected: selectedPlan == .monthly,
-                                price: "\(weeklyPrice) / hafta",
-                                subtitle: "Istedigin zaman iptal et",
-                                badge: nil
-                            ) {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                    selectedPlan = .monthly
-                                    gaugeValue = 0.5
+                                action: {
+                                    Haptics.selection()
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                        selectedPlan = .monthly
+                                        gaugeValue = 0.45
+                                    }
                                 }
-                                Haptics.selection()
-                            }
+                            )
                         }
                         .padding(.horizontal)
-                        .padding(.top, 10)
 
-                        // Legal text
-                        Text("Abonelik otomatik olarak yenilenir. Istediginiz zaman ayarlardan iptal edebilirsiniz.")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.4))
+                        // Legal
+                        Text("Abonelik otomatik yenilenir. Ayarlardan iptal edilebilir.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.3))
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 100)
                     }
                 }
+            }
 
-                // 6. STICKY BOTTOM CTA
-                VStack(spacing: 12) {
+            // 6. STICKY CTA (Bottom Bar)
+            VStack {
+                Spacer()
+
+                VStack(spacing: 16) {
                     Button(action: {
-                        Haptics.impact(style: .medium)
+                        Haptics.notification(type: .success)
                         isLoading = true
                         onSubscribe(selectedPlan)
                     }) {
-                        HStack(spacing: 8) {
+                        HStack {
                             if isLoading {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .black))
                                     .scaleEffect(0.8)
                             } else {
-                                Text(selectedPlan == .yearly ? "Tam Gücü Etkinlestir" : "Haftalik Basla")
-                                    .font(.headline.weight(.bold))
-                                Image(systemName: "arrow.right")
-                                    .font(.headline.weight(.bold))
+                                Text(selectedPlan == .yearly ? "Tam Gücü Başlat" : "Denemeye Başla")
+                                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 15, weight: .bold))
                             }
                         }
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Color.appMint)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .frame(height: 58)
+                        .background(
+                            ZStack {
+                                Color.appMint
+                                // Inner highlight gradient
+                                LinearGradient(
+                                    colors: [.white.opacity(0.4), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            }
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
                         .shadow(color: Color.appMint.opacity(0.5), radius: 20, x: 0, y: 5)
+                        .scaleEffect(isLoading ? 0.98 : 1)
                     }
                     .disabled(isLoading)
-                    .padding(.horizontal)
 
                     // Footer Links
-                    HStack(spacing: Spacing.md) {
+                    HStack(spacing: 20) {
                         Button(action: onPrivacy) {
                             Text("Gizlilik")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.5))
                         }
-
                         Text("•")
-                            .foregroundStyle(.white.opacity(0.3))
-                            .font(.system(size: 10))
-
                         Button(action: onTerms) {
-                            Text("Kosullar")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.5))
+                            Text("Koşullar")
                         }
                     }
-                    .padding(.bottom, 10)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
                 .padding(.top, 20)
                 .background(
                     LinearGradient(
-                        colors: [.black.opacity(0), .black],
+                        colors: [.black.opacity(0), .black.opacity(0.9), .black],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -268,241 +256,268 @@ struct ModernPaywallScreen: View {
         }
         .onAppear {
             isAnimating = true
-
-            // Animate gauge to full on appear (show potential)
-            withAnimation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.3)) {
+            // Opening animation - show full potential
+            withAnimation(.spring(response: 1.2, dampingFraction: 0.6).delay(0.2)) {
                 gaugeValue = 1.0
             }
 
             // Delayed close button for better conversion
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
-                    showCloseButton = true
-                }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation { showCloseButton = true }
             }
         }
     }
 }
 
-// MARK: - Holographic Background
+// MARK: - 🎨 Cinematic Background (Noise + Aurora)
 
-private struct HolographicBackground: View {
+private struct CinematicBackground: View {
     @Binding var isAnimating: Bool
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            // Aurora Blobs
             GeometryReader { proxy in
-                // Mint Aurora blob
+                // Primary Mint Light
                 Circle()
-                    .fill(Color.appMint.opacity(0.3))
+                    .fill(Color.appMint.opacity(0.2))
+                    .frame(width: 350, height: 350)
+                    .blur(radius: 90)
+                    .offset(x: isAnimating ? -50 : 100, y: -100)
+                    .animation(.easeInOut(duration: 7).repeatForever(autoreverses: true), value: isAnimating)
+
+                // Secondary Purple Light
+                Circle()
+                    .fill(Color.premiumPurple.opacity(0.15))
                     .frame(width: 300, height: 300)
                     .blur(radius: 80)
-                    .offset(
-                        x: isAnimating ? -50 : 50,
-                        y: -100
-                    )
-                    .animation(
-                        .easeInOut(duration: 4).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
+                    .offset(x: proxy.size.width - 100, y: 150)
+                    .animation(.easeInOut(duration: 5).repeatForever(autoreverses: true), value: isAnimating)
 
-                // Purple/Blue Aurora blob
+                // Tertiary Blue Accent
                 Circle()
-                    .fill(Color.premiumPurple.opacity(0.25))
+                    .fill(Color.premiumBlue.opacity(0.12))
                     .frame(width: 250, height: 250)
-                    .blur(radius: 60)
-                    .offset(
-                        x: proxy.size.width - 150,
-                        y: isAnimating ? 80 : 120
-                    )
-                    .animation(
-                        .easeInOut(duration: 5).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
-
-                // Accent blob
-                Circle()
-                    .fill(Color.premiumBlue.opacity(0.2))
-                    .frame(width: 200, height: 200)
-                    .blur(radius: 50)
-                    .offset(
-                        x: isAnimating ? proxy.size.width * 0.3 : proxy.size.width * 0.5,
-                        y: proxy.size.height * 0.6
-                    )
-                    .animation(
-                        .easeInOut(duration: 6).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
+                    .blur(radius: 70)
+                    .offset(x: isAnimating ? proxy.size.width * 0.2 : proxy.size.width * 0.6, y: proxy.size.height * 0.5)
+                    .animation(.easeInOut(duration: 6).repeatForever(autoreverses: true), value: isAnimating)
             }
             .ignoresSafeArea()
+
+            // 🌟 GRAIN OVERLAY - Premium texture feel
+            // This visual noise makes digital gradients look 'analog' and expensive
+            Rectangle()
+                .fill(Color.white.opacity(0.03))
+                .blendMode(.overlay)
+                .overlay(
+                    GeometryReader { geo in
+                        Color.white
+                            .opacity(0.05)
+                            .mask(
+                                NoiseTexture()
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                            )
+                    }
+                )
+                .ignoresSafeArea()
         }
     }
 }
 
-// MARK: - Efficiency Gauge (Interactive Meter)
+// Noise Texture Generator
+private struct NoiseTexture: View {
+    var body: some View {
+        Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+            for _ in 0..<Int(size.width * size.height / 20) {
+                let x = Double.random(in: 0...size.width)
+                let y = Double.random(in: 0...size.height)
+                context.opacity = Double.random(in: 0...0.5)
+                context.fill(Path(CGRect(x: x, y: y, width: 1, height: 1)), with: .color(.white))
+            }
+        }
+    }
+}
 
-private struct EfficiencyGauge: View {
-    let gaugeValue: CGFloat
-    let selectedPlan: SubscriptionPlan
+// MARK: - 🏎️ Tactile Gauge (Instrument Panel Style)
+
+private struct TactileGauge: View {
+    var value: CGFloat // 0.0 to 1.0
+    var isYearly: Bool
 
     var body: some View {
         ZStack {
-            // Outer ring (background)
+            // Background Ring
             Circle()
-                .stroke(Color.white.opacity(0.1), lineWidth: 20)
-                .frame(width: 160, height: 160)
+                .stroke(Color.white.opacity(0.05), style: StrokeStyle(lineWidth: 24, lineCap: .butt))
 
-            // Fill ring (animated)
+            // Tick Marks - Gives instrument panel feel
+            ForEach(0..<40, id: \.self) { i in
+                Rectangle()
+                    .fill(Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
+                    .frame(width: 2, height: i % 5 == 0 ? 12 : 6)
+                    .offset(y: -85)
+                    .rotationEffect(.degrees(Double(i) / 40 * 360))
+            }
+
+            // Fill Arc (Gradient)
             Circle()
-                .trim(from: 0, to: gaugeValue)
+                .trim(from: 0, to: value)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [Color.premiumPurple, Color.appMint]),
+                        gradient: Gradient(colors: [
+                            Color.appMint.opacity(0.1),
+                            Color.appMint,
+                            Color.white
+                        ]),
                         center: .center
                     ),
-                    style: StrokeStyle(lineWidth: 20, lineCap: .round)
+                    style: StrokeStyle(lineWidth: 24, lineCap: .round)
                 )
-                .frame(width: 160, height: 160)
                 .rotationEffect(.degrees(-90))
-                .shadow(color: Color.appMint.opacity(0.5), radius: 20, x: 0, y: 0)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: gaugeValue)
+                .shadow(color: Color.appMint.opacity(0.6), radius: 15, x: 0, y: 0) // Neon Glow
+                .animation(.spring(response: 0.8, dampingFraction: 0.7), value: value)
 
-            // Inner content
-            VStack(spacing: 4) {
-                Text("\(Int(gaugeValue * 100))%")
-                    .font(.system(size: 42, weight: .heavy, design: .rounded))
+            // Center Info
+            VStack(spacing: 2) {
+                Text("\(Int(value * 100))%")
+                    .font(.system(size: 46, weight: .black, design: .rounded))
                     .foregroundColor(.white)
-                    .contentTransition(.numericText(value: gaugeValue * 100))
-                    .animation(.spring(response: 0.4), value: gaugeValue)
+                    .contentTransition(.numericText(value: value * 100))
+                    .animation(.spring(response: 0.4), value: value)
 
-                Text(selectedPlan == .yearly ? "MAX POWER" : "LIMITED")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(selectedPlan == .yearly ? Color.appMint : .gray)
+                Text(isYearly ? "MAXIMUM" : "LIMITED")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2)
+                    .foregroundColor(isYearly ? .black : .white.opacity(0.5))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(
-                        Capsule().fill(
-                            selectedPlan == .yearly
-                                ? Color.appMint.opacity(0.2)
-                                : Color.white.opacity(0.1)
-                        )
-                    )
+                    .background(isYearly ? Color.appMint : Color.white.opacity(0.1))
+                    .cornerRadius(4)
             }
         }
     }
 }
 
-// MARK: - Bento Feature Box
+// MARK: - 📱 Tech Feature Box (Clean & Compact)
 
-private struct HUDFeatureBox: View {
+private struct TechFeatureBox: View {
     let icon: String
     let title: String
-    let desc: String
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(.system(size: 18, weight: .medium))
                 .foregroundColor(color)
-                .frame(width: 40, height: 40)
+                .frame(width: 32, height: 32)
                 .background(color.opacity(0.15))
                 .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-                Text(desc)
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-            }
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color.glassSurface)
-        .cornerRadius(16)
+        .padding(12)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 }
 
-// MARK: - HUD Plan Card
+// MARK: - 💎 Premium Plan Card (Glassy + Gradient Borders)
 
-private struct HUDPlanCard: View {
-    let planType: SubscriptionPlan
-    let isSelected: Bool
+private struct PremiumPlanCard: View {
+    let title: String
     let price: String
+    let period: String
     let subtitle: String
     let badge: String?
+    let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack {
-                // Radio button
+            HStack(spacing: 16) {
+                // Radio Button (Animated)
                 ZStack {
                     Circle()
-                        .stroke(
-                            isSelected ? Color.appMint : Color.white.opacity(0.3),
-                            lineWidth: 2
-                        )
-                        .frame(width: 24, height: 24)
+                        .stroke(isSelected ? Color.appMint : Color.white.opacity(0.2), lineWidth: 2)
+                        .frame(width: 22, height: 22)
 
                     if isSelected {
                         Circle()
                             .fill(Color.appMint)
-                            .frame(width: 14, height: 14)
+                            .frame(width: 12, height: 12)
+                            .transition(.scale)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(planType == .yearly ? "Yillik (Pro)" : "Haftalik")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                    HStack {
+                        Text(title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        if let badge = badge {
+                            Text(badge)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.proGold)
+                                .cornerRadius(4)
+                        }
+                    }
 
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 0) {
                     Text(price)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(isSelected ? Color.appMint : .white)
 
-                    if let badge = badge {
-                        Text(badge)
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.proGold)
-                            .cornerRadius(4)
-                    }
+                    Text(period)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.5))
                 }
             }
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.appMint.opacity(0.1) : Color.glassSurface)
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(isSelected ? Color.appMint.opacity(0.1) : Color.white.opacity(0.03))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                // Gradient Border - Light reflection effect
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(
-                        isSelected ? Color.appMint : Color.white.opacity(0.1),
-                        lineWidth: isSelected ? 2 : 1
+                        LinearGradient(
+                            colors: isSelected
+                                ? [Color.appMint, Color.appMint.opacity(0.3)]
+                                : [Color.white.opacity(0.1), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
                     )
             )
+            .scaleEffect(isSelected ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3), value: isSelected)
         }
-        .scaleEffect(isSelected ? 1.02 : 1.0)
-        .animation(.spring(response: 0.3), value: isSelected)
+        .buttonStyle(.plain)
     }
 }
 
