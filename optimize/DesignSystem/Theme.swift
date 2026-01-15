@@ -69,6 +69,10 @@ extension Color {
     // Glass effect colors - System-aware for better visibility
     static let glassBackground = Color(.systemBackground).opacity(0.7)
     static let glassBorder = Color.primary.opacity(0.1) // Works in both light and dark mode
+
+    // Holographic HUD Paywall colors
+    static let glassSurface = Color.white.opacity(0.1)
+    static let proGold = Color(red: 1.0, green: 0.85, blue: 0.35) // Premium feel
 }
 
 // MARK: - Spacing System
