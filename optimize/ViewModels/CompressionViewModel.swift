@@ -271,6 +271,134 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     }
 }
 
+// MARK: - OptimizationProfile Support (v4.0)
+
+extension CompressionViewModel {
+
+    /// Compress with OptimizationProfile for advanced control
+    /// Uses new Preflight → Optimize → Sanitize pipeline
+    func compress(file: FileInfo, profile: OptimizationProfile) async {
+        lastFile = file
+        lastPreset = CompressionPreset.from(profile: profile)
+        lastError = nil
+
+        // Check for extremely large files (500+ pages)
+        if let pageCount = file.pageCount, pageCount > 500 {
+            // For Ultra mode, allow large files (streaming mode)
+            if profile.strategy != .ultra {
+                let error = CompressionError.fileTooLarge
+                handleError(error, preset: lastPreset!)
+                return
+            }
+        }
+
+        // Reset state
+        status = .preparing
+        progress = 0
+        currentStage = .preparing
+
+        // Track analytics with profile info
+        analytics.track(.compressionStarted, parameters: [
+            "profile_strategy": profile.strategy.rawValue,
+            "file_size_mb": file.sizeMB,
+            "strip_metadata": profile.stripMetadata,
+            "convert_srgb": profile.convertToSRGB
+        ])
+
+        // Prepare service
+        await service.prepareForNewTask()
+
+        // Preflight analysis
+        let preflightReport = await PreflightAnalyzer.shared.analyze(url: file.url)
+
+        // Log preflight results
+        analytics.track(.custom("preflight_complete"), parameters: [
+            "compression_potential": preflightReport.compressionPotential,
+            "has_invisible_garbage": preflightReport.hasInvisibleGarbage,
+            "suggested_strategy": preflightReport.suggestedStrategy.rawValue
+        ])
+
+        do {
+            // Use PDF compression with profile if it's a PDF
+            let fileType = FileType.from(extension: file.url.pathExtension)
+            let outputURL: URL
+
+            if fileType == .pdf, let pdfService = service as? UltimatePDFCompressionService {
+                outputURL = try await pdfService.compressPDF(
+                    at: file.url,
+                    profile: profile
+                ) { [weak self] stage, prog in
+                    Task { @MainActor in
+                        self?.currentStage = stage
+                        self?.progress = prog
+                        self?.status = .compressing(progress: prog, stage: stage)
+                    }
+                }
+            } else {
+                // For other file types, use preset-based compression
+                outputURL = try await service.compressFile(
+                    at: file.url,
+                    preset: CompressionPreset.from(profile: profile)
+                ) { [weak self] stage, prog in
+                    Task { @MainActor in
+                        self?.currentStage = stage
+                        self?.progress = prog
+                        self?.status = .compressing(progress: prog, stage: stage)
+                    }
+                }
+            }
+
+            // Get compressed file size
+            let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
+            let compressedSize = attributes[.size] as? Int64 ?? 0
+
+            let result = CompressionResult(
+                originalFile: file,
+                compressedURL: outputURL,
+                compressedSize: compressedSize
+            )
+
+            // Success!
+            retryCount = 0
+            status = .success(result)
+
+            // Track analytics with profile info
+            analytics.trackCompressionCompleted(
+                originalSize: file.size,
+                compressedSize: result.compressedSize,
+                savingsPercent: result.savingsPercent,
+                presetId: profile.strategy.rawValue,
+                duration: 0
+            )
+
+            // Haptic feedback
+            HapticManager.shared.trigger(.celebration)
+
+            // Add to history
+            historyManager.addFromResult(result, presetId: profile.strategy.rawValue)
+
+            // Record successful compression
+            subscriptionManager.recordSuccessfulCompression()
+
+            // Notify coordinator
+            onCompressionCompleted?(result)
+
+        } catch let error as CompressionError {
+            handleError(error, preset: CompressionPreset.from(profile: profile))
+
+        } catch {
+            let compressionError = CompressionError.unknown(underlying: error)
+            handleError(compressionError, preset: CompressionPreset.from(profile: profile))
+        }
+    }
+
+    /// Get recommended profile based on file analysis
+    func getRecommendedProfile(for file: FileInfo) async -> OptimizationProfile {
+        let report = await PreflightAnalyzer.shared.analyze(url: file.url)
+        return OptimizationProfile.from(preset: CompressionPreset.from(profile: .balanced))
+    }
+}
+
 // MARK: - History Manager Protocol Extension
 // Note: HistoryManagerProtocol is defined in HistoryManager.swift
 // This extension adds conformance for the addFromResult method

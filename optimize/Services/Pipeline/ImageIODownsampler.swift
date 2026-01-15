@@ -396,3 +396,108 @@ extension ImageIODownsampler {
         return downsampleToJPEG(image: image, config: config)
     }
 }
+
+// MARK: - AdvancedImageEncoder Integration (v4.0)
+
+extension ImageIODownsampler {
+
+    /// Advanced encoding with profile support
+    /// Uses AdvancedImageEncoder for metadata stripping, orientation fix, and color space conversion
+    static func advancedEncode(
+        url: URL,
+        profile: OptimizationProfile
+    ) -> ImageEncodingResult? {
+        return AdvancedImageEncoder.shared.encode(url: url, profile: profile)
+    }
+
+    /// Advanced encoding from CGImageSource
+    static func advancedEncode(
+        source: CGImageSource,
+        profile: OptimizationProfile,
+        originalSize: Int64
+    ) -> ImageEncodingResult? {
+        return AdvancedImageEncoder.shared.encode(
+            source: source,
+            profile: profile,
+            originalSize: originalSize
+        )
+    }
+
+    /// Smart encode: Chooses between basic and advanced encoding based on profile
+    /// - If profile has stripMetadata or convertToSRGB enabled, use AdvancedImageEncoder
+    /// - Otherwise, use basic ImageIO downsampling for speed
+    static func smartEncode(
+        url: URL,
+        profile: OptimizationProfile
+    ) -> Data? {
+        // If advanced features are needed, use AdvancedImageEncoder
+        if profile.stripMetadata || profile.convertToSRGB || profile.removeColorProfiles {
+            return advancedEncode(url: url, profile: profile)?.data
+        }
+
+        // Otherwise, use fast ImageIO downsampling
+        let config = Configuration(
+            maxPixelSize: CGFloat(profile.targetDPI * 12), // ~A4 at target DPI
+            jpegQuality: profile.imageQuality,
+            preserveAspectRatio: true,
+            shouldCache: false
+        )
+
+        return downsampleToJPEG(url: url, config: config)
+    }
+
+    /// Smart encode from UIImage
+    static func smartEncode(
+        image: UIImage,
+        profile: OptimizationProfile
+    ) -> Data? {
+        // Convert to data for analysis
+        guard let sourceData = image.jpegData(compressionQuality: 1.0) else {
+            return nil
+        }
+
+        // If advanced features are needed
+        if profile.stripMetadata || profile.convertToSRGB || profile.removeColorProfiles {
+            guard let source = CGImageSourceCreateWithData(sourceData as CFData, nil) else {
+                return nil
+            }
+
+            return AdvancedImageEncoder.shared.encode(
+                source: source,
+                profile: profile,
+                originalSize: Int64(sourceData.count)
+            )?.data
+        }
+
+        // Fast path: basic downsampling
+        let config = Configuration(
+            maxPixelSize: CGFloat(profile.targetDPI * 12),
+            jpegQuality: profile.imageQuality,
+            preserveAspectRatio: true,
+            shouldCache: false
+        )
+
+        return downsampleToJPEG(image: image, config: config)
+    }
+
+    /// Batch process with profile support
+    static func batchSmartEncode(
+        urls: [URL],
+        profile: OptimizationProfile,
+        onProgress: ((Double) -> Void)? = nil
+    ) async -> [URL: Data] {
+        var results: [URL: Data] = [:]
+        let total = Double(urls.count)
+
+        for (index, url) in urls.enumerated() {
+            autoreleasepool {
+                if let data = smartEncode(url: url, profile: profile) {
+                    results[url] = data
+                }
+            }
+            onProgress?(Double(index + 1) / total)
+        }
+
+        return results
+    }
+}
