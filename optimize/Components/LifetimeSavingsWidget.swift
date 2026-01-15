@@ -57,16 +57,18 @@ struct LifetimeSavingsWidget: View {
 
             // Stats row
             HStack(spacing: 24) {
-                StatItem(
+                SavingsStatItem(
                     value: "\(totalFilesCompressed)",
                     label: "dosya",
-                    icon: "doc.fill"
+                    icon: "doc.fill",
+                    color: .secondary
                 )
 
-                StatItem(
+                SavingsStatItem(
                     value: "~%\(averageSavingsPercentage)",
                     label: "ortalama",
-                    icon: "percent"
+                    icon: "percent",
+                    color: .secondary
                 )
             }
         }
@@ -105,18 +107,19 @@ struct LifetimeSavingsWidget: View {
     }
 }
 
-// MARK: - Stat Item
+// MARK: - Savings Stat Item
 
-private struct StatItem: View {
+private struct SavingsStatItem: View {
     let value: String
     let label: String
     let icon: String
+    var color: Color = .secondary
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .foregroundColor(color)
 
             Text(value)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))

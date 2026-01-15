@@ -264,7 +264,7 @@ enum SmartRecovery {
                 )
             }
             return .suggestUpgrade(
-                feature: .unlimitedFileSize,
+                feature: .unlimitedUsage,
                 message: "Bu dosya ücretsiz limit olan 100MB'ı aşıyor. Premium ile sınırsız dosya işleyebilirsiniz."
             )
 
@@ -342,11 +342,11 @@ extension CompressionPreset {
         case .low:
             return self // Already lowest
         case .medium:
-            return .balanced
+            return .commercial
         case .high:
-            return .balanced
+            return .commercial
         case .custom:
-            return .balanced
+            return .commercial
         }
     }
 }

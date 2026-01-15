@@ -371,7 +371,7 @@ struct ModernPaywallScreen: View {
         Task {
             do {
                 // Check if already premium first
-                if subscriptionManager.isPremium {
+                if subscriptionManager.status.isPro {
                     await MainActor.run {
                         restoreState = .alreadyPremium
                         restoreAlertTitle = "🎉 Zaten Premium!"
@@ -383,11 +383,11 @@ struct ModernPaywallScreen: View {
                 }
 
                 // Attempt restore
-                try await subscriptionManager.restorePurchases()
+                await subscriptionManager.restore()
 
                 // Check result after restore
                 await MainActor.run {
-                    if subscriptionManager.isPremium {
+                    if subscriptionManager.status.isPro {
                         restoreState = .success
                         restoreAlertTitle = "🎉 Başarılı!"
                         restoreAlertMessage = "Premium üyeliğiniz geri yüklendi! Artık tüm özelliklere sınırsız erişebilirsiniz."

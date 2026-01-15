@@ -16,7 +16,7 @@ import SwiftUI
 
 // MARK: - Security Badge Types
 
-enum TrustBadgeType: CaseIterable {
+enum TrustBadgeType: CaseIterable, Hashable {
     case localProcessing
     case bankGradeSecurity
     case noCloudUpload

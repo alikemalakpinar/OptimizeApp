@@ -664,21 +664,7 @@ private struct TrustIndicator: View {
     }
 }
 
-// MARK: - Trust Badge
-struct TrustBadge: View {
-    let icon: String
-    let text: String
 
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
-            Text(text)
-                .font(.system(size: 11, weight: .medium))
-        }
-        .foregroundStyle(.secondary)
-    }
-}
 
 // MARK: - App Icon Header
 struct AppIconHeader: View {

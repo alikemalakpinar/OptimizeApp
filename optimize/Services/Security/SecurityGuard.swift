@@ -18,6 +18,7 @@
 import Foundation
 import UIKit
 import Darwin
+import MachO
 
 // MARK: - Security Audit Result
 
