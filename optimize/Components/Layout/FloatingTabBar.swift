@@ -2,32 +2,28 @@
 //  FloatingTabBar.swift
 //  optimize
 //
-//  Modern Glass Dock Navigation - iOS 18 Style
+//  Minimal Floating Dock - Premium App Design
 //
 //  DESIGN PHILOSOPHY:
-//  - "Frosted Glass Dock" instead of floating capsule
-//  - Professional, not "toy-like"
-//  - Apple Human Interface Guidelines compliant
-//  - Full-width dock with proper safe area handling
+//  - Minimalist: Only 2 tabs (Home, Settings) + Center FAB
+//  - Premium feel: Floating capsule, not full-width dock
+//  - Focus on primary action: Compress files
+//  - Clean, uncluttered navigation
 //
 
 import SwiftUI
 
-// MARK: - Tab Bar Item
+// MARK: - Tab Bar Item (Simplified)
 
 enum FloatingTabItem: Int, CaseIterable, Identifiable {
     case home = 0
-    case tools = 1
-    case history = 2
-    case settings = 3
+    case settings = 1
 
     var id: Int { rawValue }
 
     var icon: String {
         switch self {
         case .home: return "house"
-        case .tools: return "square.grid.2x2"
-        case .history: return "clock"
         case .settings: return "gearshape"
         }
     }
@@ -35,8 +31,6 @@ enum FloatingTabItem: Int, CaseIterable, Identifiable {
     var selectedIcon: String {
         switch self {
         case .home: return "house.fill"
-        case .tools: return "square.grid.2x2.fill"
-        case .history: return "clock.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -44,8 +38,6 @@ enum FloatingTabItem: Int, CaseIterable, Identifiable {
     var label: LocalizedStringKey {
         switch self {
         case .home: return "tab.home"
-        case .tools: return "tab.tools"
-        case .history: return "tab.history"
         case .settings: return "tab.settings"
         }
     }
@@ -53,22 +45,15 @@ enum FloatingTabItem: Int, CaseIterable, Identifiable {
     var labelText: String {
         switch self {
         case .home: return "Ana Sayfa"
-        case .tools: return "Araçlar"
-        case .history: return "Geçmiş"
         case .settings: return "Ayarlar"
         }
     }
 }
 
-// MARK: - Modern Glass Dock Tab Bar
+// MARK: - Premium Floating Dock
 
-/// Premium glass dock navigation following iOS 18 design language
-/// Features:
-/// - UltraThinMaterial frosted glass effect
-/// - Full-width dock (not floating capsule)
-/// - Subtle top border
-/// - Proper home indicator spacing
-/// - iOS 17+ symbol effects
+/// Minimal floating dock with 2 tabs and center FAB
+/// Design inspired by premium apps like Arc, Things, Paper
 struct FloatingTabBar: View {
     @Binding var selectedTab: FloatingTabItem
     let onAddTap: () -> Void
@@ -80,60 +65,62 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(FloatingTabItem.allCases) { tab in
-                if tab == .tools {
-                    // Center Action Button (Elevated)
-                    CenterActionButton(action: onAddTap)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    GlassDockTabButton(
-                        tab: tab,
-                        isSelected: selectedTab == tab,
-                        namespace: tabNamespace
-                    ) {
-                        handleTabSelection(tab)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
+            // Left Tab - Home
+            MinimalTabButton(
+                tab: .home,
+                isSelected: selectedTab == .home,
+                namespace: tabNamespace
+            ) {
+                handleTabSelection(.home)
             }
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 12)
-        .padding(.bottom, 34) // Home indicator spacing
-        .background(
-            ZStack {
-                // Frosted Glass Effect
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .ignoresSafeArea(edges: .bottom)
+            .frame(width: 56)
 
-                // Subtle top border
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(
+            Spacer()
+
+            // Center FAB - Primary Action
+            PremiumFAB(action: onAddTap)
+
+            Spacer()
+
+            // Right Tab - Settings
+            MinimalTabButton(
+                tab: .settings,
+                isSelected: selectedTab == .settings,
+                namespace: tabNamespace
+            ) {
+                handleTabSelection(.settings)
+            }
+            .frame(width: 56)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .stroke(
                             LinearGradient(
                                 colors: [
-                                    Color.white.opacity(colorScheme == .dark ? 0.1 : 0.3),
+                                    Color.white.opacity(colorScheme == .dark ? 0.15 : 0.4),
                                     Color.white.opacity(colorScheme == .dark ? 0.05 : 0.1)
                                 ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
                         )
-                        .frame(height: 0.5)
-                    Spacer()
-                }
-                .ignoresSafeArea(edges: .bottom)
-            }
+                )
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.15), radius: 20, x: 0, y: 10)
         )
+        .padding(.horizontal, Spacing.xl)
+        .padding(.bottom, 34) // Safe area for home indicator
     }
 
     private func handleTabSelection(_ tab: FloatingTabItem) {
         Haptics.selection()
 
         switch tab {
-        case .history:
-            onHistoryTap?()
         case .settings:
             onSettingsTap?()
         default:
@@ -146,38 +133,33 @@ struct FloatingTabBar: View {
     }
 }
 
-// MARK: - Glass Dock Tab Button
+// MARK: - Minimal Tab Button
 
-struct GlassDockTabButton: View {
+struct MinimalTabButton: View {
     let tab: FloatingTabItem
     let isSelected: Bool
     let namespace: Namespace.ID
     let action: () -> Void
 
-    @State private var isPressed = false
-
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                // Icon with iOS 17+ effects
-                ZStack {
-                    Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
-                        .font(.system(size: 24, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Color.appMint : Color.white.opacity(0.5))
-                        .scaleEffect(isSelected ? 1.1 : 1.0)
-                        .symbolBounce(trigger: isSelected)
+            ZStack {
+                // Selection indicator
+                if isSelected {
+                    Circle()
+                        .fill(Color.appMint.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                        .matchedGeometryEffect(id: "tab_indicator", in: namespace)
                 }
-                .frame(height: 28)
 
-                // Selection indicator dot
-                Circle()
-                    .fill(isSelected ? Color.appMint : Color.clear)
-                    .frame(width: 5, height: 5)
-                    .scaleEffect(isSelected ? 1.0 : 0.5)
-                    .opacity(isSelected ? 1.0 : 0.0)
+                // Icon
+                Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
+                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.appMint : Color.primary.opacity(0.5))
+                    .symbolBounce(trigger: isSelected)
             }
-            .frame(height: 50)
-            .contentShape(Rectangle())
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
         }
         .buttonStyle(TabButtonStyle())
         .accessibilityLabel(tab.label)
@@ -189,19 +171,20 @@ struct GlassDockTabButton: View {
 struct TabButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.85 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-// MARK: - Center Action Button
+// MARK: - Premium Floating Action Button
 
-/// Elevated primary action button with premium gradient
-struct CenterActionButton: View {
+/// Elevated primary action button with premium gradient and glow
+struct PremiumFAB: View {
     let action: () -> Void
 
-    @State private var glowOpacity: Double = 0.3
     @State private var isPressed = false
+    @State private var glowIntensity: Double = 0.4
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: {
@@ -209,44 +192,71 @@ struct CenterActionButton: View {
             action()
         }) {
             ZStack {
-                // Glow effect
+                // Outer glow ring
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.appMint.opacity(glowOpacity),
+                                Color.premiumPurple.opacity(glowIntensity * 0.5),
+                                Color.premiumBlue.opacity(glowIntensity * 0.3),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 15,
-                            endRadius: 45
+                            startRadius: 20,
+                            endRadius: 50
                         )
                     )
-                    .frame(width: 70, height: 70)
+                    .frame(width: 80, height: 80)
 
-                // Main button
+                // Main button with premium gradient
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color.appMint, Color.appTeal],
+                            colors: [Color.premiumPurple, Color.premiumBlue],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 52, height: 52)
-                    .shadow(color: Color.appMint.opacity(0.4), radius: 12, x: 0, y: 4)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        // Inner highlight
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.4),
+                                        Color.white.opacity(0.1),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.premiumPurple.opacity(0.5), radius: 16, x: 0, y: 8)
 
                 // Plus icon
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
             }
+            .scaleEffect(isPressed ? 0.92 : 1.0)
         }
-        .buttonStyle(CenterButtonStyle())
-        .offset(y: -16) // Slightly elevated
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isPressed = false }
+                }
+        )
         .onAppear {
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                glowOpacity = 0.5
+            // Subtle breathing glow
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                glowIntensity = 0.7
             }
         }
         .accessibilityLabel("Dosya Seç")
@@ -254,13 +264,14 @@ struct CenterActionButton: View {
     }
 }
 
-// MARK: - Center Button Style
+// MARK: - Center Action Button (Legacy - Kept for compatibility)
 
-struct CenterButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+/// Elevated primary action button with premium gradient
+struct CenterActionButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        PremiumFAB(action: action)
     }
 }
 
@@ -278,7 +289,7 @@ struct FloatingTabBarContainer<Content: View>: View {
         ZStack(alignment: .bottom) {
             content()
                 .safeAreaInset(edge: .bottom) {
-                    Color.clear.frame(height: 80)
+                    Color.clear.frame(height: 100)
                 }
 
             FloatingTabBar(
@@ -293,7 +304,7 @@ struct FloatingTabBarContainer<Content: View>: View {
 
 // MARK: - Preview
 
-#Preview("Glass Dock Tab Bar") {
+#Preview("Premium Floating Dock") {
     struct PreviewWrapper: View {
         @State private var selectedTab: FloatingTabItem = .home
 

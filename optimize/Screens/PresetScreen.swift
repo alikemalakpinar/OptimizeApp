@@ -568,7 +568,7 @@ struct QualityPreviewCard: View {
     }
 }
 
-// MARK: - Enhanced Preset Card with Flip Effect for Pro
+// MARK: - Enhanced Preset Card with Premium Styling
 struct EnhancedPresetCard: View {
     let preset: CompressionPreset
     var isSelected: Bool = false
@@ -576,6 +576,8 @@ struct EnhancedPresetCard: View {
 
     @State private var isFlipped = false
     @State private var isShaking = false
+    @State private var lockPulse = false
+    @Environment(\.colorScheme) private var colorScheme
 
     // Custom icon colors for platforms
     private var iconColor: Color {
@@ -612,7 +614,11 @@ struct EnhancedPresetCard: View {
             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isFlipped)
         }
         .buttonStyle(.pressable)
-        .offset(x: isShaking ? -5 : 0)
+        .offset(x: isShaking ? -6 : 0)
+        .animation(
+            isShaking ? .default.repeatCount(4, autoreverses: true).speed(6) : .default,
+            value: isShaking
+        )
     }
 
     private var frontContent: some View {
@@ -620,19 +626,31 @@ struct EnhancedPresetCard: View {
             // Icon and Pro badge row
             HStack {
                 ZStack {
+                    // Background circle with conditional styling
                     Circle()
-                        .fill(isSelected ? iconColor : Color.appSurface)
+                        .fill(
+                            preset.isProOnly
+                                ? Color.gray.opacity(0.15)
+                                : (isSelected ? iconColor : Color.appSurface)
+                        )
                         .frame(width: 44, height: 44)
 
+                    // Icon with grayscale for locked
                     Image(systemName: preset.icon)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(isSelected ? .white : iconColor)
+                        .foregroundStyle(
+                            preset.isProOnly
+                                ? Color.secondary
+                                : (isSelected ? .white : iconColor)
+                        )
+                        .grayscale(preset.isProOnly ? 0.5 : 0)
                 }
 
                 Spacer()
 
                 if preset.isProOnly {
-                    ProBadge()
+                    // Enhanced Pro Badge with glow
+                    EnhancedProBadge(isPulsing: $lockPulse)
                 } else if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 22))
@@ -642,96 +660,187 @@ struct EnhancedPresetCard: View {
 
             // Title and subtitle
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(preset.name)
-                    .font(.appBodyMedium)
-                    .foregroundStyle(preset.isProOnly ? .secondary : .primary)
+                HStack(spacing: Spacing.xs) {
+                    Text(preset.name)
+                        .font(.appBodyMedium)
+                        .foregroundStyle(preset.isProOnly ? .secondary : .primary)
+
+                    // Lock icon for locked presets
+                    if preset.isProOnly {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.premiumPurple.opacity(0.6))
+                    }
+                }
 
                 Text(preset.description)
                     .font(.appCaption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(preset.isProOnly ? .tertiary : .secondary)
                     .lineLimit(2)
             }
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(isSelected ? iconColor.opacity(Opacity.subtle) : Color.appSurface)
+            ZStack {
+                // Base background
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .fill(
+                        preset.isProOnly
+                            ? Color(.tertiarySystemBackground)
+                            : (isSelected ? iconColor.opacity(Opacity.subtle) : Color.appSurface)
+                    )
+
+                // Striped pattern for locked items
+                if preset.isProOnly {
+                    StripedPattern(spacing: 6)
+                        .stroke(Color.white.opacity(0.02), lineWidth: 1)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                }
+            }
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                 .stroke(
-                    isSelected ? iconColor : Color.clear,
-                    lineWidth: 2
+                    preset.isProOnly
+                        ? LinearGradient(
+                            colors: [Color.premiumPurple.opacity(0.3), Color.premiumBlue.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          )
+                        : LinearGradient(
+                            colors: isSelected ? [iconColor, iconColor] : [Color.clear, Color.clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                          ),
+                    lineWidth: isSelected ? 2 : 1
                 )
         )
-        .opacity(preset.isProOnly ? 0.85 : 1.0)
+        .opacity(preset.isProOnly ? 0.9 : 1.0)
     }
 
     private var backContent: some View {
-        VStack(spacing: Spacing.sm) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.goldAccent, .orange],
-                        startPoint: .top,
-                        endPoint: .bottom
+        VStack(spacing: Spacing.md) {
+            // Animated crown icon
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
+                    .frame(width: 56, height: 56)
 
-            Text("Pro Feature")
-                .font(.appBodyMedium)
-                .foregroundStyle(.primary)
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.premiumPurple, Color.premiumBlue],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
 
-            Text("Tap to unlock")
-                .font(.appCaption)
-                .foregroundStyle(.secondary)
+            VStack(spacing: Spacing.xxs) {
+                Text("Pro Özellik")
+                    .font(.appBodyMedium)
+                    .foregroundStyle(.primary)
+
+                Text("Kilidi aç")
+                    .font(.appCaption)
+                    .foregroundStyle(Color.premiumPurple)
+            }
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.proGradientStart.opacity(0.1), Color.proGradientEnd.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [.proGradientStart, .proGradientEnd],
+                        colors: [Color.premiumPurple.opacity(0.5), Color.premiumBlue.opacity(0.3)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1.5
                 )
         )
+        .shadow(color: Color.premiumPurple.opacity(0.2), radius: 12, x: 0, y: 6)
     }
 
     private func handleTap() {
         if preset.isProOnly {
+            // "Hitting a wall" haptic for locked features
+            Haptics.lockedDenied()
+
+            // Shake animation
+            isShaking = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                isShaking = false
+            }
+
             // Flip animation for locked preset
-            withAnimation {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                 isFlipped.toggle()
             }
-            Haptics.warning()
 
             // Auto-flip back and trigger paywall
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                withAnimation {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     isFlipped = false
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    Haptics.paywallAppear()
                     onTap()
                 }
             }
         } else {
+            Haptics.selection()
             onTap()
+        }
+    }
+}
+
+// MARK: - Enhanced Pro Badge with Glow
+
+struct EnhancedProBadge: View {
+    @Binding var isPulsing: Bool
+    @State private var glowIntensity: Double = 0.3
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 9, weight: .bold))
+            Text("PRO")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            LinearGradient(
+                colors: [Color.premiumPurple, Color.premiumBlue],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(Capsule())
+        .shadow(
+            color: Color.premiumPurple.opacity(glowIntensity),
+            radius: glowIntensity > 0.4 ? 8 : 4,
+            x: 0,
+            y: 2
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                glowIntensity = 0.6
+            }
         }
     }
 }

@@ -915,6 +915,83 @@ extension Haptics {
             impact.impactOccurred()
         }
     }
+
+    // MARK: - Premium/Lock Haptics
+
+    /// Locked feature denied - "hitting a wall" feeling
+    /// Use when user taps on a locked/pro feature
+    static func lockedDenied() {
+        // Heavy impact like hitting a closed door
+        let generator = UIImpactFeedbackGenerator(style: .heavy)
+        generator.impactOccurred(intensity: 1.0)
+
+        // Follow-up rigid tap for "bounce back" feeling
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            let rigid = UIImpactFeedbackGenerator(style: .rigid)
+            rigid.impactOccurred(intensity: 0.7)
+        }
+    }
+
+    /// Premium unlock celebration - triumphant feeling
+    /// Use when user successfully subscribes
+    static func premiumUnlock() {
+        let notification = UINotificationFeedbackGenerator()
+
+        // Build up
+        let light = UIImpactFeedbackGenerator(style: .light)
+        light.impactOccurred(intensity: 0.5)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            light.impactOccurred(intensity: 0.7)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            // Climax - success notification
+            notification.notificationOccurred(.success)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            // Celebration follow-up
+            let medium = UIImpactFeedbackGenerator(style: .medium)
+            medium.impactOccurred()
+        }
+    }
+
+    /// Paywall appearance - attention grab
+    /// Use when paywall sheet appears
+    static func paywallAppear() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred(intensity: 0.6)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let soft = UIImpactFeedbackGenerator(style: .soft)
+            soft.impactOccurred(intensity: 0.4)
+        }
+    }
+
+    /// Limit reached warning - urgency feeling
+    /// Use when user hits daily/usage limits
+    static func limitReached() {
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.warning)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            notification.notificationOccurred(.warning)
+        }
+    }
+
+    /// Button press for primary actions
+    /// Use for main CTA buttons
+    static func primaryAction() {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred(intensity: 0.8)
+    }
+
+    /// Subtle confirmation for secondary actions
+    static func secondaryAction() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred(intensity: 0.6)
+    }
 }
 
 // MARK: - Symbol Effect Extensions (iOS 17+)
