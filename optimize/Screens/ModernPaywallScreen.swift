@@ -193,7 +193,7 @@ struct ModernPaywallScreen: View {
 
                 VStack(spacing: 16) {
                     Button(action: {
-                        Haptics.notification(type: .success)
+                        Haptics.success()
                         isLoading = true
                         onSubscribe(selectedPlan)
                     }) {
