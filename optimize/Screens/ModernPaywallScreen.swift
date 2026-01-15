@@ -17,6 +17,12 @@ struct ModernPaywallScreen: View {
     @State private var showCloseButton = false
     @Environment(\.colorScheme) private var colorScheme
 
+    // Restore State
+    @State private var restoreState: RestoreState = .idle
+    @State private var showRestoreAlert = false
+    @State private var restoreAlertTitle = ""
+    @State private var restoreAlertMessage = ""
+
     // StoreKit prices
     @ObservedObject var subscriptionManager: SubscriptionManager
 
@@ -31,6 +37,16 @@ struct ModernPaywallScreen: View {
 
     // Animation State
     @State private var gaugeValue: CGFloat = 0.0
+
+    // MARK: - Restore State
+    enum RestoreState: Equatable {
+        case idle
+        case loading
+        case success
+        case noSubscription
+        case alreadyPremium
+        case error
+    }
 
     // MARK: - Localized Strings
 
@@ -126,17 +142,31 @@ struct ModernPaywallScreen: View {
 
                         Spacer()
 
-                        Button(action: {
-                            Haptics.selection()
-                            onRestore()
-                        }) {
-                            Text(LocalizedStrings.restore)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundColor(.white.opacity(0.6))
+                        Button(action: performRestore) {
+                            HStack(spacing: 6) {
+                                if restoreState == .loading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.6)
+                                }
+                                Text(LocalizedStrings.restore)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                            }
+                            .foregroundColor(.white.opacity(0.6))
                         }
+                        .disabled(restoreState == .loading)
                     }
                     .padding(.horizontal)
                     .padding(.top, 12)
+                    .alert(restoreAlertTitle, isPresented: $showRestoreAlert) {
+                        Button("Tamam", role: .cancel) {
+                            if restoreState == .success || restoreState == .alreadyPremium {
+                                onDismiss()
+                            }
+                        }
+                    } message: {
+                        Text(restoreAlertMessage)
+                    }
 
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: verticalSpacing) {
@@ -327,6 +357,60 @@ struct ModernPaywallScreen: View {
 
         // Use the smaller value, but clamp between 140-220
         return min(max(min(heightBasedSize, widthBasedSize), 140), 220)
+    }
+
+    // MARK: - Restore Purchase Handler
+
+    /// Performs restore with comprehensive user feedback
+    private func performRestore() {
+        guard restoreState != .loading else { return }
+
+        restoreState = .loading
+        Haptics.selection()
+
+        Task {
+            do {
+                // Check if already premium first
+                if subscriptionManager.isPremium {
+                    await MainActor.run {
+                        restoreState = .alreadyPremium
+                        restoreAlertTitle = "🎉 Zaten Premium!"
+                        restoreAlertMessage = "Premium üyeliğiniz aktif durumda. Tüm özelliklere erişebilirsiniz."
+                        showRestoreAlert = true
+                        Haptics.success()
+                    }
+                    return
+                }
+
+                // Attempt restore
+                try await subscriptionManager.restorePurchases()
+
+                // Check result after restore
+                await MainActor.run {
+                    if subscriptionManager.isPremium {
+                        restoreState = .success
+                        restoreAlertTitle = "🎉 Başarılı!"
+                        restoreAlertMessage = "Premium üyeliğiniz geri yüklendi! Artık tüm özelliklere sınırsız erişebilirsiniz."
+                        Haptics.success()
+                        SoundManager.shared.playPremiumUnlockSound()
+                    } else {
+                        restoreState = .noSubscription
+                        restoreAlertTitle = "ℹ️ Bilgi"
+                        restoreAlertMessage = "Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı.\n\nDaha önce satın aldıysanız:\n• Aynı Apple ID ile giriş yaptığınızdan emin olun\n• App Store'da oturum açık olduğunu kontrol edin"
+                        Haptics.warning()
+                    }
+                    showRestoreAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    restoreState = .error
+                    restoreAlertTitle = "⚠️ Hata"
+                    restoreAlertMessage = "Geri yükleme sırasında bir hata oluştu.\n\nLütfen:\n• İnternet bağlantınızı kontrol edin\n• App Store'a giriş yaptığınızdan emin olun\n• Birkaç dakika sonra tekrar deneyin"
+                    showRestoreAlert = true
+                    Haptics.error()
+                }
+            }
+        }
     }
 }
 
