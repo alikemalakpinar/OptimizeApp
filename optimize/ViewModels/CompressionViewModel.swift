@@ -312,7 +312,8 @@ extension CompressionViewModel {
         let preflightReport = await PreflightAnalyzer.shared.analyze(url: file.url)
 
         // Log preflight results
-        analytics.track(.custom("preflight_complete"), parameters: [
+        analytics.track(.fileAnalysisCompleted, parameters: [
+            "analysis_type": "preflight",
             "compression_potential": preflightReport.compressionPotential,
             "has_invisible_garbage": preflightReport.hasInvisibleGarbage,
             "suggested_strategy": preflightReport.suggestedStrategy.rawValue

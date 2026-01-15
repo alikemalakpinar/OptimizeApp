@@ -16,7 +16,7 @@ import SwiftUI
 
 // MARK: - Empty State Types
 
-enum EmptyStateType {
+enum EmptyStateType: Equatable {
     case noHistory
     case noFiles
     case noResults

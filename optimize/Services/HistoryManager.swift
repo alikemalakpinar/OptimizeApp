@@ -19,8 +19,6 @@
 
 import Foundation
 
-// MARK: - History Manager Protocol (Dependency Injection)
-
 /// Protocol for history management - enables testability and mocking
 @MainActor
 protocol HistoryManagerProtocol: AnyObject {
@@ -233,7 +231,7 @@ class HistoryManager: ObservableObject, HistoryManagerProtocol {
 
             do {
                 let data = try JSONEncoder().encode(itemsToSave)
-                try data.write(to: fileURL, options: [.atomic])
+                try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
             } catch {
                 print("HistoryManager: Failed to save history: \(error)")
             }
@@ -254,7 +252,7 @@ class HistoryManager: ObservableObject, HistoryManagerProtocol {
 
         do {
             let data = try JSONEncoder().encode(itemsToSave)
-            try data.write(to: fileURL, options: [.atomic])
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
         } catch {
             print("HistoryManager: Failed to save history immediately: \(error)")
         }

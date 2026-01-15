@@ -490,9 +490,9 @@ extension BatchProcessingService {
     /// Add video files with specific quality preset
     /// - Parameters:
     ///   - urls: Video file URLs
-    ///   - quality: Video compression quality (default: .whatsApp for maximum compatibility)
+    ///   - quality: Video compression quality (default: .whatsapp for maximum compatibility)
     @discardableResult
-    func addVideos(_ urls: [URL], quality: VideoQualityPreset = .whatsApp) -> Int {
+    func addVideos(_ urls: [URL], quality: VideoQualityPreset = .whatsapp) -> Int {
         // Calculate how many files we can add
         let currentCount = queue.count
         let availableSlots = max(0, maxQueueSize - currentCount)
@@ -509,10 +509,13 @@ extension BatchProcessingService {
 
         // Create video batch items with a special video preset
         let videoPreset = CompressionPreset(
-            id: "video_\(quality.rawValue)",
-            name: "Video \(quality.displayName)",
-            description: quality.description,
-            quality: quality == .original ? .high : (quality == .hd1080p ? .medium : .low)
+            id: "video_\(quality.id)",
+            name: "Video \(quality.name)",
+            description: quality.subtitle,
+            icon: quality.icon,
+            targetSizeMB: nil,
+            quality: quality == .original ? .high : (quality == .hd ? .medium : .low),
+            isProOnly: false
         )
 
         let newItems = filesToAdd.map { url in
@@ -536,13 +539,9 @@ extension BatchProcessingService {
     func processVideoItem(_ item: BatchItem, quality: VideoQualityPreset) async throws -> URL {
         let videoService = VideoCompressionService()
 
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mp4")
-
         let result = try await videoService.compress(
-            url: item.sourceURL,
-            quality: quality
+            inputURL: item.sourceURL,
+            preset: quality
         ) { progress in
             Task { @MainActor in
                 self.updateItemProgress(item.id, progress: progress)
@@ -553,7 +552,7 @@ extension BatchProcessingService {
     }
 
     /// Batch compress all videos in queue with specified quality
-    func compressAllVideos(quality: VideoQualityPreset = .whatsApp) async {
+    func compressAllVideos(quality: VideoQualityPreset = .whatsapp) async {
         let videoItems = queue.filter { item in
             let ext = item.sourceURL.pathExtension.lowercased()
             return ["mp4", "mov", "m4v", "avi", "mkv"].contains(ext)
@@ -671,8 +670,8 @@ extension BatchProcessingService {
             // Use video service with profile
             let videoService = VideoCompressionService()
             let result = try await videoService.compress(
-                url: item.sourceURL,
-                quality: profile.videoResolution.toVideoQualityPreset
+                inputURL: item.sourceURL,
+                preset: profile.videoResolution.toVideoQualityPreset
             ) { [weak self] progress in
                 Task { @MainActor in
                     self?.updateItemProgress(item.id, progress: progress)
@@ -714,9 +713,9 @@ extension BatchProcessingService {
 extension VideoResolution {
     var toVideoQualityPreset: VideoQualityPreset {
         switch self {
-        case .sd480p: return .whatsApp
-        case .hd720p: return .socialMedia
-        case .hd1080p: return .hd1080p
+        case .sd480p: return .whatsapp
+        case .hd720p: return .social
+        case .hd1080p: return .hd
         case .uhd4k: return .original
         }
     }

@@ -253,7 +253,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 if result.rebuiltSize >= result.originalSize {
                     // Rebuilder didn't help, try standard compression
                     try? FileManager.default.removeItem(at: outputURL)
-                    return try await compressPDF(at: sourceURL, preset: .balanced, onProgress: onProgress)
+                    return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
                 }
 
                 onProgress(.downloading, 1.0)
@@ -261,7 +261,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
             } catch {
                 // Fallback to standard compression
-                return try await compressPDF(at: sourceURL, preset: .balanced, onProgress: onProgress)
+                return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
             }
         }
 
@@ -1995,9 +1995,9 @@ extension CompressionPreset {
         case .quick:
             return .highQuality
         case .balanced:
-            return .balanced
+            return .commercial
         case .ultra:
-            return .maxCompression
+            return .mail
         }
     }
 }

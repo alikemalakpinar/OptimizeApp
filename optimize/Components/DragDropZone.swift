@@ -296,7 +296,9 @@ struct DraggableFileCard: View {
             )
         }
         .buttonStyle(.plain)
-        .draggable(file.dragItem)
+        .onDrag {
+            file.dragItem
+        }
     }
 
     private var categoryColor: Color {
