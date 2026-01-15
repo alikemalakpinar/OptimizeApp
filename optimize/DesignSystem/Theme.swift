@@ -280,11 +280,61 @@ extension View {
     }
 }
 
-// MARK: - Gradient Background (Animated)
+// MARK: - Device Performance Detection
+
+/// Utility to detect device capabilities and optimize UI accordingly
+enum DevicePerformance {
+    /// Check if device is in Low Power Mode
+    static var isLowPowerModeEnabled: Bool {
+        ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    /// Check if device has limited RAM (<4GB)
+    static var isLowMemoryDevice: Bool {
+        let memoryGB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024 * 1024)
+        return memoryGB < 4.0
+    }
+
+    /// Check if animations should be reduced
+    static var shouldReduceAnimations: Bool {
+        // Check accessibility setting
+        if UIAccessibility.isReduceMotionEnabled {
+            return true
+        }
+        // Check low power mode
+        if isLowPowerModeEnabled {
+            return true
+        }
+        // Check device capability
+        if isLowMemoryDevice {
+            return true
+        }
+        return false
+    }
+
+    /// Check if blur effects should be simplified
+    static var shouldReduceBlur: Bool {
+        // Reduce blur on low power or low memory devices
+        return isLowPowerModeEnabled || isLowMemoryDevice
+    }
+
+    /// Get recommended animation duration multiplier
+    static var animationSpeedMultiplier: Double {
+        shouldReduceAnimations ? 0.5 : 1.0
+    }
+}
+
+// MARK: - Gradient Background (Animated) - Performance Optimized
+
 struct AppBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var rotationAngle: Double = 0
     var animated: Bool = true
+
+    /// Whether to use reduced effects for performance
+    private var useReducedEffects: Bool {
+        DevicePerformance.shouldReduceAnimations
+    }
 
     private var gradientColors: [Color] {
         if colorScheme == .dark {
@@ -302,38 +352,42 @@ struct AppBackground: View {
 
     var body: some View {
         ZStack {
-            // Base gradient
+            // Base gradient - always rendered
             LinearGradient(
                 colors: gradientColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            // Slowly rotating radial gradient overlay
-            RadialGradient(
-                colors: [
-                    Color.appAccent.opacity(colorScheme == .dark ? 0.12 : 0.08),
-                    Color.appMint.opacity(colorScheme == .dark ? 0.06 : 0.04),
-                    .clear
-                ],
-                center: .center,
-                startRadius: 50,
-                endRadius: 400
-            )
-            .rotationEffect(.degrees(rotationAngle))
-            .scaleEffect(1.2)
+            // PERFORMANCE: Skip animated overlays on low-end devices
+            if !useReducedEffects {
+                // Slowly rotating radial gradient overlay
+                RadialGradient(
+                    colors: [
+                        Color.appAccent.opacity(colorScheme == .dark ? 0.12 : 0.08),
+                        Color.appMint.opacity(colorScheme == .dark ? 0.06 : 0.04),
+                        .clear
+                    ],
+                    center: .center,
+                    startRadius: 50,
+                    endRadius: 400
+                )
+                .rotationEffect(.degrees(rotationAngle))
+                .scaleEffect(1.2)
 
-            // Secondary highlight
-            RadialGradient(
-                colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.08), .clear],
-                center: .topTrailing,
-                startRadius: 40,
-                endRadius: 320
-            )
+                // Secondary highlight
+                RadialGradient(
+                    colors: [Color.white.opacity(colorScheme == .dark ? 0.04 : 0.08), .clear],
+                    center: .topTrailing,
+                    startRadius: 40,
+                    endRadius: 320
+                )
+            }
         }
         .ignoresSafeArea()
         .onAppear {
-            if animated {
+            // PERFORMANCE: Only animate if device supports it and animation is requested
+            if animated && !useReducedEffects {
                 withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) {
                     rotationAngle = 360
                 }
@@ -348,6 +402,32 @@ struct AppBackgroundStatic: View {
 
     var body: some View {
         AppBackground(animated: false)
+    }
+}
+
+// MARK: - Performance-Aware Blur Modifier
+
+struct PerformanceAwareBlurModifier: ViewModifier {
+    let radius: CGFloat
+
+    func body(content: Content) -> some View {
+        if DevicePerformance.shouldReduceBlur {
+            // Simplified background for low-end devices
+            content
+                .background(Color.black.opacity(0.3))
+        } else {
+            // Full blur effect for capable devices
+            content
+                .blur(radius: radius)
+        }
+    }
+}
+
+extension View {
+    /// Applies blur effect with automatic performance optimization
+    /// Falls back to simple opacity overlay on low-end devices
+    func performanceAwareBlur(radius: CGFloat) -> some View {
+        modifier(PerformanceAwareBlurModifier(radius: radius))
     }
 }
 
