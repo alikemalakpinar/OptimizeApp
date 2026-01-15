@@ -482,3 +482,242 @@ struct BatchProgress: Equatable {
         return "\(completed)/\(total) tamamlandi"
     }
 }
+
+// MARK: - Video Batch Processing Extension (v4.0)
+
+extension BatchProcessingService {
+
+    /// Add video files with specific quality preset
+    /// - Parameters:
+    ///   - urls: Video file URLs
+    ///   - quality: Video compression quality (default: .whatsApp for maximum compatibility)
+    @discardableResult
+    func addVideos(_ urls: [URL], quality: VideoQualityPreset = .whatsApp) -> Int {
+        // Calculate how many files we can add
+        let currentCount = queue.count
+        let availableSlots = max(0, maxQueueSize - currentCount)
+
+        // For free users, limit the number of files
+        let filesToAdd: [URL]
+        if !subscriptionManager.canPerformBatchProcessing {
+            filesToAdd = Array(urls.prefix(availableSlots))
+            isQueueAtLimit = filesToAdd.count < urls.count || (currentCount + filesToAdd.count) >= maxQueueSize
+        } else {
+            filesToAdd = urls
+            isQueueAtLimit = false
+        }
+
+        // Create video batch items with a special video preset
+        let videoPreset = CompressionPreset(
+            id: "video_\(quality.rawValue)",
+            name: "Video \(quality.displayName)",
+            description: quality.description,
+            quality: quality == .original ? .high : (quality == .hd1080p ? .medium : .low)
+        )
+
+        let newItems = filesToAdd.map { url in
+            BatchItem(
+                id: UUID(),
+                sourceURL: url,
+                fileName: url.lastPathComponent,
+                fileSize: (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0,
+                preset: videoPreset,
+                status: .pending
+            )
+        }
+
+        queue.append(contentsOf: newItems)
+        updateProgress()
+
+        return newItems.count
+    }
+
+    /// Process video item using VideoCompressionService
+    func processVideoItem(_ item: BatchItem, quality: VideoQualityPreset) async throws -> URL {
+        let videoService = VideoCompressionService()
+
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+
+        let result = try await videoService.compress(
+            url: item.sourceURL,
+            quality: quality
+        ) { progress in
+            Task { @MainActor in
+                self.updateItemProgress(item.id, progress: progress)
+            }
+        }
+
+        return result.outputURL
+    }
+
+    /// Batch compress all videos in queue with specified quality
+    func compressAllVideos(quality: VideoQualityPreset = .whatsApp) async {
+        let videoItems = queue.filter { item in
+            let ext = item.sourceURL.pathExtension.lowercased()
+            return ["mp4", "mov", "m4v", "avi", "mkv"].contains(ext)
+        }
+
+        guard !videoItems.isEmpty else { return }
+
+        for item in videoItems {
+            if let index = queue.firstIndex(where: { $0.id == item.id }) {
+                queue[index].status = .processing
+                queue[index].startTime = Date()
+            }
+
+            do {
+                let outputURL = try await processVideoItem(item, quality: quality)
+
+                // Get compressed size
+                let compressedSize = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
+
+                // Create result
+                let originalFileInfo = FileInfo(
+                    name: item.fileName,
+                    url: item.sourceURL,
+                    size: item.fileSize
+                )
+                let result = CompressionResult(
+                    originalFile: originalFileInfo,
+                    compressedURL: outputURL,
+                    compressedSize: compressedSize
+                )
+
+                // Mark as completed
+                await MainActor.run {
+                    if let index = queue.firstIndex(where: { $0.id == item.id }) {
+                        var completedItem = queue[index]
+                        completedItem.status = .completed
+                        completedItem.result = result
+                        completedItem.endTime = Date()
+                        completedItems.insert(completedItem, at: 0)
+                        queue.remove(at: index)
+                        updateProgress()
+
+                        // Haptic feedback
+                        HapticManager.shared.trigger(.complete)
+                    }
+                }
+
+            } catch {
+                await MainActor.run {
+                    if let index = queue.firstIndex(where: { $0.id == item.id }) {
+                        var failedItem = queue[index]
+                        failedItem.status = .failed
+                        failedItem.error = error.localizedDescription
+                        failedItem.endTime = Date()
+                        completedItems.insert(failedItem, at: 0)
+                        queue.remove(at: index)
+                        updateProgress()
+
+                        // Haptic feedback
+                        HapticManager.shared.trigger(.error)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - OptimizationProfile Batch Support
+
+extension BatchProcessingService {
+
+    /// Add files with OptimizationProfile instead of preset
+    @discardableResult
+    func addFiles(_ urls: [URL], profile: OptimizationProfile) -> Int {
+        let preset = CompressionPreset.from(profile: profile)
+        return addFiles(urls, preset: preset)
+    }
+
+    /// Process item with OptimizationProfile
+    func processItemWithProfile(_ item: BatchItem, profile: OptimizationProfile) async throws -> CompressionResult {
+        // Access security-scoped resource
+        let shouldStop = item.sourceURL.startAccessingSecurityScopedResource()
+        defer { if shouldStop { item.sourceURL.stopAccessingSecurityScopedResource() } }
+
+        let fileType = FileType.from(extension: item.sourceURL.pathExtension)
+
+        let outputURL: URL
+
+        switch fileType {
+        case .pdf:
+            // Use profile-aware PDF compression
+            let pdfService = UltimatePDFCompressionService.shared
+            outputURL = try await pdfService.compressPDF(
+                at: item.sourceURL,
+                profile: profile
+            ) { [weak self] _, progress in
+                Task { @MainActor in
+                    self?.updateItemProgress(item.id, progress: progress)
+                }
+            }
+
+        case .image:
+            // Use smart encode with profile
+            guard let data = ImageIODownsampler.smartEncode(url: item.sourceURL, profile: profile) else {
+                throw CompressionError.saveFailed
+            }
+
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("\(item.fileName)_optimized")
+                .appendingPathExtension("jpg")
+            try data.write(to: tempURL)
+            outputURL = tempURL
+
+        case .video:
+            // Use video service with profile
+            let videoService = VideoCompressionService()
+            let result = try await videoService.compress(
+                url: item.sourceURL,
+                quality: profile.videoResolution.toVideoQualityPreset
+            ) { [weak self] progress in
+                Task { @MainActor in
+                    self?.updateItemProgress(item.id, progress: progress)
+                }
+            }
+            outputURL = result.outputURL
+
+        default:
+            // Use default compression
+            let compressionService = UltimatePDFCompressionService.shared
+            outputURL = try await compressionService.compressFile(
+                at: item.sourceURL,
+                preset: CompressionPreset.from(profile: profile)
+            ) { [weak self] _, progress in
+                Task { @MainActor in
+                    self?.updateItemProgress(item.id, progress: progress)
+                }
+            }
+        }
+
+        // Create result
+        let compressedSize = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
+        let originalFileInfo = FileInfo(
+            name: item.fileName,
+            url: item.sourceURL,
+            size: item.fileSize
+        )
+
+        return CompressionResult(
+            originalFile: originalFileInfo,
+            compressedURL: outputURL,
+            compressedSize: compressedSize
+        )
+    }
+}
+
+// MARK: - VideoResolution Extension
+
+extension VideoResolution {
+    var toVideoQualityPreset: VideoQualityPreset {
+        switch self {
+        case .sd480p: return .whatsApp
+        case .hd720p: return .socialMedia
+        case .hd1080p: return .hd1080p
+        case .uhd4k: return .original
+        }
+    }
+}
