@@ -16,6 +16,12 @@
 //  REFACTORED: Now uses Protocol-based Dependency Injection for testability
 //  and removes Singleton pattern. Memory-optimized with CGContext-based rendering.
 //
+//  v4.0 UPDATE:
+//  - Integrated OptimizationProfile for intelligent decision making
+//  - Added PreflightAnalyzer for pre-compression analysis
+//  - Integrated PDFUltraRebuilder for maximum compression
+//  - Added AdvancedImageEncoder for superior image compression
+//
 
 import Foundation
 import PDFKit
@@ -186,6 +192,81 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         case .document, .unknown:
             return try compressBinaryFile(at: sourceURL, preset: preset, onProgress: onProgress)
         }
+    }
+
+    // MARK: - PDF Compression with Profile Support (v4.0)
+
+    /// Compress PDF using optimization profile
+    /// Uses new pipeline: Preflight → Optimize → Sanitize
+    func compressPDF(
+        at sourceURL: URL,
+        profile: OptimizationProfile,
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
+    ) async throws -> URL {
+        // Update UI state
+        await MainActor.run {
+            isProcessing = true
+            progress = 0
+            currentStage = .preparing
+            error = nil
+            statusMessage = "Dosya analiz ediliyor..."
+        }
+
+        defer {
+            Task { @MainActor in
+                self.isProcessing = false
+            }
+        }
+
+        // Step 1: Preflight Analysis
+        onProgress(.preparing, 0.1)
+        let preflightReport = await PreflightAnalyzer.shared.analyze(url: sourceURL)
+
+        await MainActor.run {
+            statusMessage = preflightReport.recommendation
+        }
+        onProgress(.preparing, 0.3)
+
+        // Step 2: Decide compression strategy based on profile and analysis
+        let outputURL = generateOutputURL(for: sourceURL)
+
+        // For Ultra mode or files with invisible garbage, use PDFUltraRebuilder
+        if profile.pdfRebuildMode == .ultra || preflightReport.hasInvisibleGarbage {
+            await MainActor.run {
+                statusMessage = "Ultra mod: PDF yeniden inşa ediliyor..."
+                currentStage = .optimizing
+            }
+
+            do {
+                let result = try await PDFUltraRebuilder.shared.rebuild(
+                    sourceURL: sourceURL,
+                    outputURL: outputURL,
+                    profile: profile
+                ) { progress in
+                    Task { @MainActor in
+                        self.progress = progress
+                    }
+                    onProgress(.optimizing, progress)
+                }
+
+                // Verify size improvement
+                if result.rebuiltSize >= result.originalSize {
+                    // Rebuilder didn't help, try standard compression
+                    try? FileManager.default.removeItem(at: outputURL)
+                    return try await compressPDF(at: sourceURL, preset: .balanced, onProgress: onProgress)
+                }
+
+                onProgress(.downloading, 1.0)
+                return result.outputURL
+
+            } catch {
+                // Fallback to standard compression
+                return try await compressPDF(at: sourceURL, preset: .balanced, onProgress: onProgress)
+            }
+        }
+
+        // For Smart mode, use standard compression with profile settings
+        return try await compressPDF(at: sourceURL, preset: CompressionPreset.from(profile: profile), onProgress: onProgress)
     }
 
     // MARK: - PDF Compression (The Main Event)
@@ -1904,3 +1985,19 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
 // Note: SavingsLevel is defined in SavingsMeter.swift
 // Note: FileType is defined in FileCard.swift with icon property
+
+// MARK: - CompressionPreset Extension for Profile Support
+
+extension CompressionPreset {
+    /// Create preset from optimization profile
+    static func from(profile: OptimizationProfile) -> CompressionPreset {
+        switch profile.strategy {
+        case .quick:
+            return .highQuality
+        case .balanced:
+            return .balanced
+        case .ultra:
+            return .maxCompression
+        }
+    }
+}
