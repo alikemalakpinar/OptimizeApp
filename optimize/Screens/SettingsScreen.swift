@@ -34,14 +34,22 @@ struct SettingsScreen: View {
     private let presetOptions = ["mail", "whatsapp", "quality"]
     private let retentionOptions = [7, 14, 30, 90]
 
-    // MARK: - URL Constants
+    // MARK: - URL Constants (Crash-Safe)
     // TODO: Update these URLs before App Store submission
-    private let privacyURL = URL(string: "https://optimize-app.com/privacy")!
-    private let termsURL = URL(string: "https://optimize-app.com/terms")!
-    private let helpURL = URL(string: "https://optimize-app.com/help")!
+    private var privacyURL: URL {
+        URL(string: "https://optimize-app.com/privacy") ?? URL(string: "https://apple.com")!
+    }
+    private var termsURL: URL {
+        URL(string: "https://optimize-app.com/terms") ?? URL(string: "https://apple.com")!
+    }
+    private var helpURL: URL {
+        URL(string: "https://optimize-app.com/help") ?? URL(string: "https://apple.com")!
+    }
     private let supportEmail = "support@optimize-app.com"
     // TODO: Replace YOUR_APP_ID with actual App Store ID
-    private let rateURL = URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review")!
+    private var rateURL: URL {
+        URL(string: "https://apps.apple.com/app/idYOUR_APP_ID?action=write-review") ?? URL(string: "https://apps.apple.com")!
+    }
 
     var body: some View {
         List {

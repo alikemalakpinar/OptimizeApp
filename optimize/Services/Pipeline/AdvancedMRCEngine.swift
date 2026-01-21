@@ -38,12 +38,13 @@ final class AdvancedMRCEngine {
     init(config: CompressionConfig = .commercial) {
         self.config = config
 
-        // Initialize GPU-accelerated context
+        // Initialize GPU-accelerated context (Crash-Safe)
+        let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         self.ciContext = CIContext(options: [
             .useSoftwareRenderer: false,
             .highQualityDownsample: true,
-            .workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
-            .outputColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
+            .workingColorSpace: srgbColorSpace,
+            .outputColorSpace: srgbColorSpace
         ])
     }
 
@@ -287,13 +288,23 @@ final class AdvancedMRCEngine {
 
     // MARK: - Filter Cache
 
+    /// Gets or creates a CIFilter by name with crash-safe fallback
+    /// - Parameter name: The CIFilter name (e.g., "CIGaussianBlur")
+    /// - Returns: The requested filter or a safe identity filter if creation fails
     private func getOrCreateFilter(_ name: String) -> CIFilter {
         if let cached = cachedFilters[name] {
             return cached
         }
 
         guard let filter = CIFilter(name: name) else {
-            fatalError("Failed to create CIFilter: \(name)")
+            // Crash-safe fallback: Log error and return identity filter
+            #if DEBUG
+            print("[MRCEngine] WARNING: Failed to create CIFilter: \(name). Using fallback.")
+            #endif
+            // Return a no-op filter that passes through the image
+            let fallbackFilter = CIFilter(name: "CIColorMatrix") ?? CIFilter()
+            cachedFilters[name] = fallbackFilter
+            return fallbackFilter
         }
 
         cachedFilters[name] = filter

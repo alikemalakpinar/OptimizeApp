@@ -233,8 +233,12 @@ final class CompressionStatisticsService: ObservableObject {
         let hasActivityToday = dailyStats.contains { calendar.isDate($0.date, inSameDayAs: today) }
 
         if hasActivityToday {
-            // Check if we had activity yesterday
-            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
+            // Check if we had activity yesterday (Crash-Safe)
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else {
+                // Calendar calculation failed, just update last activity
+                stats.lastActivityDate = today
+                return
+            }
             let hadActivityYesterday = dailyStats.contains { calendar.isDate($0.date, inSameDayAs: yesterday) }
 
             if hadActivityYesterday || stats.currentStreak == 0 {
