@@ -305,13 +305,13 @@ struct PremiumFeatureCard: View {
                 ZStack {
                     Circle()
                         .fill(
-                            isLocked
-                                ? Color.gray.opacity(0.2)
-                                : LinearGradient(
-                                    colors: [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                            LinearGradient(
+                                colors: isLocked
+                                    ? [Color.gray.opacity(0.2), Color.gray.opacity(0.2)]
+                                    : [Color.premiumPurple.opacity(0.2), Color.premiumBlue.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
                         .frame(width: 44, height: 44)
 
@@ -342,7 +342,7 @@ struct PremiumFeatureCard: View {
                 // Lock/Arrow indicator
                 Image(systemName: isLocked ? "lock.fill" : "chevron.right")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isLocked ? Color.premiumPurple.opacity(0.5) : .tertiary)
+                    .foregroundStyle(isLocked ? Color.premiumPurple.opacity(0.5) : Color.secondary.opacity(0.5))
             }
             .padding(Spacing.md)
             .premiumStyle(isPremium: !isLocked, isLocked: isLocked, cornerRadius: Radius.lg)

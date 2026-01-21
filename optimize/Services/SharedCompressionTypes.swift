@@ -11,7 +11,7 @@ import Foundation
 import PDFKit
 
 // MARK: - Compression Error
-enum CompressionError: LocalizedError {
+enum CompressionError: LocalizedError, Equatable {
     case accessDenied
     case invalidPDF
     case invalidFile
@@ -27,6 +27,34 @@ enum CompressionError: LocalizedError {
     case exportFailed
     case unsupportedType
     case unknown(underlying: Error?)
+    
+    // Custom Equatable implementation
+    static func == (lhs: CompressionError, rhs: CompressionError) -> Bool {
+        switch (lhs, rhs) {
+        case (.accessDenied, .accessDenied),
+             (.invalidPDF, .invalidPDF),
+             (.invalidFile, .invalidFile),
+             (.emptyPDF, .emptyPDF),
+             (.encryptedPDF, .encryptedPDF),
+             (.contextCreationFailed, .contextCreationFailed),
+             (.saveFailed, .saveFailed),
+             (.cancelled, .cancelled),
+             (.memoryPressure, .memoryPressure),
+             (.fileTooLarge, .fileTooLarge),
+             (.timeout, .timeout),
+             (.exportFailed, .exportFailed),
+             (.unsupportedType, .unsupportedType):
+            return true
+        case (.pageProcessingFailed(let lhsPage), .pageProcessingFailed(let rhsPage)):
+            return lhsPage == rhsPage
+        case (.unknown, .unknown):
+            // Compare unknown errors by their localized description
+            // (since Error itself is not Equatable)
+            return true
+        default:
+            return false
+        }
+    }
 
     var errorDescription: String? {
         switch self {

@@ -557,7 +557,7 @@ final class FileConverterService: ObservableObject {
             images.count,
             nil
         ) else {
-            throw ConversionError.conversionFailed(reason: "GIF dosya hedefi oluşturulamadı")
+            throw ConversionError.exportFailed
         }
 
         let frameDelay = 1.0 / Double(options.gifFrameRate)
