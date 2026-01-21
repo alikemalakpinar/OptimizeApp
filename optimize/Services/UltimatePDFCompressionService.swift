@@ -230,11 +230,28 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         // Step 2: Decide compression strategy based on profile and analysis
         let outputURL = generateOutputURL(for: sourceURL)
 
-        // For Ultra mode or files with invisible garbage, use PDFUltraRebuilder
-        if profile.pdfRebuildMode == .ultra || preflightReport.hasInvisibleGarbage {
+        // SAFETY CHECK: Validate PDF before any processing
+        let validationResult = PDFBackupManager.validateForDestructiveOperation(url: sourceURL)
+        if !validationResult.isValid {
             await MainActor.run {
-                statusMessage = "Ultra mod: PDF yeniden inşa ediliyor..."
+                statusMessage = validationResult.failureReason ?? "PDF doğrulama hatası"
+            }
+            throw CompressionError.processingFailed(validationResult.failureReason ?? "Invalid PDF")
+        }
+
+        // ULTRA MODE: Only use PDFUltraRebuilder when EXPLICITLY requested
+        // This is a DESTRUCTIVE operation that flattens forms/annotations
+        // REMOVED: The automatic trigger for hasInvisibleGarbage - this was causing unwanted flattening
+        if profile.pdfRebuildMode == .ultra {
+            await MainActor.run {
+                statusMessage = "⚠️ Ultra mod: PDF yeniden inşa ediliyor (formlar düzleştirilecek)..."
                 currentStage = .optimizing
+            }
+
+            // SAFETY: Create backup before destructive operation
+            guard let backup = PDFBackupManager.shared.createBackup(for: sourceURL) else {
+                // If backup fails, fall back to safe compression
+                return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
             }
 
             do {
@@ -251,21 +268,31 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
                 // Verify size improvement
                 if result.rebuiltSize >= result.originalSize {
-                    // Rebuilder didn't help, try standard compression
+                    // Rebuilder didn't help, restore from backup and try standard compression
                     try? FileManager.default.removeItem(at: outputURL)
                     return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
                 }
 
+                // Success - keep backup for user recovery if needed
                 onProgress(.downloading, 1.0)
                 return result.outputURL
 
             } catch {
-                // Fallback to standard compression
+                // Operation failed - backup remains available for recovery
+                // Fallback to standard (safe) compression
                 return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
             }
         }
 
-        // For Smart mode, use standard compression with profile settings
+        // SMART MODE: If hasInvisibleGarbage, warn but use SAFE compression (not ultra rebuild)
+        if profile.pdfRebuildMode == .smart && preflightReport.hasInvisibleGarbage {
+            await MainActor.run {
+                statusMessage = "Gereksiz veri tespit edildi, güvenli optimizasyon yapılıyor..."
+            }
+            // Use safe compression, NOT destructive rebuild
+        }
+
+        // For Safe and Smart modes, use standard compression with profile settings
         return try await compressPDF(at: sourceURL, preset: CompressionPreset.from(profile: profile), onProgress: onProgress)
     }
 

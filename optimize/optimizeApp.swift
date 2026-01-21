@@ -128,53 +128,9 @@ struct RootViewWithCoordinator: View {
                 }
             }
         }
-        .sheet(isPresented: $coordinator.showPaywall) {
-            PaywallScreen(
-                context: coordinator.paywallContext,
-                onSubscribe: { plan in
-                    Task {
-                        do {
-                            try await coordinator.subscriptionManager.purchase(plan: plan)
-                            await MainActor.run {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        } catch SubscriptionError.userCancelled {
-                            // User cancelled - do nothing
-                        } catch {
-                            await MainActor.run {
-                                let userError = UserFriendlyError(error)
-                                coordinator.showError(title: userError.title, message: userError.fullMessage)
-                            }
-                        }
-                    }
-                },
-                onRestore: {
-                    Task {
-                        await coordinator.subscriptionManager.restore()
-                        await MainActor.run {
-                            if coordinator.subscriptionManager.status.isPro {
-                                coordinator.dismissPaywall()
-                                Haptics.success()
-                            }
-                        }
-                    }
-                },
-                onDismiss: {
-                    coordinator.dismissPaywall()
-                },
-                onPrivacy: {
-                    if let url = URL(string: "https://optimize-app.com/privacy") {
-                        UIApplication.shared.open(url)
-                    }
-                },
-                onTerms: {
-                    if let url = URL(string: "https://optimize-app.com/terms") {
-                        UIApplication.shared.open(url)
-                    }
-                }
-            )
-        }
+        // REMOVED: Legacy PaywallScreen sheet binding
+        // All paywall presentations now use ModernPaywallScreen exclusively
+        // See: AppCoordinator.presentPaywall() which sets showModernPaywall = true
         .sheet(isPresented: $coordinator.showModernPaywall) {
             ModernPaywallScreen(
                 subscriptionManager: coordinator.subscriptionManager,
