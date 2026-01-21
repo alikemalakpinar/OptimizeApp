@@ -182,14 +182,16 @@ struct ModernPaywallScreen: View {
                                 .frame(width: gaugeSize, height: gaugeSize)
 
                                 VStack(spacing: isCompactHeight ? 8 : 12) {
+                                    // BRAND: Serif for display headlines (editorial feel)
                                     Text(displayTitle)
-                                        .font(.system(size: isCompactHeight ? 24 : 28, weight: .bold, design: .default))
+                                        .font(.system(size: isCompactHeight ? DisplayScale.subtitle : DisplayScale.title, weight: .bold, design: .serif))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.center)
-                                        .shadow(color: Color.appMint.opacity(0.3), radius: 20, x: 0, y: 0)
+                                        .shadow(color: Brand.primary.opacity(0.3), radius: 20, x: 0, y: 0)
 
+                                    // BRAND: Rounded for body text (friendly & modern)
                                     Text(displaySubtitle)
-                                        .font(.system(size: isCompactHeight ? 13 : 15, weight: .regular, design: .rounded))
+                                        .font(.system(size: isCompactHeight ? DisplayScale.caption : DisplayScale.body, weight: .regular, design: .rounded))
                                         .foregroundColor(.white.opacity(0.7))
                                         .multilineTextAlignment(.center)
                                         .padding(.horizontal, 30)

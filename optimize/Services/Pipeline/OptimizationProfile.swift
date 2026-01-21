@@ -188,12 +188,14 @@ struct OptimizationProfile: Codable, Equatable {
         pdfRebuildMode: .safe
     )
 
+    // SAFETY: Balanced uses .safe mode to avoid unexpected form flattening
+    // Users must explicitly select Ultra/Max Saver for destructive rebuild
     static let balanced = OptimizationProfile(
         strategy: .balanced,
         stripMetadata: true,
         convertToSRGB: true,
         preferHEIC: true,
-        pdfRebuildMode: .smart
+        pdfRebuildMode: .safe  // Changed from .smart - prevents form/annotation destruction
     )
 
     static let ultra = OptimizationProfile(

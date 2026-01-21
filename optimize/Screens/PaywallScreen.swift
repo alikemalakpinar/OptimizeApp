@@ -12,16 +12,45 @@
 
 import SwiftUI
 
+/// ⚠️ DEPRECATED - DO NOT USE
+/// This struct is kept only for backwards compatibility during migration.
+/// All paywall presentations must use ModernPaywallScreen.
+@available(*, deprecated, message: "Use ModernPaywallScreen instead")
 struct PaywallScreen: View {
     var context: PaywallContext? = nil
     @State private var selectedPlan: SubscriptionPlan = .yearly
+
+    // DEBUG: Catch any accidental instantiation
+    init(
+        context: PaywallContext? = nil,
+        limitExceeded: Bool = false,
+        currentFileSize: String? = nil,
+        onSubscribe: @escaping (SubscriptionPlan) -> Void,
+        onRestore: @escaping () -> Void,
+        onDismiss: @escaping () -> Void,
+        onPrivacy: @escaping () -> Void,
+        onTerms: @escaping () -> Void
+    ) {
+        #if DEBUG
+        assertionFailure("⚠️ PaywallScreen is DEPRECATED. Use ModernPaywallScreen instead. This view should never be instantiated.")
+        #endif
+        self.context = context
+        self.limitExceeded = limitExceeded
+        self.currentFileSize = currentFileSize
+        self.onSubscribe = onSubscribe
+        self.onRestore = onRestore
+        self.onDismiss = onDismiss
+        self.onPrivacy = onPrivacy
+        self.onTerms = onTerms
+    }
+
     @State private var isLoading = false
     @State private var isRestoring = false
     @State private var animateContent = false
     @State private var showCloseButton = false
 
-    var limitExceeded: Bool = false
-    var currentFileSize: String? = nil
+    var limitExceeded: Bool
+    var currentFileSize: String?
     @Environment(\.colorScheme) private var colorScheme
 
     let onSubscribe: (SubscriptionPlan) -> Void
@@ -966,16 +995,5 @@ struct PaywallContextView: View {
     }
 }
 
-#Preview {
-    PaywallScreen(
-        limitExceeded: false,
-        currentFileSize: nil,
-        onSubscribe: { plan in
-            print("Subscribe to: \(plan)")
-        },
-        onRestore: {},
-        onDismiss: {},
-        onPrivacy: {},
-        onTerms: {}
-    )
-}
+// Preview removed - PaywallScreen is deprecated
+// Use ModernPaywallScreen for all paywall presentations
