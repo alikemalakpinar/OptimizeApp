@@ -219,7 +219,13 @@ struct SubscriptionStatus {
     let dailyUsageLimit: Int
 
     var isPro: Bool {
-        plan != .free && isActive
+        // 🔥 DEBUG Backdoor: Force Pro mode for testing
+        #if DEBUG
+        if SubscriptionManager.forceProMode {
+            return true
+        }
+        #endif
+        return plan != .free && isActive
     }
 
     var canProcess: Bool {

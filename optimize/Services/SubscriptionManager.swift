@@ -179,6 +179,15 @@ struct PaywallContext: Equatable {
 final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     static let shared = SubscriptionManager()
 
+    // MARK: - DEBUG Backdoor for Testing
+    // 🔥 Set this to true in DEBUG builds to bypass all subscription checks
+    // This allows testing premium features without real purchases
+    #if DEBUG
+    static let forceProMode: Bool = true  // Set to false to test free tier
+    #else
+    static let forceProMode: Bool = false
+    #endif
+
     // MARK: - Real-time Verification Cache
     /// Last verification timestamp to avoid excessive StoreKit calls
     private var lastVerificationTime: Date?
