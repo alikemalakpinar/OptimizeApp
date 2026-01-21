@@ -2,14 +2,25 @@
 //  BatchProcessingService.swift
 //  optimize
 //
-//  Batch file compression with queue management
-//  Supports parallel processing, progress tracking, and cancellation
+//  Production-Grade Batch Processing with Swift Concurrency TaskGroup.
+//  EDITOR'S CHOICE QUALITY - Memory-safe, optimized for large files.
 //
-//  MASTER LEVEL ARCHITECTURE:
+//  ARCHITECTURE:
 //  - Premium-gated batch processing
 //  - Dynamic concurrent task limits based on subscription
 //  - Background task support for Pro users
 //  - Queue size limits for free tier
+//  - TaskGroup-based parallelism (max 3 concurrent for memory safety)
+//
+//  MEMORY SAFETY:
+//  - Videos: SERIAL processing (prevents OOM on 1GB+ files)
+//  - PDFs: SERIAL processing (large document handling)
+//  - Images: Limited parallelism (max 2-3 concurrent)
+//
+//  WHY NOT UNLIMITED PARALLEL?
+//  - Video encoding uses significant GPU/CPU resources
+//  - Multiple large videos = thermal throttling + OOM
+//  - Serial processing = predictable memory usage
 //
 
 import Foundation

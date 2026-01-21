@@ -79,8 +79,8 @@ struct SettingsScreen: View {
                     } label: {
                         ToolsRow(
                             icon: "square.stack.3d.up.fill",
-                            title: "Toplu İşlem",
-                            subtitle: "Birden fazla dosyayı aynı anda sıkıştır",
+                            title: AppStrings.Tools.batchProcessing,
+                            subtitle: AppStrings.Tools.batchDescription,
                             color: .blue
                         )
                     }
@@ -91,8 +91,8 @@ struct SettingsScreen: View {
                     } label: {
                         ToolsRow(
                             icon: "arrow.triangle.2.circlepath",
-                            title: "Dosya Dönüştürücü",
-                            subtitle: "PDF, resim ve video formatlarını dönüştür",
+                            title: AppStrings.Tools.converter,
+                            subtitle: AppStrings.Tools.converterDescription,
                             color: .purple
                         )
                     }
@@ -103,21 +103,21 @@ struct SettingsScreen: View {
                     } label: {
                         ToolsRow(
                             icon: "chart.bar.fill",
-                            title: "İstatistikler",
-                            subtitle: "Kullanım analizi ve başarımlar",
+                            title: AppStrings.Tools.statistics,
+                            subtitle: AppStrings.Tools.statisticsDescription,
                             color: .orange
                         )
                     }
                 } header: {
-                    Text("Araçlar")
+                    Text(AppStrings.Tools.title)
                 }
 
                 // MARK: - Compression Settings
                 Section {
                     // Default Quality Picker
                     Picker(selection: $defaultPresetId) {
-                        Text("WhatsApp").tag("whatsapp")
-                        Text("Mail (25 MB)").tag("mail")
+                        Text(AppStrings.PresetOptions.whatsapp).tag("whatsapp")
+                        Text(AppStrings.PresetOptions.mail25MB).tag("mail")
                         Text(AppStrings.Presets.quality).tag("quality")
                     } label: {
                         Label(AppStrings.Settings.defaultPreset, systemImage: "slider.horizontal.3")
@@ -218,7 +218,7 @@ struct SettingsScreen: View {
                             restorePurchases()
                         } label: {
                             HStack {
-                                Label("Satın Alımları Geri Yükle", systemImage: "arrow.clockwise.circle.fill")
+                                Label(AppStrings.Subscription.restorePurchases, systemImage: "arrow.clockwise.circle.fill")
                                     .foregroundStyle(.primary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -237,10 +237,10 @@ struct SettingsScreen: View {
                         }
                     }
                 } header: {
-                    Text("Abonelik")
+                    Text(AppStrings.Subscription.title)
                 } footer: {
                     if !subscriptionStatus.isPro {
-                        Text("Daha önce Premium satın aldıysanız, satın alımlarınızı geri yükleyebilirsiniz.")
+                        Text(AppStrings.Subscription.restoreFooter)
                     }
                 }
 
@@ -352,7 +352,7 @@ struct SettingsScreen: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("Geri")
+                        Text(AppStrings.Navigation.back)
                     }
                     .foregroundStyle(Color.appAccent)
                 }
@@ -462,7 +462,7 @@ struct PremiumBannerRow: View {
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundStyle(.primary)
 
-                        Text("Sınırsız sıkıştırma & Reklamsız")
+                        Text(AppStrings.Subscription.unlimitedAndAdFree)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
@@ -489,11 +489,11 @@ struct PremiumBannerRow: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Premium Üyesiniz")
+                    Text(AppStrings.Subscription.premiumMember)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
 
-                    Text("Tüm özellikler aktif")
+                    Text(AppStrings.Subscription.allFeaturesActive)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
@@ -551,7 +551,7 @@ struct CommitmentSignatureCard: View {
                     .foregroundStyle(Color.goldAccent)
                     .font(.system(size: 16))
 
-                Text("KENDİNE VERDİĞİN SÖZ")
+                Text(AppStrings.CommitmentCard.title)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .tracking(1.2)
                     .foregroundStyle(.secondary)
@@ -570,7 +570,7 @@ struct CommitmentSignatureCard: View {
             }
 
             // Commitment Text
-            Text("Dosyalarımı her zaman optimize edeceğime ve dijital kirlilik yaratmayacağıma söz veriyorum.")
+            Text(AppStrings.CommitmentCard.pledge)
                 .font(.system(size: 11, design: .serif))
                 .italic()
                 .foregroundStyle(.secondary)

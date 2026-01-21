@@ -36,17 +36,17 @@ struct BeforeAfterSlider: View {
                         Image(systemName: fileType.icon)
                             .font(.system(size: 12))
                             .foregroundStyle(fileType.color)
-                        Text("Kalite Karşılaştırması")
+                        Text(AppStrings.ResultScreen.qualityComparison)
                             .font(.appCaptionMedium)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
 
-                    // Drag hint
+                    // Interaction hint - Drag or hold
                     HStack(spacing: Spacing.xxs) {
                         Image(systemName: "hand.draw")
                             .font(.system(size: 12))
-                        Text("Kaydır")
+                        Text(AppStrings.ResultScreen.dragOrHold)
                             .font(.appCaption)
                     }
                     .foregroundStyle(.tertiary)
@@ -302,11 +302,17 @@ private extension UIImage {
 }
 
 // MARK: - Comparison View
+/// Interactive comparison with two modes:
+/// 1. SLIDER MODE: Drag left/right to compare
+/// 2. PRESS-TO-COMPARE: Long press to see original (Instagram style)
 private struct ComparisonView: View {
     let originalImage: UIImage
     let compressedImage: UIImage
     @Binding var sliderPosition: CGFloat
     @Binding var isDragging: Bool
+
+    /// Press-to-compare state (Instagram style)
+    @State private var isShowingOriginal = false
 
     var body: some View {
         GeometryReader { geo in
@@ -316,39 +322,62 @@ private struct ComparisonView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: geo.size.width, height: geo.size.height)
+                    .opacity(isShowingOriginal ? 0 : 1)
 
-                // Top Layer (Original - Before) with mask
+                // Top Layer (Original - Before)
                 Image(uiImage: originalImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: geo.size.width, height: geo.size.height)
+                    .opacity(isShowingOriginal ? 1 : 0)
                     .mask(
-                        HStack(spacing: 0) {
-                            Rectangle()
-                                .frame(width: geo.size.width * sliderPosition)
-                            Spacer(minLength: 0)
+                        Group {
+                            if isShowingOriginal {
+                                Rectangle() // Full visibility when pressing
+                            } else {
+                                HStack(spacing: 0) {
+                                    Rectangle()
+                                        .frame(width: geo.size.width * sliderPosition)
+                                    Spacer(minLength: 0)
+                                }
+                            }
                         }
                     )
 
-                // Slider Line
-                SliderHandle(position: sliderPosition, width: geo.size.width, isDragging: $isDragging)
-                    .offset(x: (geo.size.width * sliderPosition) - (geo.size.width / 2))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                isDragging = true
-                                let newPos = value.location.x / geo.size.width
-                                sliderPosition = min(max(newPos, 0.05), 0.95)
-                                Haptics.impact(style: .light)
-                            }
-                            .onEnded { _ in
-                                isDragging = false
-                            }
-                    )
+                // Slider Line (hidden during press-to-compare)
+                if !isShowingOriginal {
+                    SliderHandle(position: sliderPosition, width: geo.size.width, isDragging: $isDragging)
+                        .offset(x: (geo.size.width * sliderPosition) - (geo.size.width / 2))
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    isDragging = true
+                                    let newPos = value.location.x / geo.size.width
+                                    sliderPosition = min(max(newPos, 0.05), 0.95)
+                                    Haptics.impact(style: .light)
+                                }
+                                .onEnded { _ in
+                                    isDragging = false
+                                }
+                        )
+                }
 
-                // Labels
-                OverlayLabels(sliderPosition: sliderPosition, isDragging: isDragging)
+                // Labels with press-to-compare indicator
+                OverlayLabels(
+                    sliderPosition: sliderPosition,
+                    isDragging: isDragging,
+                    isShowingOriginal: isShowingOriginal
+                )
             }
+            // PRESS-TO-COMPARE: Long press to see original
+            .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isShowingOriginal = pressing
+                }
+                if pressing {
+                    Haptics.impact(style: .medium)
+                }
+            }, perform: { })
         }
         .frame(height: 200)
         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
@@ -393,41 +422,58 @@ private struct SliderHandle: View {
 private struct OverlayLabels: View {
     let sliderPosition: CGFloat
     let isDragging: Bool
+    var isShowingOriginal: Bool = false
 
     var body: some View {
         VStack {
             HStack {
                 // Original label
-                Text("Original")
+                Text(AppStrings.ResultScreen.before)
                     .font(.caption2.bold())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .opacity(sliderPosition > 0.15 ? 1 : 0)
+                    .opacity(isShowingOriginal || sliderPosition > 0.15 ? 1 : 0)
 
                 Spacer()
 
                 // Optimized label
-                Text("Optimize")
+                Text(AppStrings.ResultScreen.after)
                     .font(.caption2.bold())
                     .foregroundStyle(Color.appMint)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .opacity(sliderPosition < 0.85 ? 1 : 0)
+                    .opacity(!isShowingOriginal && sliderPosition < 0.85 ? 1 : 0)
             }
             .padding(Spacing.xs)
 
             Spacer()
 
-            // Quality indicator during drag
-            if isDragging {
+            // Press-to-compare hint OR quality indicator
+            if isShowingOriginal {
+                // Showing original indicator
+                HStack(spacing: 6) {
+                    Image(systemName: "hand.tap.fill")
+                        .foregroundStyle(.white)
+                    Text(AppStrings.ResultScreen.before)
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.6))
+                .clipShape(Capsule())
+                .padding(.bottom, Spacing.xs)
+                .transition(.scale.combined(with: .opacity))
+            } else if isDragging {
+                // Quality indicator during drag
                 HStack {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(Color.appMint)
-                    Text("Quality preserved")
+                    Text(AppStrings.QualityBadge.title)
                         .font(.caption.bold())
                 }
                 .padding(.horizontal, 12)
@@ -439,6 +485,7 @@ private struct OverlayLabels: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isDragging)
+        .animation(.easeInOut(duration: 0.15), value: isShowingOriginal)
     }
 }
 

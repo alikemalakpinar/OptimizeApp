@@ -8,12 +8,22 @@
 import SwiftUI
 
 enum ProcessingStage: String, CaseIterable, Identifiable {
-    case preparing = "Preparing"
-    case uploading = "Analyzing"
-    case optimizing = "Optimizing"
-    case downloading = "Completing"
+    case preparing
+    case uploading
+    case optimizing
+    case downloading
 
     var id: String { rawValue }
+
+    /// Localized stage name
+    var localizedName: String {
+        switch self {
+        case .preparing: return AppStrings.ProcessingStages.preparing
+        case .uploading: return AppStrings.ProcessingStages.analyzing
+        case .optimizing: return AppStrings.ProcessingStages.optimizing
+        case .downloading: return AppStrings.ProcessingStages.completing
+        }
+    }
 
     var icon: String {
         switch self {
@@ -24,34 +34,17 @@ enum ProcessingStage: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Detailed sub-messages for each stage (dynamic, changes during processing)
+    /// Detailed sub-messages for each stage (localized, dynamic during processing)
     var detailMessages: [String] {
         switch self {
         case .preparing:
-            return [
-                "Reading file structure...",
-                "Checking format and encoding...",
-                "Validating permissions..."
-            ]
+            return AppStrings.ProcessingStages.preparingDetails
         case .uploading:
-            return [
-                "Analyzing content layers...",
-                "Detecting text and images...",
-                "Choosing optimal profile..."
-            ]
+            return AppStrings.ProcessingStages.analyzingDetails
         case .optimizing:
-            return [
-                "Removing unnecessary metadata...",
-                "Balancing quality settings...",
-                "Recompressing images...",
-                "Verifying target size..."
-            ]
+            return AppStrings.ProcessingStages.optimizingDetails
         case .downloading:
-            return [
-                "Running final checks...",
-                "Writing optimized file...",
-                "Completing process..."
-            ]
+            return AppStrings.ProcessingStages.completingDetails
         }
     }
 }
@@ -161,7 +154,7 @@ struct StageRow: View {
 
             // Stage text
             VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(stage.rawValue)
+                Text(stage.localizedName)
                     .font(isActive ? .appBodyMedium : .appBody)
                     .foregroundStyle(isActive || isCompleted ? .primary : .secondary)
 
