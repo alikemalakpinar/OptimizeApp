@@ -643,18 +643,18 @@ class AppCoordinator: ObservableObject {
     }
 
     /// Present the paywall screen
-    /// - Parameters:
-    ///   - context: Optional context describing why paywall is shown
-    ///   - useModernStyle: Whether to use modern glassmorphism design (default: true)
-    /// NOTE: ModernPaywallScreen is now the default as it provides better conversion
+    /// - Parameter context: Optional context describing why paywall is shown
+    ///
+    /// DESIGN DECISION: ModernPaywallScreen is the ONLY paywall.
+    /// The legacy PaywallScreen is deprecated and should not be used.
+    /// This ensures consistent premium UX across all entry points.
     func presentPaywall(context: PaywallContext? = nil, useModernStyle: Bool = true) {
         analytics.track(.paywallViewed)
         paywallContext = context ?? PaywallContext.proRequired
-        if useModernStyle {
-            showModernPaywall = true
-        } else {
-            showPaywall = true
-        }
+
+        // STANDARDIZED: Always use ModernPaywallScreen
+        // The useModernStyle parameter is kept for API compatibility but ignored
+        showModernPaywall = true
     }
 
     func dismissPaywall() {

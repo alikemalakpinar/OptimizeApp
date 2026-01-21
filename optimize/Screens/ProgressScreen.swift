@@ -69,12 +69,21 @@ struct ProgressScreen: View {
                 Spacer()
 
                 VStack(spacing: Spacing.lg) {
-                    // Enhanced circular progress visualization
-                    EnhancedProcessingRing(
-                        progress: compressionService.progress,
-                        stage: compressionService.currentStage,
-                        pulseAnimation: pulseAnimation
-                    )
+                    // Sci-Fi Compression Engine Visualization
+                    VStack(spacing: Spacing.md) {
+                        CompressionEngineVisual(
+                            progress: compressionService.progress,
+                            stage: compressionService.currentStage,
+                            size: 180
+                        )
+
+                        // Real-time stats below engine
+                        CompressionStatsDisplay(
+                            originalSize: file.size,
+                            progress: compressionService.progress,
+                            stage: compressionService.currentStage
+                        )
+                    }
                     .opacity(showContent ? 1 : 0)
                     .scaleEffect(showContent ? 1 : 0.9)
 
@@ -101,21 +110,6 @@ struct ProgressScreen: View {
                     )
                     .padding(.horizontal, Spacing.md)
                     .opacity(showContent ? 1 : 0)
-
-                    // Progress percentage - Large and prominent
-                    if compressionService.currentStage == .optimizing {
-                        Text("\(Int(compressionService.progress * 100))%")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color.appMint, Color.appTeal],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .contentTransition(.numericText(value: compressionService.progress))
-                            .accessibilityLabel("Sıkıştırma ilerlemesi: \(Int(compressionService.progress * 100)) yüzde")
-                    }
 
                     // Fun fact card
                     EnhancedFunFactCard(
