@@ -27,17 +27,10 @@ struct ProgressScreen: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    // Fun facts / "Did you know" messages
-    private let funFacts = [
-        "Biliyor muydunuz? PDF'lerin %40'ı gözle görülemeyen veri içerir.",
-        "Fontlarınızı diyete sokuyoruz...",
-        "Her sıkıştırılan MB bir kedi mutlu ediyor. (Kaynak: Biz)",
-        "Dosyanızdaki fazlalıkları kesiyoruz...",
-        "Dijital detoks uyguluyoruz...",
-        "Gereksiz piksellere tek tek veda ediyoruz...",
-        "Dosyanızı e-postaya sığdırma sanatında ustalaşıyoruz...",
-        "Görünmez metadata avına çıkıyoruz..."
-    ]
+    // Fun facts / "Did you know" messages - Localized via AppStrings
+    private var funFacts: [String] {
+        AppStrings.FunFacts.all
+    }
 
     private var completedStages: Set<ProcessingStage> {
         var stages: Set<ProcessingStage> = []
@@ -64,7 +57,7 @@ struct ProgressScreen: View {
 
             VStack(spacing: 0) {
                 // Header
-                ScreenHeader("Processing")
+                ScreenHeader(AppStrings.Progress.screenTitle)
 
                 Spacer()
 
@@ -132,7 +125,7 @@ struct ProgressScreen: View {
                         HStack(spacing: 8) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
-                            Text("İptal")
+                            Text(AppStrings.Progress.cancel)
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                         }
                         .foregroundStyle(.secondary)

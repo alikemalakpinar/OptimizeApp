@@ -461,14 +461,14 @@ struct VictoryStampView: View {
     @State private var rotation: Double = -25
     @State private var showImpactRing = false
 
-    /// Dynamic stamp text based on savings level
+    /// Dynamic stamp text based on savings level - Localized
     private var stampText: String {
         if savingsPercent >= 80 {
-            return "LEGENDARY"
+            return AppStrings.VictoryStamp.legendary
         } else if savingsPercent >= 60 {
-            return "AMAZING"
+            return AppStrings.VictoryStamp.amazing
         } else {
-            return "OPTIMIZED"
+            return AppStrings.VictoryStamp.optimized
         }
     }
 
@@ -564,11 +564,11 @@ struct QualityAssuranceBadge: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Kalite Korundu")
+                Text(AppStrings.QualityBadge.title)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
 
-                Text("Dosyanız orijinal kalitede, sadece boyut küçüldü")
+                Text(AppStrings.QualityBadge.description)
                     .font(.system(size: 11, weight: .regular, design: .rounded))
                     .foregroundStyle(.secondary)
             }

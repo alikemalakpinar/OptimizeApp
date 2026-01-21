@@ -180,9 +180,14 @@ struct HomeScreen: View {
 }
 
 // MARK: - Breathing CTA Card
-/// CTA card with breathing animation effect
+/// EDITOR'S CHOICE CTA card with breathing animation and premium micro-interactions
 /// ACCESSIBILITY: Respects reduceMotion preference - disables animations when enabled
 /// PERFORMANCE: Pauses animation when app goes to background (saves CPU)
+/// MICRO-INTERACTIONS:
+/// - Breathing rings expand/contract
+/// - Icon bounces on drop target
+/// - Button scale + spring on press (via .pressable)
+/// - Gradient rotation for premium feel
 struct BreathingCTACard: View {
     let isDropTargeted: Bool
     let onTap: () -> Void
@@ -191,6 +196,7 @@ struct BreathingCTACard: View {
     @State private var ringOpacity: Double = 0.3
     @State private var isAnimating: Bool = false
     @State private var gradientRotation: Double = 0
+    @State private var iconBounce: Bool = false
 
     /// Accessibility: Check if user prefers reduced motion
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -417,7 +423,7 @@ struct ConversionHighlights: View {
                 HStack(spacing: 4) {
                     Image(systemName: "chart.bar.fill")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Live")
+                    Text(AppStrings.QuickAccess.live)
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                 }
                 .foregroundStyle(Color.appMint)
@@ -898,7 +904,7 @@ struct QuickAccessBar: View {
 
             // File info
             VStack(alignment: .leading, spacing: 2) {
-                Text("Son İşlem")
+                Text(AppStrings.QuickAccess.lastProcess)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(.tertiary)
 
@@ -923,7 +929,7 @@ struct QuickAccessBar: View {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .bold))
-                    Text("Yeni")
+                    Text(AppStrings.QuickAccess.newButton)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.white)
@@ -1035,7 +1041,7 @@ struct QuickActionsGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack {
-                Text("Hızlı İşlemler")
+                Text(AppStrings.QuickActions.title)
                     .font(.appSection)
                     .foregroundStyle(.primary)
 
@@ -1066,8 +1072,8 @@ struct QuickActionsGrid: View {
                 // Batch Processing Card
                 QuickActionCard(
                     icon: "square.stack.3d.up.fill",
-                    title: "Toplu İşlem",
-                    subtitle: "Çoklu dosya sıkıştır",
+                    title: AppStrings.QuickActions.batchProcessing,
+                    subtitle: AppStrings.QuickActions.batchDescription,
                     gradientColors: [Color.premiumPurple.opacity(0.8), Color.premiumBlue.opacity(0.6)],
                     isPro: isPro,
                     action: onBatchProcessing
@@ -1076,8 +1082,8 @@ struct QuickActionsGrid: View {
                 // Converter Card
                 QuickActionCard(
                     icon: "arrow.triangle.2.circlepath.circle.fill",
-                    title: "Dönüştürücü",
-                    subtitle: "Format değiştir",
+                    title: AppStrings.QuickActions.converter,
+                    subtitle: AppStrings.QuickActions.converterDescription,
                     gradientColors: [Color.warmOrange.opacity(0.8), Color.warmCoral.opacity(0.6)],
                     isPro: isPro,
                     action: onConverter

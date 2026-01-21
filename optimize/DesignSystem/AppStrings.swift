@@ -298,6 +298,10 @@ struct AppStrings {
         static var share: String { String(localized: "Şimdi Paylaş", comment: "Result: Button") }
         static var saveFiles: String { String(localized: "Dosyalara Kaydet", comment: "Result: Button") }
         static var newFile: String { String(localized: "Yeni Dosya Seç", comment: "Result: Button") }
+
+        // Before/After Comparison
+        static var qualityComparison: String { String(localized: "Kalite Karşılaştırması", comment: "Result: Quality comparison header") }
+        static var dragOrHold: String { String(localized: "Kaydır veya basılı tut", comment: "Result: Interaction hint") }
     }
 
     // MARK: - Modern Paywall
@@ -479,5 +483,150 @@ struct AppStrings {
         static var contactSupport: String {
             String(localized: "Sorun devam ederse destek ile iletişime geçin.", comment: "Recovery: Contact Support")
         }
+    }
+
+    // MARK: - Progress Screen
+    enum Progress {
+        static var screenTitle: String { String(localized: "İşleniyor", comment: "Progress: Screen title") }
+        static var cancel: String { String(localized: "İptal", comment: "Progress: Cancel button") }
+    }
+
+    // MARK: - Processing Stages
+    enum ProcessingStages {
+        // Stage names
+        static var preparing: String { String(localized: "Hazırlanıyor", comment: "Processing stage: Preparing") }
+        static var analyzing: String { String(localized: "Analiz Ediliyor", comment: "Processing stage: Analyzing") }
+        static var optimizing: String { String(localized: "Optimize Ediliyor", comment: "Processing stage: Optimizing") }
+        static var completing: String { String(localized: "Tamamlanıyor", comment: "Processing stage: Completing") }
+
+        // Preparing stage detail messages
+        static var preparingDetails: [String] {
+            [
+                String(localized: "Dosya yapısı okunuyor...", comment: "Preparing detail 1"),
+                String(localized: "Format ve kodlama kontrol ediliyor...", comment: "Preparing detail 2"),
+                String(localized: "İzinler doğrulanıyor...", comment: "Preparing detail 3")
+            ]
+        }
+
+        // Analyzing stage detail messages
+        static var analyzingDetails: [String] {
+            [
+                String(localized: "İçerik katmanları analiz ediliyor...", comment: "Analyzing detail 1"),
+                String(localized: "Metin ve görüntüler tespit ediliyor...", comment: "Analyzing detail 2"),
+                String(localized: "Optimal profil seçiliyor...", comment: "Analyzing detail 3")
+            ]
+        }
+
+        // Optimizing stage detail messages
+        static var optimizingDetails: [String] {
+            [
+                String(localized: "Gereksiz metadata temizleniyor...", comment: "Optimizing detail 1"),
+                String(localized: "Kalite ayarları dengeleniyor...", comment: "Optimizing detail 2"),
+                String(localized: "Görüntüler yeniden sıkıştırılıyor...", comment: "Optimizing detail 3"),
+                String(localized: "Hedef boyut doğrulanıyor...", comment: "Optimizing detail 4")
+            ]
+        }
+
+        // Completing stage detail messages
+        static var completingDetails: [String] {
+            [
+                String(localized: "Son kontroller yapılıyor...", comment: "Completing detail 1"),
+                String(localized: "Optimize edilmiş dosya yazılıyor...", comment: "Completing detail 2"),
+                String(localized: "İşlem tamamlanıyor...", comment: "Completing detail 3")
+            ]
+        }
+    }
+
+    // MARK: - Fun Facts (Processing Screen)
+    enum FunFacts {
+        static var fact1: String { String(localized: "Biliyor muydunuz? PDF'lerin %40'ı gözle görülemeyen veri içerir.", comment: "Fun fact 1") }
+        static var fact2: String { String(localized: "Fontlarınızı diyete sokuyoruz...", comment: "Fun fact 2") }
+        static var fact3: String { String(localized: "Her sıkıştırılan MB bir kedi mutlu ediyor. (Kaynak: Biz)", comment: "Fun fact 3") }
+        static var fact4: String { String(localized: "Dosyanızdaki fazlalıkları kesiyoruz...", comment: "Fun fact 4") }
+        static var fact5: String { String(localized: "Dijital detoks uyguluyoruz...", comment: "Fun fact 5") }
+        static var fact6: String { String(localized: "Gereksiz piksellere tek tek veda ediyoruz...", comment: "Fun fact 6") }
+        static var fact7: String { String(localized: "Dosyanızı e-postaya sığdırma sanatında ustalaşıyoruz...", comment: "Fun fact 7") }
+        static var fact8: String { String(localized: "Görünmez metadata avına çıkıyoruz...", comment: "Fun fact 8") }
+
+        /// All fun facts as an array for random selection
+        static var all: [String] {
+            [fact1, fact2, fact3, fact4, fact5, fact6, fact7, fact8]
+        }
+    }
+
+    // MARK: - Victory Stamps (Result Screen)
+    enum VictoryStamp {
+        static var legendary: String { String(localized: "EFSANE", comment: "Victory stamp: 80%+ savings") }
+        static var amazing: String { String(localized: "MUHTEŞEM", comment: "Victory stamp: 60%+ savings") }
+        static var optimized: String { String(localized: "OPTİMİZE", comment: "Victory stamp: 40%+ savings") }
+    }
+
+    // MARK: - Quality Assurance Badge
+    enum QualityBadge {
+        static var title: String { String(localized: "Kalite Korundu", comment: "Quality badge: Title") }
+        static var description: String { String(localized: "Dosyanız orijinal kalitede, sadece boyut küçüldü", comment: "Quality badge: Description") }
+    }
+
+    // MARK: - Quick Access Bar (Home Screen)
+    enum QuickAccess {
+        static var lastProcess: String { String(localized: "Son İşlem", comment: "Quick access: Last process label") }
+        static var newButton: String { String(localized: "Yeni", comment: "Quick access: New file button") }
+        static var live: String { String(localized: "Canlı", comment: "Stats: Live indicator") }
+    }
+
+    // MARK: - Quick Actions (Home Screen)
+    enum QuickActions {
+        static var title: String { String(localized: "Hızlı İşlemler", comment: "Quick actions: Section title") }
+        static var batchProcessing: String { String(localized: "Toplu İşlem", comment: "Quick actions: Batch processing") }
+        static var batchDescription: String { String(localized: "Çoklu dosya sıkıştır", comment: "Quick actions: Batch description") }
+        static var converter: String { String(localized: "Dönüştürücü", comment: "Quick actions: Converter") }
+        static var converterDescription: String { String(localized: "Format değiştir", comment: "Quick actions: Converter description") }
+    }
+
+    // MARK: - Tools Section (Settings)
+    enum Tools {
+        static var title: String { String(localized: "Araçlar", comment: "Tools: Section title") }
+        static var batchProcessing: String { String(localized: "Toplu İşlem", comment: "Tools: Batch processing") }
+        static var batchDescription: String { String(localized: "Birden fazla dosyayı aynı anda sıkıştır", comment: "Tools: Batch description") }
+        static var converter: String { String(localized: "Dosya Dönüştürücü", comment: "Tools: File converter") }
+        static var converterDescription: String { String(localized: "PDF, resim ve video formatlarını dönüştür", comment: "Tools: Converter description") }
+        static var statistics: String { String(localized: "İstatistikler", comment: "Tools: Statistics") }
+        static var statisticsDescription: String { String(localized: "Kullanım analizi ve başarımlar", comment: "Tools: Statistics description") }
+    }
+
+    // MARK: - Subscription Section (Settings)
+    enum Subscription {
+        static var title: String { String(localized: "Abonelik", comment: "Subscription: Section title") }
+        static var restorePurchases: String { String(localized: "Satın Alımları Geri Yükle", comment: "Subscription: Restore purchases") }
+        static var restoreFooter: String { String(localized: "Daha önce Premium satın aldıysanız, satın alımlarınızı geri yükleyebilirsiniz.", comment: "Subscription: Restore footer") }
+        static var premiumMember: String { String(localized: "Premium Üyesiniz", comment: "Subscription: Premium member") }
+        static var allFeaturesActive: String { String(localized: "Tüm özellikler aktif", comment: "Subscription: All features active") }
+        static var unlimitedAndAdFree: String { String(localized: "Sınırsız sıkıştırma & Reklamsız", comment: "Subscription: Unlimited and ad-free") }
+    }
+
+    // MARK: - Navigation
+    enum Navigation {
+        static var back: String { String(localized: "Geri", comment: "Navigation: Back button") }
+    }
+
+    // MARK: - Commitment Card (Settings)
+    enum CommitmentCard {
+        static var title: String { String(localized: "KENDİNE VERDİĞİN SÖZ", comment: "Commitment: Card title") }
+        static var pledge: String { String(localized: "Dosyalarımı her zaman optimize edeceğime ve dijital kirlilik yaratmayacağıma söz veriyorum.", comment: "Commitment: Pledge text") }
+    }
+
+    // MARK: - Batch Item Status
+    enum BatchStatus {
+        static var pending: String { String(localized: "Bekliyor", comment: "Batch status: Pending") }
+        static var processing: String { String(localized: "İşleniyor", comment: "Batch status: Processing") }
+        static var completed: String { String(localized: "Tamamlandı", comment: "Batch status: Completed") }
+        static var failed: String { String(localized: "Başarısız", comment: "Batch status: Failed") }
+        static var cancelled: String { String(localized: "İptal Edildi", comment: "Batch status: Cancelled") }
+    }
+
+    // MARK: - Preset Options (Settings)
+    enum PresetOptions {
+        static var whatsapp: String { String(localized: "WhatsApp", comment: "Preset: WhatsApp") }
+        static var mail25MB: String { String(localized: "Mail (25 MB)", comment: "Preset: Mail 25MB") }
     }
 }
