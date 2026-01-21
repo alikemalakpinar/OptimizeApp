@@ -15,6 +15,7 @@ import Foundation
 import UIKit
 import PDFKit
 import AVFoundation
+import UniformTypeIdentifiers
 
 // MARK: - Compression Mode (User-Facing Quality Tiers)
 
@@ -72,7 +73,7 @@ struct CompressionJobResult: Equatable {
     let status: JobStatus
     let reason: String
     let mode: CompressionMode
-    let fileType: FileType
+    let fileType: CompressionFileType
     let processingTime: TimeInterval
     let diagnostics: JobDiagnostics?
 
@@ -129,7 +130,7 @@ struct CompressionJobResult: Equatable {
         inputSize: Int64,
         outputSize: Int64,
         mode: CompressionMode,
-        fileType: FileType,
+        fileType: CompressionFileType,
         processingTime: TimeInterval,
         diagnostics: JobDiagnostics? = nil
     ) -> CompressionJobResult {
@@ -151,7 +152,7 @@ struct CompressionJobResult: Equatable {
         input: URL,
         inputSize: Int64,
         mode: CompressionMode,
-        fileType: FileType,
+        fileType: CompressionFileType,
         reason: String,
         diagnostics: JobDiagnostics? = nil
     ) -> CompressionJobResult {
@@ -173,7 +174,7 @@ struct CompressionJobResult: Equatable {
         input: URL,
         inputSize: Int64,
         mode: CompressionMode,
-        fileType: FileType,
+        fileType: CompressionFileType,
         reason: String
     ) -> CompressionJobResult {
         CompressionJobResult(
@@ -194,7 +195,7 @@ struct CompressionJobResult: Equatable {
         input: URL,
         inputSize: Int64,
         mode: CompressionMode,
-        fileType: FileType
+        fileType: CompressionFileType
     ) -> CompressionJobResult {
         CompressionJobResult(
             inputURL: input,
@@ -269,13 +270,13 @@ struct JobDiagnostics: Equatable {
 // MARK: - File Type Detection
 
 /// Supported file types for compression
-enum FileType: String, CaseIterable {
+enum CompressionFileType: String, CaseIterable {
     case image = "image"
     case video = "video"
     case pdf = "pdf"
     case unknown = "unknown"
 
-    static func detect(from url: URL) -> FileType {
+    static func detect(from url: URL) -> CompressionFileType {
         let ext = url.pathExtension.lowercased()
 
         // Images
@@ -390,7 +391,7 @@ final class SmartCompressionEngine: ObservableObject {
         progress: ((Double, String) -> Void)? = nil
     ) async -> CompressionJobResult {
         let startTime = Date()
-        let fileType = FileType.detect(from: url)
+        let fileType = CompressionFileType.detect(from: url)
 
         // Get input size
         let inputSize = getFileSize(url)
@@ -458,10 +459,10 @@ final class SmartCompressionEngine: ObservableObject {
         results.reserveCapacity(urls.count)
 
         // Categorize files
-        let images = urls.filter { FileType.detect(from: $0) == .image }
-        let videos = urls.filter { FileType.detect(from: $0) == .video }
-        let pdfs = urls.filter { FileType.detect(from: $0) == .pdf }
-        let others = urls.filter { FileType.detect(from: $0) == .unknown }
+        let images = urls.filter { CompressionFileType.detect(from: $0) == .image }
+        let videos = urls.filter { CompressionFileType.detect(from: $0) == .video }
+        let pdfs = urls.filter { CompressionFileType.detect(from: $0) == .pdf }
+        let others = urls.filter { CompressionFileType.detect(from: $0) == .unknown }
 
         // Process videos SERIALLY (OOM prevention)
         for (index, url) in videos.enumerated() {
@@ -648,10 +649,10 @@ final class SmartCompressionEngine: ObservableObject {
                     let outputExtension: String
 
                     if config.preferHEIC && self.supportsHEIC() {
-                        outputType = AVFileType.heic as CFString
+                        outputType = UTType.heic.identifier as CFString
                         outputExtension = "heic"
                     } else {
-                        outputType = kUTTypeJPEG
+                        outputType = UTType.jpeg.identifier as CFString
                         outputExtension = "jpg"
                     }
 

@@ -14,6 +14,15 @@
 import Foundation
 import os.log
 
+// Note: There are two FileType enums in the optimize module:
+// 1. Compression FileType (in SmartCompressionEngine.swift): .image, .video, .pdf, .unknown
+//    - This one has a String raw value (conforms to RawRepresentable)
+// 2. UI FileType (in FileCard.swift): .pdf, .image, .video, .document, .unknown
+//    - This one has no raw value
+// 
+// To resolve the ambiguity, we use the specific FileType from SmartCompressionEngine
+// by referencing it with its full context where needed.
+
 // MARK: - Compression Logger
 
 /// Debug-only logging for compression diagnostics
@@ -31,12 +40,12 @@ enum CompressionLogger {
     // MARK: - Analysis Logging
 
     /// Log file analysis results
-    static func logAnalysis(
+    static func logAnalysis<T: RawRepresentable>(
         url: URL,
-        fileType: FileType,
+        fileType: T,
         size: Int64,
         metadata: [String: Any]? = nil
-    ) {
+    ) where T.RawValue == String {
         #if DEBUG
         let sizeFormatted = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
         os_log(
@@ -135,12 +144,12 @@ enum CompressionLogger {
     // MARK: - Strategy Logging
 
     /// Log compression strategy decision
-    static func logStrategy(
-        mode: CompressionMode,
-        fileType: FileType,
+    static func logStrategy<M: RawRepresentable, F: RawRepresentable>(
+        mode: M,
+        fileType: F,
         strategy: String,
         reason: String
-    ) {
+    ) where M.RawValue == String, F.RawValue == String {
         #if DEBUG
         os_log(
             "[Strategy] Mode: %{public}@ | Type: %{public}@ | Strategy: %{public}@ | Reason: %{public}@",
@@ -177,7 +186,7 @@ enum CompressionLogger {
     // MARK: - Execution Logging
 
     /// Log compression start
-    static func logStart(url: URL, mode: CompressionMode) {
+    static func logStart<M: RawRepresentable>(url: URL, mode: M) where M.RawValue == String {
         #if DEBUG
         os_log(
             "[Start] %{public}@ | Mode: %{public}@",
