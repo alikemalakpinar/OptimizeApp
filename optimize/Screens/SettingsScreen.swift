@@ -259,6 +259,70 @@ struct SettingsScreen: View {
                     Text(AppStrings.Settings.legal)
                 }
 
+                // MARK: - DEBUG Developer Override Section
+                #if DEBUG
+                Section {
+                    // Pro Mode Toggle
+                    Button {
+                        SubscriptionManager.shared.toggleDebugProMode()
+                        Haptics.impact()
+                    } label: {
+                        HStack {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Force Pro Mode")
+                                        .foregroundStyle(.primary)
+                                    Text(SubscriptionManager.forceProMode ? "PRO MODE ACTIVE" : "FREE MODE")
+                                        .font(.caption)
+                                        .foregroundStyle(SubscriptionManager.forceProMode ? .green : .secondary)
+                                }
+                            } icon: {
+                                Image(systemName: SubscriptionManager.forceProMode ? "crown.fill" : "crown")
+                                    .foregroundStyle(SubscriptionManager.forceProMode ? .yellow : .secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.appAccent)
+                        }
+                    }
+
+                    // Reset Daily Limit
+                    Button {
+                        SubscriptionManager.shared.resetDailyUsageForTesting()
+                        Haptics.success()
+                    } label: {
+                        HStack {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Reset Daily Limit")
+                                        .foregroundStyle(.primary)
+                                    Text("Current: \(SubscriptionManager.shared.status.dailyUsageCount)/\(SubscriptionManager.shared.status.dailyUsageLimit == .max ? "∞" : "\(SubscriptionManager.shared.status.dailyUsageLimit)")")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "arrow.counterclockwise.circle.fill")
+                                    .foregroundStyle(.orange)
+                            }
+                            Spacer()
+                            Text("Reset")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Image(systemName: "hammer.fill")
+                        Text("Developer Override")
+                    }
+                    .foregroundStyle(.orange)
+                } footer: {
+                    Text("DEBUG ONLY - These controls bypass StoreKit and are stripped from Release builds.")
+                        .foregroundStyle(.orange)
+                }
+                #endif
+
                 // MARK: - App Info Footer
                 Section {
                     HStack {

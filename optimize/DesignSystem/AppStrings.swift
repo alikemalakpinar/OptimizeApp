@@ -41,7 +41,7 @@ struct AppStrings {
         static var saveFailed: String { String(localized: "Kaydetme başarısız. Depolama alanını kontrol edin.", comment: "Error: Save failed") }
         static var cancelled: String { String(localized: "İşlem kullanıcı tarafından iptal edildi.", comment: "Error: Cancelled") }
         static var memoryPressure: String { String(localized: "Yetersiz bellek. Lütfen bazı uygulamaları kapatın ve tekrar deneyin.", comment: "Error: Memory pressure") }
-        static var fileTooLarge: String { String(localized: "Dosya çok büyük. Lütfen 500 sayfadan az dosyalar deneyin.", comment: "Error: File too large") }
+        static var fileTooLarge: String { String(localized: "Dosya sayfa limiti aşıyor. Premium ile sınırsız sayfa işleyebilirsiniz.", comment: "Error: File too large") }
         static var pageFailed: String { String(localized: "Sayfa işlenemedi. Dosya bozuk olabilir.", comment: "Error: Page processing failed") }
         static var timeout: String { String(localized: "İşlem zaman aşımına uğradı. Daha küçük bir dosya deneyin.", comment: "Error: Timeout") }
         static var exportFailed: String { String(localized: "Video dışa aktarılamadı. Daha düşük kalite deneyin.", comment: "Error: Export failed") }
@@ -384,7 +384,7 @@ struct AppStrings {
         static var saveFailed: String { String(localized: "Dosya kaydedilemedi. Lütfen depolama alanınızı kontrol edin.", comment: "Error: Save Failed") }
         static var cancelled: String { String(localized: "İşlem kullanıcı tarafından iptal edildi.", comment: "Error: Cancelled") }
         static var memoryPressure: String { String(localized: "Yetersiz bellek. Lütfen bazı uygulamaları kapatıp tekrar deneyin.", comment: "Error: Memory Pressure") }
-        static var fileTooLarge: String { String(localized: "Dosya çok büyük. Lütfen 500 sayfadan az dosyalar deneyin.", comment: "Error: File Too Large") }
+        static var fileTooLarge: String { String(localized: "Dosya sayfa limiti aşıyor. Premium ile sınırsız sayfa işleyebilirsiniz.", comment: "Error: File Too Large") }
         static var pageFailed: String { String(localized: "Sayfa işlenemedi. Dosya bozuk olabilir.", comment: "Error: Page Failed") }
         static var timeout: String { String(localized: "İşlem zaman aşımına uğradı. Lütfen daha küçük bir dosya deneyin.", comment: "Error: Timeout") }
         static var exportFailed: String { String(localized: "Video dışa aktarma başarısız. Lütfen daha düşük kalite deneyin.", comment: "Error: Export Failed") }
