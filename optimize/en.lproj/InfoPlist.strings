@@ -1,0 +1,19 @@
+/*
+  InfoPlist.strings (English)
+  optimize
+
+  English localization for Info.plist privacy descriptions.
+  These strings are displayed in system permission dialogs.
+*/
+
+/* Photo Library Access - Full access for image compression */
+"NSPhotoLibraryUsageDescription" = "OptimizeApp needs access to your photo library to compress your photos and optimize storage space.";
+
+/* Photo Library Add Permission - For saving compressed files */
+"NSPhotoLibraryAddUsageDescription" = "OptimizeApp needs permission to save compressed photos and videos to your photo library.";
+
+/* Camera Access - For direct capture and compress feature */
+"NSCameraUsageDescription" = "OptimizeApp can use your camera to take photos and compress them directly.";
+
+/* Face ID - For securing premium features */
+"NSFaceIDUsageDescription" = "Face ID can be used to protect your premium features.";

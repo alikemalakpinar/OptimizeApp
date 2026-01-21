@@ -1,0 +1,19 @@
+/*
+  InfoPlist.strings (Turkish)
+  optimize
+
+  Turkish localization for Info.plist privacy descriptions.
+  These strings are displayed in system permission dialogs.
+*/
+
+/* Photo Library Access - Full access for image compression */
+"NSPhotoLibraryUsageDescription" = "OptimizeApp, fotoğraflarınızı sıkıştırmak ve depolama alanınızı optimize etmek için fotoğraf kütüphanenize erişim gerektirir.";
+
+/* Photo Library Add Permission - For saving compressed files */
+"NSPhotoLibraryAddUsageDescription" = "OptimizeApp, sıkıştırılmış fotoğraf ve videoları galerinize kaydetmek için izin gerektirir.";
+
+/* Camera Access - For direct capture and compress feature */
+"NSCameraUsageDescription" = "OptimizeApp, fotoğraf çekerek doğrudan sıkıştırma yapabilmeniz için kamera erişimi ister.";
+
+/* Face ID - For securing premium features */
+"NSFaceIDUsageDescription" = "Premium özelliklerinizi korumak için Face ID kullanılabilir.";
