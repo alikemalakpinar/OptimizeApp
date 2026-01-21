@@ -720,3 +720,176 @@ extension VideoResolution {
         }
     }
 }
+
+// MARK: - SmartCompressionEngine Integration (v4.1)
+
+extension BatchProcessingService {
+
+    /// Process batch using SmartCompressionEngine with memory-safe scheduling
+    /// - Videos: Processed SERIALLY (OOM prevention)
+    /// - PDFs: Processed SERIALLY by default
+    /// - Images: Limited parallelism (max 2-3)
+    func processWithSmartEngine(mode: CompressionMode = .visuallyLossless) async {
+        let engine = SmartCompressionEngine()
+
+        // Categorize items by file type
+        let videoItems = queue.filter { item in
+            let ext = item.sourceURL.pathExtension.lowercased()
+            return ["mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp"].contains(ext)
+        }
+
+        let pdfItems = queue.filter { item in
+            item.sourceURL.pathExtension.lowercased() == "pdf"
+        }
+
+        let imageItems = queue.filter { item in
+            let ext = item.sourceURL.pathExtension.lowercased()
+            return ["jpg", "jpeg", "png", "heic", "heif", "webp", "tiff", "tif", "bmp", "gif"].contains(ext)
+        }
+
+        // STEP 1: Process VIDEOS serially (OOM prevention)
+        for item in videoItems {
+            if Task.isCancelled { break }
+            await processItemWithEngine(item, engine: engine, mode: mode)
+        }
+
+        // STEP 2: Process PDFs serially
+        for item in pdfItems {
+            if Task.isCancelled { break }
+            await processItemWithEngine(item, engine: engine, mode: mode)
+        }
+
+        // STEP 3: Process IMAGES with limited parallelism (max 2)
+        await withTaskGroup(of: Void.self) { group in
+            var runningCount = 0
+            let maxParallel = 2
+
+            for item in imageItems {
+                if Task.isCancelled { break }
+
+                // Wait for slot if at capacity
+                if runningCount >= maxParallel {
+                    await group.next()
+                    runningCount -= 1
+                }
+
+                runningCount += 1
+                group.addTask {
+                    await self.processItemWithEngine(item, engine: engine, mode: mode)
+                }
+            }
+
+            // Wait for remaining
+            await group.waitForAll()
+        }
+
+        // Cleanup
+        engine.cleanup()
+    }
+
+    /// Process single item using SmartCompressionEngine
+    private func processItemWithEngine(
+        _ item: BatchItem,
+        engine: SmartCompressionEngine,
+        mode: CompressionMode
+    ) async {
+        // Update status to processing
+        if let index = queue.firstIndex(where: { $0.id == item.id }) {
+            queue[index].status = .processing
+            queue[index].startTime = Date()
+            updateProgress()
+        }
+
+        // Access security-scoped resource
+        let hasAccess = item.sourceURL.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess {
+                item.sourceURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        // Process with SmartCompressionEngine
+        let jobResult = await engine.compress(url: item.sourceURL, mode: mode) { [weak self] progress, stage in
+            Task { @MainActor in
+                self?.updateItemProgress(item.id, progress: progress)
+            }
+        }
+
+        // Convert to BatchItem result
+        await MainActor.run {
+            if let index = queue.firstIndex(where: { $0.id == item.id }) {
+                var completedItem = queue[index]
+                completedItem.endTime = Date()
+
+                switch jobResult.status {
+                case .success:
+                    completedItem.status = .completed
+                    if let outputURL = jobResult.outputURL {
+                        let originalFileInfo = FileInfo(
+                            name: item.fileName,
+                            url: item.sourceURL,
+                            size: item.fileSize
+                        )
+                        completedItem.result = CompressionResult(
+                            originalFile: originalFileInfo,
+                            compressedURL: outputURL,
+                            compressedSize: jobResult.outputSize
+                        )
+                    }
+                    // Track statistics
+                    SubscriptionManager.shared.recordSuccessfulCompression()
+
+                case .skipped:
+                    // Skipped is also a "success" from user perspective
+                    completedItem.status = .completed
+                    completedItem.error = jobResult.reason
+
+                case .failed:
+                    completedItem.status = .failed
+                    completedItem.error = jobResult.reason
+
+                case .cancelled:
+                    completedItem.status = .cancelled
+                    completedItem.error = jobResult.reason
+                }
+
+                completedItems.insert(completedItem, at: 0)
+                queue.remove(at: index)
+                updateProgress()
+
+                // Haptic feedback
+                if completedItem.status == .completed {
+                    HapticManager.shared.trigger(.complete)
+                } else if completedItem.status == .failed {
+                    HapticManager.shared.trigger(.error)
+                }
+            }
+        }
+    }
+
+    /// Start processing with SmartCompressionEngine (memory-safe)
+    @discardableResult
+    func startSmartProcessing(mode: CompressionMode = .visuallyLossless) -> Bool {
+        guard !isProcessing, !queue.isEmpty else { return false }
+
+        // PREMIUM CHECK: If queue has more than 2 items, require Pro
+        if queue.count > 2 && !subscriptionManager.canPerformBatchProcessing {
+            subscriptionManager.checkFeatureAccess(.batchProcessing)
+            return false
+        }
+
+        isProcessing = true
+        beginBackgroundTask()
+
+        processingTask = Task {
+            await processWithSmartEngine(mode: mode)
+            await MainActor.run {
+                isProcessing = false
+                updateProgress()
+            }
+            endBackgroundTask()
+        }
+
+        return true
+    }
+}
