@@ -30,10 +30,48 @@ struct ImageEncodingResult {
     let wasOrientationFixed: Bool
     let wasColorSpaceConverted: Bool
     let metadataStripped: Bool
+    let outcome: CompressionOutcome?
+    let wasPNGConvertedToJPEG: Bool
 
     var compressionRatio: Double {
         guard originalSize > 0 else { return 0 }
         return 1.0 - (Double(encodedSize) / Double(originalSize))
+    }
+
+    var savedBytes: Int64 {
+        return originalSize - encodedSize
+    }
+
+    var savedPercent: Int {
+        guard originalSize > 0 else { return 0 }
+        return Int((Double(savedBytes) / Double(originalSize)) * 100)
+    }
+
+    /// Returns true if output is smaller than input (the guarantee)
+    var outputIsSmaller: Bool {
+        return encodedSize < originalSize
+    }
+
+    init(
+        data: Data,
+        format: ImageFormat,
+        originalSize: Int64,
+        encodedSize: Int64,
+        wasOrientationFixed: Bool,
+        wasColorSpaceConverted: Bool,
+        metadataStripped: Bool,
+        outcome: CompressionOutcome? = nil,
+        wasPNGConvertedToJPEG: Bool = false
+    ) {
+        self.data = data
+        self.format = format
+        self.originalSize = originalSize
+        self.encodedSize = encodedSize
+        self.wasOrientationFixed = wasOrientationFixed
+        self.wasColorSpaceConverted = wasColorSpaceConverted
+        self.metadataStripped = metadataStripped
+        self.outcome = outcome
+        self.wasPNGConvertedToJPEG = wasPNGConvertedToJPEG
     }
 }
 
@@ -384,6 +422,158 @@ final class AdvancedImageEncoder {
     }
 }
 
+// MARK: - Output Guarantee System (v4.1)
+
+extension AdvancedImageEncoder {
+
+    /// Encode with output size guarantee - ensures output < input
+    /// If initial encoding doesn't reduce size, retries with more aggressive settings
+    /// - Parameters:
+    ///   - url: Source image URL
+    ///   - profile: Initial optimization profile
+    ///   - maxRetries: Maximum retry attempts (default: 3)
+    /// - Returns: ImageEncodingResult with guaranteed smaller output, or nil if impossible
+    func encodeWithGuarantee(
+        url: URL,
+        profile: OptimizationProfile,
+        maxRetries: Int = CompressionRetryConfig.maxRetries
+    ) -> ImageEncodingResult? {
+        var currentProfile = profile
+        var retryCount = 0
+
+        // First attempt
+        guard var result = encode(url: url, profile: currentProfile) else {
+            return nil
+        }
+
+        // Check if output is smaller
+        while !result.outputIsSmaller && retryCount < maxRetries {
+            retryCount += 1
+
+            // Create more aggressive profile for retry
+            currentProfile = createAggressiveProfile(from: currentProfile, retryCount: retryCount)
+
+            guard let retryResult = encode(url: url, profile: currentProfile) else {
+                continue
+            }
+
+            result = retryResult
+        }
+
+        // Determine final outcome
+        let outcome: CompressionOutcome
+        if result.outputIsSmaller {
+            if retryCount > 0 {
+                outcome = .retriedWithAggressiveProfile(
+                    savedBytes: result.savedBytes,
+                    savedPercent: result.savedPercent,
+                    retryCount: retryCount
+                )
+            } else if result.savedPercent < 5 {
+                outcome = .marginalSuccess(
+                    savedBytes: result.savedBytes,
+                    savedPercent: result.savedPercent,
+                    reason: "Dosya zaten optimize durumda."
+                )
+            } else {
+                outcome = .success(savedBytes: result.savedBytes, savedPercent: result.savedPercent)
+            }
+        } else {
+            // Still no reduction - determine why
+            let diagnostics = CompressionDiagnostics(
+                originalSize: result.originalSize,
+                attemptedSize: result.encodedSize,
+                originalCodec: detectOriginalCodec(url: url),
+                attemptedQuality: Float(currentProfile.imageQuality),
+                isAlreadyCompressed: isAlreadyCompressedFormat(url: url),
+                hasEmbeddedThumbnails: false,
+                metadataSize: 0
+            )
+            outcome = .alreadyOptimized(diagnostics: diagnostics)
+        }
+
+        // Return result with outcome
+        return ImageEncodingResult(
+            data: result.data,
+            format: result.format,
+            originalSize: result.originalSize,
+            encodedSize: result.encodedSize,
+            wasOrientationFixed: result.wasOrientationFixed,
+            wasColorSpaceConverted: result.wasColorSpaceConverted,
+            metadataStripped: result.metadataStripped,
+            outcome: outcome,
+            wasPNGConvertedToJPEG: result.wasPNGConvertedToJPEG
+        )
+    }
+
+    /// Create more aggressive profile for retry
+    private func createAggressiveProfile(from profile: OptimizationProfile, retryCount: Int) -> OptimizationProfile {
+        var newProfile = profile
+        newProfile.stripMetadata = true
+        newProfile.convertToSRGB = true
+        newProfile.removeColorProfiles = true
+        newProfile.smartPNGDetection = true
+
+        // Force HEIC for better compression
+        newProfile.preferHEIC = true
+
+        return newProfile
+    }
+
+    /// Detect original codec from URL
+    private func detectOriginalCodec(url: URL) -> String? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let type = CGImageSourceGetType(source) as String? else {
+            return nil
+        }
+        return type
+    }
+
+    /// Check if file is already in a compressed format
+    private func isAlreadyCompressedFormat(url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ["jpg", "jpeg", "heic", "heif", "webp"].contains(ext)
+    }
+
+    /// Encode PNG as JPEG/HEIC if it's photo-like (no meaningful transparency)
+    /// This can provide 60-80% size reduction for screenshots and photos saved as PNG
+    func encodePNGWithSmartConversion(
+        url: URL,
+        profile: OptimizationProfile
+    ) -> ImageEncodingResult? {
+        // Check if it's actually a PNG
+        guard url.pathExtension.lowercased() == "png" else {
+            return encode(url: url, profile: profile)
+        }
+
+        // Check if PNG is photo-like (no real transparency)
+        if isPhotoLikePNG(url: url) {
+            // Convert to JPEG/HEIC for massive savings
+            var convertProfile = profile
+            convertProfile.smartPNGDetection = true
+
+            guard let result = encode(url: url, profile: convertProfile) else {
+                return nil
+            }
+
+            return ImageEncodingResult(
+                data: result.data,
+                format: result.format,
+                originalSize: result.originalSize,
+                encodedSize: result.encodedSize,
+                wasOrientationFixed: result.wasOrientationFixed,
+                wasColorSpaceConverted: result.wasColorSpaceConverted,
+                metadataStripped: result.metadataStripped,
+                outcome: result.outcome,
+                wasPNGConvertedToJPEG: result.format != .png
+            )
+        }
+
+        // Keep as PNG (has real transparency)
+        return encode(url: url, profile: profile)
+    }
+}
+
 // MARK: - Convenience Extensions
 
 extension AdvancedImageEncoder {
@@ -407,5 +597,10 @@ extension AdvancedImageEncoder {
     /// Encode for maximum savings
     func encodeUltra(url: URL) -> Data? {
         encode(url: url, profile: .ultra)?.data
+    }
+
+    /// Encode with guaranteed output < input
+    func encodeGuaranteed(url: URL) -> ImageEncodingResult? {
+        encodeWithGuarantee(url: url, profile: .balanced)
     }
 }

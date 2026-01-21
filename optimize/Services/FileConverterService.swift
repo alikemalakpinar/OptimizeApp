@@ -547,16 +547,18 @@ final class FileConverterService: ObservableObject {
             progressHandler?(prog)
         }
 
-        // Create GIF
+        // Create GIF (Crash-Safe)
         let baseName = url.deletingPathExtension().lastPathComponent
         let outputURL = generateOutputURL(baseName: baseName, extension: "gif")
 
-        let destination = CGImageDestinationCreateWithURL(
+        guard let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
             UTType.gif.identifier as CFString,
             images.count,
             nil
-        )!
+        ) else {
+            throw ConversionError.conversionFailed(reason: "GIF dosya hedefi oluşturulamadı")
+        }
 
         let frameDelay = 1.0 / Double(options.gifFrameRate)
         let frameProperties: [CFString: Any] = [

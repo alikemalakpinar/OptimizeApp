@@ -189,6 +189,137 @@ struct CompressionConfig {
     }
 }
 
+// MARK: - Compression Outcome (v4.1 - Output Guarantee System)
+
+/// Represents the outcome of a compression operation with detailed diagnostics.
+/// This enum ensures the user always knows what happened, especially when
+/// output >= input (the "4.5MB → 4.5MB" problem).
+enum CompressionOutcome: Equatable {
+    /// Compression succeeded with measurable size reduction
+    case success(savedBytes: Int64, savedPercent: Int)
+
+    /// File was compressed but savings were minimal (<5%)
+    case marginalSuccess(savedBytes: Int64, savedPercent: Int, reason: String)
+
+    /// Compression was retried with more aggressive settings
+    case retriedWithAggressiveProfile(savedBytes: Int64, savedPercent: Int, retryCount: Int)
+
+    /// File is already optimized - no further reduction possible without quality loss
+    case alreadyOptimized(diagnostics: CompressionDiagnostics)
+
+    /// File format doesn't benefit from compression (e.g., already compressed formats)
+    case noReductionPossible(reason: NoReductionReason)
+
+    /// Compression failed with an error
+    case failed(error: CompressionError)
+
+    /// User-friendly message for display
+    var userMessage: String {
+        switch self {
+        case .success(_, let percent):
+            return "Başarılı! Dosya %\(percent) küçültüldü."
+        case .marginalSuccess(_, let percent, let reason):
+            return "Dosya %\(percent) küçültüldü. \(reason)"
+        case .retriedWithAggressiveProfile(_, let percent, let retryCount):
+            return "Yeniden denendi (\(retryCount)x). %\(percent) küçültüldü."
+        case .alreadyOptimized(let diagnostics):
+            return "Bu dosya zaten optimize edilmiş. \(diagnostics.summary)"
+        case .noReductionPossible(let reason):
+            return reason.userMessage
+        case .failed(let error):
+            return error.localizedDescription
+        }
+    }
+
+    /// Whether the operation should be considered successful
+    var isSuccess: Bool {
+        switch self {
+        case .success, .marginalSuccess, .retriedWithAggressiveProfile:
+            return true
+        case .alreadyOptimized, .noReductionPossible, .failed:
+            return false
+        }
+    }
+}
+
+/// Detailed diagnostics for when compression doesn't reduce file size
+struct CompressionDiagnostics: Equatable {
+    let originalSize: Int64
+    let attemptedSize: Int64
+    let originalCodec: String?
+    let attemptedQuality: Float
+    let isAlreadyCompressed: Bool
+    let hasEmbeddedThumbnails: Bool
+    let metadataSize: Int64
+
+    var summary: String {
+        if isAlreadyCompressed {
+            return "Dosya zaten sıkıştırılmış format kullanıyor."
+        }
+        if metadataSize > originalSize / 10 {
+            return "Metadata boyutu yüksek, ancak kaldırılamadı."
+        }
+        return "Daha fazla sıkıştırma kaliteyi ciddi şekilde düşürür."
+    }
+}
+
+/// Reasons why compression cannot reduce file size
+enum NoReductionReason: Equatable {
+    case alreadyCompressedFormat(format: String)
+    case qualityLossUnacceptable
+    case minimalCompressibleContent
+    case encryptedContent
+    case unsupportedInternalFormat
+
+    var userMessage: String {
+        switch self {
+        case .alreadyCompressedFormat(let format):
+            return "\(format.uppercased()) zaten sıkıştırılmış bir format. Daha fazla küçültme mümkün değil."
+        case .qualityLossUnacceptable:
+            return "Daha fazla sıkıştırma kaliteyi kabul edilemez seviyeye düşürür."
+        case .minimalCompressibleContent:
+            return "Dosyada sıkıştırılabilir içerik yok veya çok az."
+        case .encryptedContent:
+            return "Şifrelenmiş içerik sıkıştırılamaz."
+        case .unsupportedInternalFormat:
+            return "Desteklenmeyen dahili format."
+        }
+    }
+}
+
+// MARK: - Retry Configuration for "Output >= Input" Scenarios
+
+/// Configuration for automatic retry with more aggressive settings
+struct CompressionRetryConfig {
+    /// Maximum number of retry attempts
+    static let maxRetries = 3
+
+    /// Quality reduction per retry attempt
+    static let qualityReductionPerRetry: Float = 0.15
+
+    /// Resolution reduction per retry attempt
+    static let resolutionReductionPerRetry: CGFloat = 20
+
+    /// Get progressively more aggressive config for each retry
+    static func configForRetry(_ retryCount: Int, baseConfig: CompressionConfig) -> CompressionConfig {
+        let qualityReduction = Float(retryCount) * qualityReductionPerRetry
+        let resolutionReduction = CGFloat(retryCount) * resolutionReductionPerRetry
+
+        return CompressionConfig(
+            quality: max(0.15, baseConfig.quality - qualityReduction),
+            targetResolution: max(60, baseConfig.targetResolution - resolutionReduction),
+            preserveVectors: retryCount < 2 ? baseConfig.preserveVectors : false,
+            useMRC: baseConfig.useMRC,
+            aggressiveMode: true, // Always aggressive on retry
+            textThreshold: baseConfig.textThreshold,
+            minImageDPI: max(36, baseConfig.minImageDPI - CGFloat(retryCount * 10)),
+            useMultiSignalDetection: baseConfig.useMultiSignalDetection,
+            minSSIMThreshold: max(0.60, baseConfig.minSSIMThreshold - Float(retryCount) * 0.05),
+            enableAdaptiveQualityFloor: baseConfig.enableAdaptiveQualityFloor
+        )
+    }
+}
+
 // MARK: - Processing Error Types
 
 /// Errors specific to the advanced compression pipeline

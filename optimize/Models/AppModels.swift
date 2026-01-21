@@ -113,21 +113,25 @@ struct CompressionPreset: Identifiable, Equatable {
         )
     ]
 
-    // MARK: - Static Convenience Properties
+    // MARK: - Static Convenience Properties (Crash-Safe)
+    /// Returns the mail preset or a safe fallback
     static var mail: CompressionPreset {
-        defaultPresets.first { $0.id == "mail" }!
+        defaultPresets.first { $0.id == "mail" } ?? defaultPresets[0]
     }
 
+    /// Returns the commercial/whatsapp preset or a safe fallback
     static var commercial: CompressionPreset {
-        defaultPresets.first { $0.id == "whatsapp" }!
+        defaultPresets.first { $0.id == "whatsapp" } ?? defaultPresets[0]
     }
 
+    /// Returns the high quality preset or a safe fallback
     static var highQuality: CompressionPreset {
-        defaultPresets.first { $0.id == "quality" }!
+        defaultPresets.first { $0.id == "quality" } ?? defaultPresets[0]
     }
 
+    /// Returns the extreme/custom preset or a safe fallback
     static var extreme: CompressionPreset {
-        defaultPresets.first { $0.id == "custom" }!
+        defaultPresets.first { $0.id == "custom" } ?? defaultPresets[0]
     }
 }
 

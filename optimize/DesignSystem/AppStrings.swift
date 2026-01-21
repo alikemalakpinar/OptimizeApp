@@ -390,4 +390,94 @@ struct AppStrings {
         static var exportFailed: String { String(localized: "Video dışa aktarma başarısız. Lütfen daha düşük kalite deneyin.", comment: "Error: Export Failed") }
         static var unsupportedType: String { String(localized: "Bu dosya türü henüz desteklenmiyor.", comment: "Error: Unsupported Type") }
     }
+
+    // MARK: - Compression Outcome Messages (v4.1)
+    enum CompressionOutcomeMessages {
+        // Success messages
+        static func success(percent: Int) -> String {
+            String(localized: "Başarılı! Dosya %\(percent) küçültüldü.", comment: "Outcome: Success")
+        }
+
+        static func marginalSuccess(percent: Int) -> String {
+            String(localized: "Dosya %\(percent) küçültüldü. Zaten optimize durumda.", comment: "Outcome: Marginal Success")
+        }
+
+        static func retriedSuccess(percent: Int, retryCount: Int) -> String {
+            String(localized: "Daha agresif ayarlarla %\(percent) küçültüldü.", comment: "Outcome: Retried Success")
+        }
+
+        // Already optimized messages
+        static var alreadyOptimized: String {
+            String(localized: "Bu dosya zaten optimize edilmiş durumda.", comment: "Outcome: Already Optimized")
+        }
+
+        static var alreadyOptimizedDetail: String {
+            String(localized: "Daha fazla sıkıştırma kaliteyi ciddi şekilde düşürür.", comment: "Outcome: Already Optimized Detail")
+        }
+
+        // No reduction possible messages
+        static func noReductionFormat(format: String) -> String {
+            String(localized: "\(format.uppercased()) zaten sıkıştırılmış bir format. Daha fazla küçültme mümkün değil.", comment: "Outcome: No Reduction Format")
+        }
+
+        static var noReductionQuality: String {
+            String(localized: "Daha fazla sıkıştırma kaliteyi kabul edilemez seviyeye düşürür.", comment: "Outcome: No Reduction Quality")
+        }
+
+        static var noReductionContent: String {
+            String(localized: "Dosyada sıkıştırılabilir içerik yok veya çok az.", comment: "Outcome: No Reduction Content")
+        }
+
+        static var noReductionEncrypted: String {
+            String(localized: "Şifrelenmiş içerik sıkıştırılamaz.", comment: "Outcome: No Reduction Encrypted")
+        }
+
+        // User actions
+        static var tryDifferentSettings: String {
+            String(localized: "Farklı Ayarla Dene", comment: "Outcome Action: Try Different Settings")
+        }
+
+        static var useOriginal: String {
+            String(localized: "Orijinali Kullan", comment: "Outcome Action: Use Original")
+        }
+
+        static var tryAggressiveMode: String {
+            String(localized: "Agresif Mod Dene", comment: "Outcome Action: Try Aggressive")
+        }
+    }
+
+    // MARK: - Error Recovery Suggestions
+    enum ErrorRecovery {
+        static var corruptedFile: String {
+            String(localized: "Bu dosya hasarlı görünüyor. Farklı bir kaynak deneyin.", comment: "Recovery: Corrupted File")
+        }
+
+        static var permissionDenied: String {
+            String(localized: "Dosya izni gerekiyor. Dosyayı tekrar seçin.", comment: "Recovery: Permission Denied")
+        }
+
+        static var insufficientStorage: String {
+            String(localized: "Yeterli depolama alanı yok. Biraz yer açıp tekrar deneyin.", comment: "Recovery: Insufficient Storage")
+        }
+
+        static var lowMemory: String {
+            String(localized: "Bellek yetersiz. Bazı uygulamaları kapatıp tekrar deneyin.", comment: "Recovery: Low Memory")
+        }
+
+        static var networkError: String {
+            String(localized: "Bağlantı hatası. İnternet bağlantınızı kontrol edin.", comment: "Recovery: Network Error")
+        }
+
+        static var trySmaller: String {
+            String(localized: "Daha küçük bir dosya deneyin.", comment: "Recovery: Try Smaller")
+        }
+
+        static var tryLowerQuality: String {
+            String(localized: "Daha düşük kalite ayarı deneyin.", comment: "Recovery: Try Lower Quality")
+        }
+
+        static var contactSupport: String {
+            String(localized: "Sorun devam ederse destek ile iletişime geçin.", comment: "Recovery: Contact Support")
+        }
+    }
 }
