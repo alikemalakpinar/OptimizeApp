@@ -4,9 +4,111 @@
 //
 //  Design System - Apple 2025 Design (Content-first + Glassy surfaces)
 //
+//  BRAND SYSTEM:
+//  - Primary: Electric Mint (#33C7A6) - Energy, optimization, success
+//  - Secondary: Premium Purple (#8F44FC) - Pro features, premium feel
+//  - Accent: Deep Blue (#4078FF) - Links, interactive elements
+//
+//  TYPOGRAPHY PHILOSOPHY:
+//  - Display (Serif): Editorial headlines, paywall titles
+//  - UI (Rounded): Buttons, labels, body text - friendly & modern
+//  - Data (Mono): File sizes, percentages - engineering precision
+//
 
 import SwiftUI
 import UIKit
+
+// MARK: - Brand System
+
+/// OptimizeApp Brand Identity
+/// Use these semantic colors for consistent brand expression
+enum Brand {
+    /// Primary brand color - Electric Mint
+    /// Use for: Success states, primary CTAs, completed actions
+    static let primary = Color.appMint
+
+    /// Secondary brand color - Premium Purple
+    /// Use for: Pro features, upgrades, premium indicators
+    static let secondary = Color.premiumPurple
+
+    /// Accent color - Deep Blue
+    /// Use for: Links, interactive elements, selection states
+    static let accent = Color.premiumBlue
+
+    /// Primary gradient for CTAs
+    static let primaryGradient = LinearGradient(
+        colors: [Color.appMint, Color.appTeal],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    /// Premium gradient for Pro features
+    static let premiumGradient = LinearGradient(
+        colors: [Color.premiumPurple, Color.premiumBlue],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    /// Success gradient for completion states
+    static let successGradient = LinearGradient(
+        colors: [Color.successGradientStart, Color.successGradientEnd],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+}
+
+// MARK: - Semantic Spacing
+
+/// Semantic spacing aliases for consistent layouts
+enum SemanticSpacing {
+    /// Standard card internal padding (16pt)
+    static let cardPadding: CGFloat = Spacing.md
+
+    /// Spacing between cards in a list (12pt)
+    static let cardGap: CGFloat = Spacing.sm
+
+    /// Section spacing in scrollable content (24pt)
+    static let sectionGap: CGFloat = Spacing.lg
+
+    /// Screen edge padding (16pt)
+    static let screenPadding: CGFloat = Spacing.md
+
+    /// Spacing between icon and text (8pt)
+    static let iconTextGap: CGFloat = Spacing.xs
+
+    /// Spacing between stacked text lines (4pt)
+    static let textStackGap: CGFloat = Spacing.xxs
+
+    /// Bottom safe area for floating buttons (32pt)
+    static let floatingBottomPadding: CGFloat = Spacing.xl
+}
+
+// MARK: - Display Scale
+
+/// Opinionated display text sizes for visual hierarchy
+/// Use for screen titles and hero content
+enum DisplayScale {
+    /// Hero titles on paywall/success screens (34pt)
+    static let hero: CGFloat = 34
+
+    /// Major section headers (28pt)
+    static let title: CGFloat = 28
+
+    /// Secondary headers (22pt)
+    static let subtitle: CGFloat = 22
+
+    /// Subsection headers (17pt)
+    static let heading: CGFloat = 17
+
+    /// Body text (15pt)
+    static let body: CGFloat = 15
+
+    /// Caption and metadata (12pt)
+    static let caption: CGFloat = 12
+
+    /// Micro text for badges (10pt)
+    static let micro: CGFloat = 10
+}
 
 // MARK: - Color Tokens
 extension Color {

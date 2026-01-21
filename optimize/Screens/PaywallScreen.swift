@@ -2,7 +2,12 @@
 //  PaywallScreen.swift
 //  optimize
 //
-//  Modern subscription paywall with trial flow design
+//  ⚠️ DEPRECATED: Use ModernPaywallScreen instead
+//  This file is kept for reference only. All paywall presentations
+//  are now routed to ModernPaywallScreen via AppCoordinator.
+//
+//  Migration: AppCoordinator.presentPaywall() always uses ModernPaywallScreen
+//  TODO: Remove this file after confirming no direct references remain
 //
 
 import SwiftUI
