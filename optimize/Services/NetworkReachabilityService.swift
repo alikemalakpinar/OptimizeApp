@@ -95,7 +95,7 @@ final class NetworkReachabilityService: ObservableObject {
         monitor.start(queue: queue)
     }
 
-    private func stopMonitoring() {
+    nonisolated private func stopMonitoring() {
         monitor.cancel()
     }
 

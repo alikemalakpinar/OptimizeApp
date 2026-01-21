@@ -19,6 +19,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 // MARK: - iCloud Download Status
 
@@ -68,7 +69,10 @@ final class iCloudFileHandler: ObservableObject {
     // MARK: - Lifecycle
 
     deinit {
-        stopMonitoring()
+        // Clean up without requiring main actor isolation
+        downloadQuery?.stop()
+        downloadQuery = nil
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Check Status
@@ -97,7 +101,7 @@ final class iCloudFileHandler: ObservableObject {
                     return .downloading(progress: downloadProgress)
                 }
                 return .notDownloaded
-            @unknown default:
+            default:
                 return .notApplicable
             }
         } catch {
@@ -210,7 +214,7 @@ final class iCloudFileHandler: ObservableObject {
         NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidUpdate, object: nil)
     }
 
-    @objc private func queryDidUpdate(_ notification: Notification) {
+    @MainActor @objc private func queryDidUpdate(_ notification: Notification) {
         guard let query = notification.object as? NSMetadataQuery,
               let item = query.results.first as? NSMetadataItem,
               let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL else {

@@ -19,6 +19,9 @@
 import Foundation
 import os.log
 import Combine
+#if os(iOS)
+import UIKit
+#endif
 
 // MARK: - Memory Pressure Level
 
@@ -148,13 +151,15 @@ final class MemoryPressureMonitor: ObservableObject {
 
         pressureSource?.resume()
 
-        // Also listen to UIKit memory warnings
+        // Also listen to memory warnings
+        #if os(iOS)
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleUIKitMemoryWarning),
             name: UIApplication.didReceiveMemoryWarningNotification,
             object: nil
         )
+        #endif
     }
 
     private func setupPeriodicUpdates() {
@@ -229,13 +234,13 @@ final class MemoryPressureMonitor: ObservableObject {
         print("⚠️ [Memory] Warning - flushing caches")
         #endif
 
-        // Flush thumbnail cache
-        ThumbnailCacheService.shared.clearCache()
-
-        // Request temp file cleanup
+        // Flush thumbnail cache (async)
         Task {
-            TempFileCleanupService.shared.cleanupAllTempFiles()
+            await ThumbnailCacheService.shared.clearCache()
         }
+
+        // Request temp file cleanup (runs synchronously but off main thread internally if needed)
+        TempFileCleanupService.shared.cleanupAllTempFiles()
     }
 
     private func handleCriticalMemory() {
@@ -245,6 +250,11 @@ final class MemoryPressureMonitor: ObservableObject {
 
         // More aggressive cleanup
         URLCache.shared.removeAllCachedResponses()
+
+        // Also clear thumbnail cache
+        Task {
+            await ThumbnailCacheService.shared.clearCache()
+        }
     }
 
     // MARK: - Public API
