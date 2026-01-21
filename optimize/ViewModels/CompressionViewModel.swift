@@ -188,6 +188,20 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
         progress = 0
         currentStage = .preparing
 
+        // CRITICAL: Check disk space before starting compression
+        // This prevents crashes and corrupted files when disk is full
+        do {
+            try DiskSpaceGuard.ensureSpaceForCompression(inputFileSize: file.size)
+        } catch let error as DiskSpaceError {
+            #if DEBUG
+            print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
+            #endif
+            handleError(.saveFailed, preset: preset)
+            return
+        } catch {
+            // Non-disk-space error, continue anyway
+        }
+
         // Track analytics
         analytics.trackPresetSelected(presetId: preset.id, isCustom: preset.quality == .custom)
         analytics.track(.compressionStarted, parameters: [
@@ -363,6 +377,20 @@ extension CompressionViewModel {
         status = .preparing
         progress = 0
         currentStage = .preparing
+
+        // CRITICAL: Check disk space before starting compression
+        // This prevents crashes and corrupted files when disk is full
+        do {
+            try DiskSpaceGuard.ensureSpaceForCompression(inputFileSize: file.size)
+        } catch let error as DiskSpaceError {
+            #if DEBUG
+            print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
+            #endif
+            handleError(.saveFailed, preset: lastPreset!)
+            return
+        } catch {
+            // Non-disk-space error, continue anyway
+        }
 
         // Track analytics with profile info
         analytics.track(.compressionStarted, parameters: [
