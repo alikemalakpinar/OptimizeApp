@@ -236,7 +236,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             await MainActor.run {
                 statusMessage = validationResult.failureReason ?? "PDF doğrulama hatası"
             }
-            throw CompressionError.processingFailed(validationResult.failureReason ?? "Invalid PDF")
+            throw CompressionError.invalidPDF
         }
 
         // ULTRA MODE: Only use PDFUltraRebuilder when EXPLICITLY requested
