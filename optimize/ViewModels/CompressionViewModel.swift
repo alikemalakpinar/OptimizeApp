@@ -80,6 +80,13 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     @Published private(set) var progress: Double = 0
     @Published private(set) var currentStage: ProcessingStage = .preparing
 
+    // MARK: - Page Limits (Unified Policy)
+    // Free users: Limited to 100 pages (reasonable for personal use)
+    // Pro users: Unlimited (no artificial cap)
+    // This policy is shared between Home and Batch flows for consistency
+    private let freeUserPageLimit: Int = 100
+    private let proUserPageLimit: Int = .max  // Effectively unlimited
+
     // MARK: - Retry State
 
     private var retryCount = 0
@@ -139,11 +146,41 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
         lastPreset = preset
         lastError = nil
 
-        // Check for extremely large files (500+ pages)
-        if let pageCount = file.pageCount, pageCount > 500 {
-            let error = CompressionError.fileTooLarge
-            handleError(error, preset: preset)
-            return
+        // Check page count against subscription-based limits
+        // Pro users: No limit
+        // Free users: Limited to freeUserPageLimit (100 pages)
+        if let pageCount = file.pageCount {
+            let pageLimit = subscriptionManager.status.isPro ? proUserPageLimit : freeUserPageLimit
+
+            if pageCount > pageLimit {
+                // For free users, this should trigger paywall, not just error
+                if !subscriptionManager.status.isPro {
+                    // Post notification to trigger paywall with appropriate context
+                    NotificationCenter.default.post(
+                        name: .showPaywallForFeature,
+                        object: nil,
+                        userInfo: [
+                            "feature": PremiumFeature.unlimitedUsage,
+                            "context": PaywallContext(
+                                title: "Büyük PDF Desteği",
+                                subtitle: "\(pageCount) sayfalık PDF, ücretsiz \(freeUserPageLimit) sayfa limitini aşıyor.",
+                                icon: "doc.badge.plus",
+                                highlights: [
+                                    "Sınırsız sayfa desteği",
+                                    "500+ sayfalık PDF işleme",
+                                    "Profesyonel belge optimizasyonu",
+                                    "Öncelikli işlem kuyruğu"
+                                ],
+                                limitDescription: "Ücretsiz: \(freeUserPageLimit) sayfa • Pro: Sınırsız",
+                                ctaText: "Sınırsız PDF İşlemeyi Aç"
+                            )
+                        ]
+                    )
+                }
+                let error = CompressionError.fileTooLarge
+                handleError(error, preset: preset)
+                return
+            }
         }
 
         // Reset state
@@ -282,10 +319,40 @@ extension CompressionViewModel {
         lastPreset = CompressionPreset.from(profile: profile)
         lastError = nil
 
-        // Check for extremely large files (500+ pages)
-        if let pageCount = file.pageCount, pageCount > 500 {
-            // For Ultra mode, allow large files (streaming mode)
-            if profile.strategy != .ultra {
+        // Check page count against subscription-based limits
+        // Pro users: No limit (Ultra mode for streaming)
+        // Free users: Limited to freeUserPageLimit (100 pages)
+        if let pageCount = file.pageCount {
+            let isPro = subscriptionManager.status.isPro
+            let pageLimit = isPro ? proUserPageLimit : freeUserPageLimit
+
+            // For Pro users with Ultra strategy, always allow (streaming mode)
+            let allowLargeFile = isPro && profile.strategy == .ultra
+
+            if pageCount > pageLimit && !allowLargeFile {
+                // For free users, trigger paywall
+                if !isPro {
+                    NotificationCenter.default.post(
+                        name: .showPaywallForFeature,
+                        object: nil,
+                        userInfo: [
+                            "feature": PremiumFeature.unlimitedUsage,
+                            "context": PaywallContext(
+                                title: "Büyük PDF Desteği",
+                                subtitle: "\(pageCount) sayfalık PDF, ücretsiz \(freeUserPageLimit) sayfa limitini aşıyor.",
+                                icon: "doc.badge.plus",
+                                highlights: [
+                                    "Sınırsız sayfa desteği",
+                                    "500+ sayfalık PDF işleme",
+                                    "Profesyonel belge optimizasyonu",
+                                    "Öncelikli işlem kuyruğu"
+                                ],
+                                limitDescription: "Ücretsiz: \(freeUserPageLimit) sayfa • Pro: Sınırsız",
+                                ctaText: "Sınırsız PDF İşlemeyi Aç"
+                            )
+                        ]
+                    )
+                }
                 let error = CompressionError.fileTooLarge
                 handleError(error, preset: lastPreset!)
                 return

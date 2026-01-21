@@ -180,12 +180,11 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     static let shared = SubscriptionManager()
 
     // MARK: - DEBUG Backdoor for Testing
-    // 🔥 Set this to true in DEBUG builds to bypass all subscription checks
+    // 🔥 Toggle this in DEBUG builds to bypass all subscription checks
     // This allows testing premium features without real purchases
+    // Can be toggled at runtime in Settings > Developer Override
     #if DEBUG
-    static let forceProMode: Bool = true  // Set to false to test free tier
-    #else
-    static let forceProMode: Bool = false
+    static var forceProMode: Bool = false  // Start as free for realistic testing
     #endif
 
     // MARK: - Real-time Verification Cache
@@ -297,6 +296,57 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         transactionListener?.cancel()
     }
 
+    // MARK: - DEBUG Toggle Methods
+
+    #if DEBUG
+    /// Toggle debug Pro mode at runtime - instantly reflects in UI
+    /// This bypasses StoreKit entirely for fast testing cycles
+    func toggleDebugProMode() {
+        SubscriptionManager.forceProMode.toggle()
+
+        if SubscriptionManager.forceProMode {
+            // Set Pro status immediately
+            status = SubscriptionStatus(
+                plan: .yearly,
+                isActive: true,
+                expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: Date()),
+                dailyUsageCount: 0,
+                dailyUsageLimit: .max
+            )
+        } else {
+            // Restore to free status with current daily count
+            let dailyCount = secureStorage.getInt(forKey: dailyCountKey) ?? 0
+            status = SubscriptionStatus(
+                plan: .free,
+                isActive: false,
+                expiresAt: nil,
+                dailyUsageCount: dailyCount,
+                dailyUsageLimit: freeDailyLimit
+            )
+        }
+
+        // Force UI update by triggering objectWillChange
+        objectWillChange.send()
+    }
+
+    /// Reset daily usage limit for testing
+    func resetDailyUsageForTesting() {
+        secureStorage.set(0, forKey: dailyCountKey)
+        secureStorage.set(Date(), forKey: lastUsageDateKey)
+
+        // Update status to reflect reset
+        status = SubscriptionStatus(
+            plan: status.plan,
+            isActive: status.isActive,
+            expiresAt: status.expiresAt,
+            dailyUsageCount: 0,
+            dailyUsageLimit: status.plan == .free ? freeDailyLimit : .max
+        )
+
+        objectWillChange.send()
+    }
+    #endif
+
     // MARK: - StoreKit 2 Methods
 
     /// Load products from App Store
@@ -369,6 +419,20 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
     /// Check current subscription status from StoreKit
     func updateSubscriptionStatus() async {
+        // DEBUG: Short-circuit if forceProMode is enabled
+        #if DEBUG
+        if SubscriptionManager.forceProMode {
+            status = SubscriptionStatus(
+                plan: .yearly,
+                isActive: true,
+                expiresAt: Calendar.current.date(byAdding: .year, value: 1, to: Date()),
+                dailyUsageCount: 0,
+                dailyUsageLimit: .max
+            )
+            return
+        }
+        #endif
+
         var foundActiveSubscription = false
         var activePlan: SubscriptionPlan = .free
         var expirationDate: Date?
