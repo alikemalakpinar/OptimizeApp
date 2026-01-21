@@ -184,7 +184,7 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     // This allows testing premium features without real purchases
     // Can be toggled at runtime in Settings > Developer Override
     #if DEBUG
-    static var forceProMode: Bool = false  // Start as free for realistic testing
+    nonisolated(unsafe) static var forceProMode: Bool = false  // Start as free for realistic testing
     #endif
 
     // MARK: - Real-time Verification Cache
