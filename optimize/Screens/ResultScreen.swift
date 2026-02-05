@@ -358,6 +358,12 @@ struct EnhancedResultNumbers: View {
 
     @State private var displayedPercent: Int = 0
 
+    /// Convert saved MB to approximate photo count (avg iPhone photo ~3MB)
+    private var savedPhotoEquivalent: Int {
+        let savedMB = max(0, fromSizeMB - toSizeMB)
+        return max(1, Int(savedMB / 3.0))
+    }
+
     var body: some View {
         VStack(spacing: Spacing.lg) {
             // Giant percentage
@@ -375,6 +381,21 @@ struct EnhancedResultNumbers: View {
             Text(AppStrings.ResultScreen.saved)
                 .font(.appTitle)
                 .foregroundStyle(.secondary)
+
+            // Photo equivalent - makes savings tangible
+            if fromSizeMB - toSizeMB >= 1.0 {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(AppStrings.ResultScreen.photoEquivalent(savedPhotoEquivalent))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(Color.appMint)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.appMint.opacity(0.1))
+                .clipShape(Capsule())
+            }
         }
         .onChange(of: animate) { _, newValue in
             if newValue {
