@@ -15,6 +15,7 @@ struct PresetScreen: View {
     @State private var selectedPresetId: String
     @State private var wifiOnly = true
     @State private var deleteAfterProcess = false
+    @State private var preserveTextSelectability = true
     @State private var customTargetMB: Double
 
     let presets: [CompressionPreset]
@@ -217,6 +218,20 @@ struct PresetScreen: View {
                     // Settings section
                     GlassCard {
                         VStack(spacing: Spacing.md) {
+                            // TEXT SELECTABILITY TOGGLE (PDF only)
+                            // When ON: forces preserveVectors=true, protecting text layers
+                            // When OFF: allows full rasterization for maximum compression
+                            if file.fileType == .pdf {
+                                ToggleRow(
+                                    title: AppStrings.PresetSettings.preserveTextTitle,
+                                    subtitle: AppStrings.PresetSettings.preserveTextSubtitle,
+                                    icon: "doc.text",
+                                    isOn: $preserveTextSelectability
+                                )
+
+                                Divider()
+                            }
+
                             ToggleRow(
                                 title: "Process on Wi-Fi",
                                 subtitle: "Don't use mobile data",
@@ -248,7 +263,9 @@ struct PresetScreen: View {
                     icon: "bolt.fill",
                     isDisabled: selectedPreset == nil
                 ) {
-                    if let preset = selectedPreset {
+                    if var preset = selectedPreset {
+                        // Pass user's text selectability preference to compression pipeline
+                        preset.preserveTextSelectability = preserveTextSelectability
                         Haptics.impact()
                         onCompress(preset)
                     }

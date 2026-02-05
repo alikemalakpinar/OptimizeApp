@@ -15,6 +15,7 @@ struct ModernPaywallScreen: View {
     @State private var isLoading = false
     @State private var isAnimating = false
     @State private var showCloseButton = false
+    @State private var freeTrialEnabled = true // Default ON - higher conversion
     @Environment(\.colorScheme) private var colorScheme
 
     // Restore State
@@ -213,6 +214,9 @@ struct ModernPaywallScreen: View {
                             }
                             .padding(.horizontal)
 
+                            // 4.5. CUSTOM ICON PREVIEW (Desire Trigger)
+                            AppIconPreviewSection()
+
                             // 5. PLAN SELECTION - Localized
                             VStack(spacing: isCompactHeight ? 12 : 16) {
                                 // YEARLY
@@ -251,6 +255,20 @@ struct ModernPaywallScreen: View {
                             }
                             .padding(.horizontal)
 
+                            // ANCHOR PRICING: Show savings comparison
+                            if selectedPlan == .yearly {
+                                AnchorPricingBanner(
+                                    weeklyPrice: weeklyPrice,
+                                    weeklyFromYearly: weeklyFromYearly
+                                )
+                                .padding(.horizontal)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+
+                            // FREE TRIAL TOGGLE
+                            FreeTrialToggle(isEnabled: $freeTrialEnabled)
+                                .padding(.horizontal)
+
                             // Legal - Localized
                             Text(LocalizedStrings.autoRenewal)
                                 .font(.system(size: 11))
@@ -277,7 +295,7 @@ struct ModernPaywallScreen: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .black))
                                         .scaleEffect(0.8)
                                 } else {
-                                    Text(selectedPlan == .yearly ? LocalizedStrings.startFullPower : LocalizedStrings.startTrial)
+                                    Text(freeTrialEnabled ? LocalizedStrings.startTrial : LocalizedStrings.startFullPower)
                                         .font(.system(size: isCompactHeight ? 15 : 17, weight: .bold, design: .rounded))
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: isCompactHeight ? 13 : 15, weight: .bold))
@@ -665,6 +683,223 @@ private struct PremiumPlanCard: View {
             )
             .scaleEffect(isSelected ? 1.02 : 1.0)
             .animation(.spring(response: 0.3), value: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - App Icon Preview Section
+
+/// Shows locked custom app icons to create desire for Premium
+/// Tap on any icon to see a "preview" bounce animation
+private struct AppIconPreviewSection: View {
+    @State private var previewingIcon: String?
+
+    private let icons: [(name: String, icon: String, color: Color)] = [
+        ("Dark", "moon.fill", .white),
+        ("Gold", "crown.fill", .proGold),
+        ("Mint", "leaf.fill", .appMint),
+        ("Retro", "camera.filters", .warmOrange),
+        ("Neon", "bolt.fill", .premiumPurple),
+        ("Minimal", "circle.fill", .white)
+    ]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text(String(localized: "Özel Uygulama İkonları", comment: "Paywall: Custom icons title"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.8))
+
+                Spacer()
+
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("PRO")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .foregroundColor(.proGold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.proGold.opacity(0.15))
+                .clipShape(Capsule())
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(icons, id: \.name) { item in
+                        VStack(spacing: 6) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [item.color.opacity(0.3), item.color.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 56, height: 56)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            .stroke(item.color.opacity(0.3), lineWidth: 1)
+                                    )
+
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundColor(item.color)
+
+                                // Lock overlay
+                                if previewingIcon != item.name {
+                                    ZStack {
+                                        Color.black.opacity(0.4)
+                                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                                        Image(systemName: "lock.fill")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                    .frame(width: 56, height: 56)
+                                }
+                            }
+                            .scaleEffect(previewingIcon == item.name ? 1.15 : 1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: previewingIcon)
+                            .onTapGesture {
+                                Haptics.impact(style: .light)
+                                withAnimation {
+                                    previewingIcon = item.name
+                                }
+                                // Auto-dismiss preview
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                    withAnimation {
+                                        previewingIcon = nil
+                                    }
+                                }
+                            }
+
+                            Text(item.name)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+        .padding(.horizontal)
+    }
+}
+
+// MARK: - Anchor Pricing Banner
+
+/// Shows weekly price comparison between plans to highlight yearly savings
+/// This "anchor pricing" technique makes the yearly plan feel like a bargain
+private struct AnchorPricingBanner: View {
+    let weeklyPrice: String
+    let weeklyFromYearly: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "tag.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.proGold)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(weeklyPrice)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .strikethrough(true, color: .white.opacity(0.6))
+                        .foregroundColor(.white.opacity(0.5))
+
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.3))
+
+                    Text(weeklyFromYearly)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.appMint)
+
+                    Text(String(localized: "/ hafta", comment: "Paywall: per week"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+
+                Text(String(localized: "Yıllık plan ile haftalık %75+ tasarruf", comment: "Paywall: Yearly savings breakdown"))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.proGold.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Free Trial Toggle
+
+/// Toggle to opt in/out of free trial period
+/// Default is ON to maximize conversion (lower perceived risk)
+private struct FreeTrialToggle: View {
+    @Binding var isEnabled: Bool
+
+    var body: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3)) {
+                isEnabled.toggle()
+            }
+            Haptics.selection()
+        }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(isEnabled ? Color.appMint : Color.white.opacity(0.1))
+                        .frame(width: 44, height: 26)
+
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 22, height: 22)
+                        .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
+                        .offset(x: isEnabled ? 9 : -9)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "7 Gün Ücretsiz Dene", comment: "Paywall: Free trial toggle"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text(String(localized: "Deneme bitmeden ücret alınmaz", comment: "Paywall: No charge before trial ends"))
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
+
+                if isEnabled {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.appMint)
+                }
+            }
+            .padding(12)
+            .background(Color.white.opacity(isEnabled ? 0.08 : 0.03))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isEnabled ? Color.appMint.opacity(0.3) : Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }

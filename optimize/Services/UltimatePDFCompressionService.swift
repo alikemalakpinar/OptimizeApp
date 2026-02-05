@@ -1251,16 +1251,37 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
     }
 
     private func mapPresetToConfig(_ preset: CompressionPreset) -> CompressionConfig {
+        let baseConfig: CompressionConfig
         switch preset.quality {
         case .low:
-            return .mail
+            baseConfig = .mail
         case .medium:
-            return .messaging
+            baseConfig = .messaging
         case .high:
-            return .highQuality
+            baseConfig = .highQuality
         case .custom:
-            return .commercial
+            baseConfig = .commercial
         }
+
+        // VECTORSCORE OVERRIDE: If user wants to preserve text selectability,
+        // force preserveVectors even on aggressive presets.
+        // This prevents rasterization of text-heavy pages (vectorScore >= 5).
+        if preset.preserveTextSelectability && !baseConfig.preserveVectors {
+            return CompressionConfig(
+                quality: baseConfig.quality,
+                targetResolution: baseConfig.targetResolution,
+                preserveVectors: true,
+                useMRC: baseConfig.useMRC,
+                aggressiveMode: baseConfig.aggressiveMode,
+                textThreshold: baseConfig.textThreshold,
+                minImageDPI: baseConfig.minImageDPI,
+                useMultiSignalDetection: baseConfig.useMultiSignalDetection,
+                minSSIMThreshold: baseConfig.minSSIMThreshold,
+                enableAdaptiveQualityFloor: baseConfig.enableAdaptiveQualityFloor
+            )
+        }
+
+        return baseConfig
     }
 
     private func generateOutputURL(for sourceURL: URL) -> URL {

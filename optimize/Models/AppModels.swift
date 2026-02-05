@@ -66,6 +66,8 @@ struct CompressionPreset: Identifiable, Equatable {
     let targetSizeMB: Int?
     let quality: CompressionQuality
     let isProOnly: Bool
+    /// When true, forces preserveVectors in CompressionConfig to protect text layers
+    var preserveTextSelectability: Bool = true
 
     enum CompressionQuality: String {
         case low = "mail"

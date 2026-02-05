@@ -15,6 +15,7 @@
 
 import Photos
 import UIKit
+import Vision
 
 // MARK: - Analysis Models
 
@@ -39,6 +40,7 @@ struct MediaCategory: Identifiable {
         case screenshots
         case largeVideos
         case duplicates
+        case similarPhotos
     }
 }
 
@@ -124,6 +126,10 @@ final class PhotoLibraryAnalyzer: ObservableObject {
 
             group.addTask { [weak self] in
                 await self?.findDuplicateSizePhotos()
+            }
+
+            group.addTask { [weak self] in
+                await self?.findSimilarPhotos()
             }
 
             var results: [MediaCategory] = []
@@ -309,5 +315,156 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             assets: duplicateAssets,
             totalBytes: totalBytes
         )
+    }
+
+    // MARK: - Vision Framework Similar Photo Detection
+
+    /// Find visually similar photos using Vision's VNFeaturePrintObservation
+    /// Groups photos by perceptual similarity (burst shots, near-duplicates)
+    /// Only analyzes the most recent 200 photos to keep scan time reasonable
+    private func findSimilarPhotos() async -> MediaCategory? {
+        await MainActor.run {
+            currentStep = AppStrings.Analysis.scanningSimilar
+            progress = 0.75
+        }
+
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = 200 // Limit for performance - Vision analysis is CPU intensive
+
+        let results = PHAsset.fetchAssets(with: .image, options: options)
+
+        // Generate feature prints for each photo
+        var featurePrints: [(asset: PHAsset, print: VNFeaturePrintObservation, size: Int64)] = []
+
+        let imageManager = PHImageManager.default()
+        let requestOptions = PHImageRequestOptions()
+        requestOptions.deliveryMode = .fastFormat
+        requestOptions.isNetworkAccessAllowed = false
+        requestOptions.isSynchronous = false
+        requestOptions.resizeMode = .fast
+
+        let targetSize = CGSize(width: 300, height: 300) // Small size for fast feature extraction
+
+        // Enumerate and compute feature prints
+        var assetsToProcess: [(asset: PHAsset, size: Int64)] = []
+        results.enumerateObjects { asset, _, _ in
+            let resources = PHAssetResource.assetResources(for: asset)
+            let size = (resources.first.flatMap { $0.value(forKey: "fileSize") as? Int64 }) ?? 0
+            // Only include photos > 500KB to skip tiny thumbnails
+            if size > 500_000 {
+                assetsToProcess.append((asset, size))
+            }
+        }
+
+        // Process in batches for memory efficiency
+        for item in assetsToProcess {
+            if let fp = await generateFeaturePrint(
+                for: item.asset,
+                manager: imageManager,
+                options: requestOptions,
+                targetSize: targetSize
+            ) {
+                featurePrints.append((item.asset, fp, item.size))
+            }
+        }
+
+        await MainActor.run { progress = 0.85 }
+
+        // Compare feature prints to find similar groups
+        // Distance threshold: 0.0 = identical, higher = more different
+        // ~12.0 is a good threshold for "visually very similar" (burst shots, slight edits)
+        let similarityThreshold: Float = 12.0
+        var visited = Set<Int>()
+        var similarGroups: [[(PHAsset, Int64)]] = []
+
+        for i in 0..<featurePrints.count {
+            guard !visited.contains(i) else { continue }
+
+            var group: [(PHAsset, Int64)] = [(featurePrints[i].asset, featurePrints[i].size)]
+
+            for j in (i+1)..<featurePrints.count {
+                guard !visited.contains(j) else { continue }
+
+                var distance: Float = 0
+                do {
+                    try featurePrints[i].print.computeDistance(&distance, to: featurePrints[j].print)
+                } catch {
+                    continue
+                }
+
+                if distance < similarityThreshold {
+                    group.append((featurePrints[j].asset, featurePrints[j].size))
+                    visited.insert(j)
+                }
+            }
+
+            if group.count >= 2 {
+                visited.insert(i)
+                similarGroups.append(group)
+            }
+        }
+
+        // Collect removable assets (keep best quality from each group, mark rest)
+        var similarAssets: [PHAsset] = []
+        var totalBytes: Int64 = 0
+
+        for group in similarGroups {
+            // Keep the largest file (highest quality), mark rest as removable
+            let sorted = group.sorted { $0.1 > $1.1 }
+            let removable = sorted.dropFirst()
+            for item in removable {
+                similarAssets.append(item.0)
+                totalBytes += item.1
+            }
+        }
+
+        await MainActor.run { progress = 0.92 }
+
+        guard !similarAssets.isEmpty else { return nil }
+
+        return MediaCategory(
+            id: "similar_photos",
+            type: .similarPhotos,
+            title: AppStrings.Analysis.similarTitle,
+            subtitle: AppStrings.Analysis.similarSubtitle(similarAssets.count),
+            icon: "photo.stack",
+            iconColor: "premiumPurple",
+            assets: similarAssets,
+            totalBytes: totalBytes
+        )
+    }
+
+    /// Generate a Vision feature print for a photo asset
+    private func generateFeaturePrint(
+        for asset: PHAsset,
+        manager: PHImageManager,
+        options: PHImageRequestOptions,
+        targetSize: CGSize
+    ) async -> VNFeaturePrintObservation? {
+        // Load thumbnail
+        let image: UIImage? = await withCheckedContinuation { continuation in
+            manager.requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFill,
+                options: options
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+
+        guard let cgImage = image?.cgImage else { return nil }
+
+        // Run Vision feature print request
+        let request = VNGenerateImageFeaturePrintRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+        do {
+            try handler.perform([request])
+            return request.results?.first as? VNFeaturePrintObservation
+        } catch {
+            return nil
+        }
     }
 }

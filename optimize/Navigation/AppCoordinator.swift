@@ -521,6 +521,7 @@ class AppCoordinator: ObservableObject {
 
     func startCompression(preset: CompressionPreset) {
         guard let file = currentFile else { return }
+        Haptics.impact(style: .medium)
         selectedPreset = preset
 
         Task {
@@ -640,6 +641,7 @@ class AppCoordinator: ObservableObject {
     }
 
     func goBack() {
+        Haptics.selection()
         withAnimation(AppAnimation.standard) {
             // ARCHITECTURE: Use NavigationPath for native back navigation
             if !navigationPath.isEmpty {
@@ -677,6 +679,7 @@ class AppCoordinator: ObservableObject {
     }
 
     func goHome() {
+        Haptics.impact(style: .light)
         compressionTask?.cancel()
         compressionTask = nil
         currentFile = nil
@@ -719,6 +722,7 @@ class AppCoordinator: ObservableObject {
 
     /// Show error with user-friendly title and message
     func showError(title: String = String(localized: "Hata", comment: "Error title"), message: String) {
+        Haptics.error()
         errorTitle = title
         errorMessage = message
         showError = true

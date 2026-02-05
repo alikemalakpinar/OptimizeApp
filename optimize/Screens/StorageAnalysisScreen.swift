@@ -478,6 +478,8 @@ private struct CategoryCard: View {
             return AppStrings.Analysis.deleteVideos(category.count)
         case .duplicates:
             return AppStrings.Analysis.deleteDuplicates(category.count)
+        case .similarPhotos:
+            return AppStrings.Analysis.deleteSimilar(category.count)
         }
     }
 }

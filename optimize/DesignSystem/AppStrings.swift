@@ -707,6 +707,12 @@ struct AppStrings {
         static var mail25MB: String { String(localized: "Mail (25 MB)", comment: "Preset: Mail 25MB") }
     }
 
+    // MARK: - Preset Settings
+    enum PresetSettings {
+        static var preserveTextTitle: String { String(localized: "Metin Seçilebilirliğini Koru", comment: "Preset Setting: Preserve text selectability") }
+        static var preserveTextSubtitle: String { String(localized: "PDF'deki metinler kopyalanabilir kalır", comment: "Preset Setting: Text stays copyable in PDF") }
+    }
+
     // MARK: - Storage Analysis
     enum Analysis {
         static var title: String { String(localized: "Depolama Analizi", comment: "Analysis: Screen title") }
@@ -734,6 +740,16 @@ struct AppStrings {
         static var duplicatesTitle: String { String(localized: "Olası Tekrarlar", comment: "Analysis: Duplicates title") }
         static func duplicatesSubtitle(_ count: Int) -> String {
             String(localized: "\(count) benzer dosya tespit edildi", comment: "Analysis: Duplicates subtitle")
+        }
+
+        // Similar photos (Vision framework)
+        static var scanningSimilar: String { String(localized: "Benzer fotoğraflar karşılaştırılıyor...", comment: "Analysis: Scanning similar photos with Vision") }
+        static var similarTitle: String { String(localized: "Benzer Fotoğraflar", comment: "Analysis: Similar photos title") }
+        static func similarSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) benzer fotoğraf tespit edildi", comment: "Analysis: Similar photos subtitle")
+        }
+        static func deleteSimilar(_ count: Int) -> String {
+            String(localized: "\(count) Benzer Fotoğrafı Sil", comment: "Analysis: Delete similar photos")
         }
 
         // Actions
