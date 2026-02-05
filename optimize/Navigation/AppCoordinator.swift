@@ -610,8 +610,8 @@ class AppCoordinator: ObservableObject {
 
     /// Open batch processing screen with premium gate
     func openBatchProcessing() {
-        // Check if user is Pro, otherwise show paywall
-        if !subscriptionStatus.isPro {
+        // Batch processing is Premium only
+        if !subscriptionManager.canBatchProcess {
             presentPaywall(context: .batchProcessing, useModernStyle: true)
             analytics.track(.paywallViewed)
             return
@@ -621,11 +621,10 @@ class AppCoordinator: ObservableObject {
         push(.batchProcessing)
     }
 
-    /// Open file converter screen with premium gate
+    /// Open file converter screen with premium gate (video compression is Premium)
     func openConverter() {
-        // Check if user is Pro, otherwise show paywall
-        if !subscriptionStatus.isPro {
-            presentPaywall(context: .converter, useModernStyle: true)
+        if !subscriptionManager.canCompressVideo {
+            presentPaywall(context: .videoCompression, useModernStyle: true)
             analytics.track(.paywallViewed)
             return
         }
