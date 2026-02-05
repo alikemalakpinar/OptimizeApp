@@ -713,4 +713,64 @@ struct AppStrings {
         static var whatsapp: String { String(localized: "WhatsApp", comment: "Preset: WhatsApp") }
         static var mail25MB: String { String(localized: "Mail (25 MB)", comment: "Preset: Mail 25MB") }
     }
+
+    // MARK: - Storage Analysis
+    enum Analysis {
+        static var title: String { String(localized: "Depolama Analizi", comment: "Analysis: Screen title") }
+        static var analyzeButton: String { String(localized: "Analiz Et", comment: "Analysis: Analyze button") }
+        static var scanning: String { String(localized: "Galeri Taranıyor", comment: "Analysis: Scanning") }
+        static var requestingAccess: String { String(localized: "Erişim isteniyor...", comment: "Analysis: Requesting access") }
+        static var scanningScreenshots: String { String(localized: "Ekran görüntüleri taranıyor...", comment: "Analysis: Scanning screenshots") }
+        static var scanningVideos: String { String(localized: "Büyük videolar aranıyor...", comment: "Analysis: Scanning videos") }
+        static var scanningDuplicates: String { String(localized: "Benzer fotoğraflar tespit ediliyor...", comment: "Analysis: Scanning duplicates") }
+
+        // Results
+        static var foundOptimizable: String { String(localized: "Optimize Edilebilir Alan", comment: "Analysis: Found optimizable") }
+        static var items: String { String(localized: "dosya", comment: "Analysis: Items count label") }
+        static var categoriesLabel: String { String(localized: "kategori", comment: "Analysis: Categories label") }
+
+        // Categories
+        static var screenshotsTitle: String { String(localized: "Ekran Görüntüleri", comment: "Analysis: Screenshots title") }
+        static func screenshotsSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) ekran görüntüsü bulundu", comment: "Analysis: Screenshots subtitle")
+        }
+        static var largeVideosTitle: String { String(localized: "Büyük Videolar", comment: "Analysis: Large videos title") }
+        static func largeVideosSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) büyük video (50MB+)", comment: "Analysis: Large videos subtitle")
+        }
+        static var duplicatesTitle: String { String(localized: "Olası Tekrarlar", comment: "Analysis: Duplicates title") }
+        static func duplicatesSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) benzer dosya tespit edildi", comment: "Analysis: Duplicates subtitle")
+        }
+
+        // Actions
+        static func deleteScreenshots(_ count: Int) -> String {
+            String(localized: "\(count) Ekran Görüntüsünü Sil", comment: "Analysis: Delete screenshots")
+        }
+        static func deleteVideos(_ count: Int) -> String {
+            String(localized: "\(count) Videoyu Sil", comment: "Analysis: Delete videos")
+        }
+        static func deleteDuplicates(_ count: Int) -> String {
+            String(localized: "\(count) Tekrarı Sil", comment: "Analysis: Delete duplicates")
+        }
+        static func andMore(_ count: Int) -> String {
+            String(localized: "ve \(count) tane daha...", comment: "Analysis: And more items")
+        }
+
+        // Empty state
+        static var allCleanTitle: String { String(localized: "Her Şey Temiz!", comment: "Analysis: All clean title") }
+        static var allCleanBody: String { String(localized: "Galeride optimize edilecek bir şey bulunamadı. Harika iş!", comment: "Analysis: All clean body") }
+
+        // Permission
+        static var permissionTitle: String { String(localized: "Fotoğraf Erişimi Gerekli", comment: "Analysis: Permission title") }
+        static var permissionBody: String { String(localized: "Galeri analizi yapabilmek için fotoğraf kütüphanesine erişim izni gerekiyor.", comment: "Analysis: Permission body") }
+        static var openSettings: String { String(localized: "Ayarları Aç", comment: "Analysis: Open settings") }
+
+        // Error
+        static var retry: String { String(localized: "Tekrar Dene", comment: "Analysis: Retry") }
+
+        // iCloud tip
+        static var iCloudTipTitle: String { String(localized: "iCloud Alanın da Düşer", comment: "Analysis: iCloud tip title") }
+        static var iCloudTipBody: String { String(localized: "Galeriden sildiğin dosyalar iCloud'dan da kaldırılır. Böylece iCloud yükseltmesine gerek kalmaz.", comment: "Analysis: iCloud tip body") }
+    }
 }

@@ -34,6 +34,7 @@ enum AppScreen: Hashable {
     case settings
     case batchProcessing
     case converter
+    case storageAnalysis
 
     // MARK: - Hashable Conformance (Required for NavigationPath)
 
@@ -52,6 +53,7 @@ enum AppScreen: Hashable {
         case .settings: hasher.combine("settings")
         case .batchProcessing: hasher.combine("batchProcessing")
         case .converter: hasher.combine("converter")
+        case .storageAnalysis: hasher.combine("storageAnalysis")
         }
     }
 
@@ -65,7 +67,8 @@ enum AppScreen: Hashable {
              (.history, .history),
              (.settings, .settings),
              (.batchProcessing, .batchProcessing),
-             (.converter, .converter):
+             (.converter, .converter),
+             (.storageAnalysis, .storageAnalysis):
             return true
         case (.analyze(let lFile), .analyze(let rFile)):
             return lFile.id == rFile.id
@@ -628,6 +631,12 @@ class AppCoordinator: ObservableObject {
 
         analytics.track(.converterOpened)
         push(.converter)
+    }
+
+    /// Open storage analysis screen
+    func openStorageAnalysis() {
+        analytics.track(.settingsOpened) // Reuse existing event or add dedicated one
+        push(.storageAnalysis)
     }
 
     func goBack() {

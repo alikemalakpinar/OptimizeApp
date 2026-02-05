@@ -20,6 +20,7 @@ struct HomeScreen: View {
     let onUpgrade: () -> Void
     let onBatchProcessing: () -> Void
     let onConverter: () -> Void
+    let onStorageAnalysis: () -> Void
 
     init(
         coordinator: AppCoordinator,
@@ -29,7 +30,8 @@ struct HomeScreen: View {
         onOpenSettings: @escaping () -> Void,
         onUpgrade: @escaping () -> Void,
         onBatchProcessing: @escaping () -> Void = {},
-        onConverter: @escaping () -> Void = {}
+        onConverter: @escaping () -> Void = {},
+        onStorageAnalysis: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.subscriptionStatus = subscriptionStatus
@@ -39,6 +41,7 @@ struct HomeScreen: View {
         self.onUpgrade = onUpgrade
         self.onBatchProcessing = onBatchProcessing
         self.onConverter = onConverter
+        self.onStorageAnalysis = onStorageAnalysis
     }
 
     var recentHistory: [HistoryItem] {
@@ -85,7 +88,7 @@ struct HomeScreen: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.xl) {
                     // Storage Usage Bar - creates urgency
-                    StorageUsageBar(onSelectFile: onSelectFile)
+                    StorageUsageBar(onSelectFile: onSelectFile, onAnalyze: onStorageAnalysis)
                         .padding(.horizontal, Spacing.md)
                         .padding(.top, Spacing.xs)
 
@@ -402,6 +405,7 @@ struct BreathingCTACard: View {
 /// Color-coded: green (healthy) -> orange (low) -> red (critical)
 struct StorageUsageBar: View {
     let onSelectFile: () -> Void
+    let onAnalyze: () -> Void
 
     @State private var diskInfo: DiskSpaceInfo?
     @Environment(\.colorScheme) private var colorScheme
@@ -467,7 +471,7 @@ struct StorageUsageBar: View {
                 }
                 .frame(height: 8)
 
-                // Bottom row: used/total + warning or CTA
+                // Bottom row: free space + analyze button
                 HStack {
                     Text("\(info.formattedAvailable) \(AppStrings.Home.storageFree)")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -475,23 +479,27 @@ struct StorageUsageBar: View {
 
                     Spacer()
 
-                    if let warning = statusText {
-                        Button(action: {
-                            Haptics.impact()
-                            onSelectFile()
-                        }) {
-                            HStack(spacing: 4) {
-                                Text(warning)
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 9, weight: .bold))
-                            }
-                            .foregroundStyle(barColor)
+                    Button(action: {
+                        Haptics.impact()
+                        onAnalyze()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(AppStrings.Analysis.analyzeButton)
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
-                    } else {
-                        Text(info.formattedTotal)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(.tertiary)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 5)
+                        .background(
+                            LinearGradient(
+                                colors: [barColor.opacity(0.9), barColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(Capsule())
                     }
                 }
             }
@@ -513,8 +521,9 @@ struct StorageUsageBar: View {
         }
     }
 
-    init(onSelectFile: @escaping () -> Void) {
+    init(onSelectFile: @escaping () -> Void, onAnalyze: @escaping () -> Void = {}) {
         self.onSelectFile = onSelectFile
+        self.onAnalyze = onAnalyze
         _diskInfo = State(initialValue: DiskSpaceGuard.getCurrentDiskSpace())
     }
 }
