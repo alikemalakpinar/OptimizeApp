@@ -37,13 +37,13 @@ struct ConverterScreen: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     // Title
-                    Text("Dosya Dönüştürücü")
+                    Text(AppStrings.Converter.title)
                         .font(.displayTitle)
                         .foregroundStyle(.primary)
                         .padding(.horizontal, Spacing.md)
 
                     // Subtitle
-                    Text("PDF, resim ve video dosyalarını farklı formatlara dönüştürün")
+                    Text(AppStrings.Converter.subtitle)
                         .font(.appBody)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, Spacing.md)
@@ -107,8 +107,10 @@ struct ConverterScreen: View {
                 contentTypes: [.pdf, .image, .movie, .presentation, .spreadsheet],
                 allowsMultipleSelection: true
             ) { urls in
-                selectedFiles = urls
-                selectedFormat = nil
+                Task {
+                    selectedFiles = await validateSelectedFiles(urls)
+                    selectedFormat = nil
+                }
             }
         }
         .sheet(isPresented: $showResult) {
@@ -120,8 +122,8 @@ struct ConverterScreen: View {
                 }
             }
         }
-        .alert("Hata", isPresented: $showError) {
-            Button("Tamam", role: .cancel) {}
+        .alert(AppStrings.Converter.errorTitle, isPresented: $showError) {
+            Button(AppStrings.Converter.ok, role: .cancel) {}
         } message: {
             Text(errorMessage)
         }
@@ -135,6 +137,17 @@ struct ConverterScreen: View {
 
         Task {
             do {
+                let result = try await SecurityScopedResource.accessAsync(file) { accessibleURL in
+                    await FileValidationService.shared.validate(url: accessibleURL)
+                }
+                if case .invalid(let error) = result {
+                    let messageParts = [error.errorDescription, error.recoverySuggestion].compactMap { $0 }
+                    let message = messageParts.joined(separator: "\n\n")
+                    errorMessage = message
+                    showError = true
+                    return
+                }
+
                 if selectedFiles.count > 1 && format == .pdf {
                     // Merge multiple files to PDF
                     let result = try await converter.convertImagesToPDF(urls: selectedFiles, options: conversionOptions)
@@ -158,6 +171,29 @@ struct ConverterScreen: View {
                 showError = true
             }
         }
+    }
+
+    private func validateSelectedFiles(_ urls: [URL]) async -> [URL] {
+        var valid: [URL] = []
+
+        for url in urls {
+            do {
+                if FileValidationService.shared.needsICloudDownload(url) {
+                    try FileValidationService.shared.startICloudDownload(url)
+                    continue
+                }
+                let result = try await SecurityScopedResource.accessAsync(url) { accessibleURL in
+                    await FileValidationService.shared.validate(url: accessibleURL)
+                }
+                if result.isValid {
+                    valid.append(url)
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return valid
     }
 }
 
@@ -446,6 +482,8 @@ private struct ConvertButton: View {
                     VStack(spacing: Spacing.xs) {
                         ProgressView(value: progress)
                             .tint(.white)
+                            .accessibilityLabel("Dönüştürme ilerlemesi")
+                            .accessibilityValue("\(Int(progress * 100))%")
 
                         Text(operation)
                             .font(.appCaption)
@@ -454,7 +492,7 @@ private struct ConvertButton: View {
                 } else {
                     HStack(spacing: Spacing.sm) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Dönüştür")
+                        Text(AppStrings.Converter.convert)
                             .font(.appBodyMedium)
                     }
                 }
@@ -564,7 +602,7 @@ private struct ConversionResultSheet: View {
                     .foregroundStyle(Color.appMint)
                     .padding(.top, Spacing.xl)
 
-                Text("Dönüşüm Tamamlandı!")
+                Text(AppStrings.Converter.completedTitle)
                     .font(.appTitle)
                     .foregroundStyle(.primary)
 
@@ -594,7 +632,7 @@ private struct ConversionResultSheet: View {
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
-                            Text("Paylaş")
+                            Text(AppStrings.Converter.share)
                         }
                         .font(.appBodyMedium)
                         .frame(maxWidth: .infinity)
@@ -605,7 +643,7 @@ private struct ConversionResultSheet: View {
                     }
 
                     Button(action: onDismiss) {
-                        Text("Kapat")
+                        Text(AppStrings.Converter.close)
                             .font(.appBodyMedium)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Spacing.md)
@@ -621,7 +659,7 @@ private struct ConversionResultSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Bitti") {
+                    Button(AppStrings.Converter.done) {
                         onDismiss()
                     }
                 }
@@ -639,7 +677,20 @@ private struct ConverterShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if let popover = controller.popoverPresentationController {
+            popover.permittedArrowDirections = []
+            if let sourceView = controller.view {
+                popover.sourceView = sourceView
+                popover.sourceRect = CGRect(
+                    x: sourceView.bounds.midX,
+                    y: sourceView.bounds.midY,
+                    width: 0,
+                    height: 0
+                )
+            }
+        }
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

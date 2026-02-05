@@ -252,36 +252,42 @@ struct FilePreviewCard: View {
     // MARK: - Video Thumbnail
 
     private func generateVideoThumbnail(url: URL) async -> (UIImage?, String?) {
+        let shouldStopAccess = url.startAccessingSecurityScopedResource()
+        defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
+
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 400, height: 400)
+
+        let durationTime = (try? await asset.load(.duration)) ?? .zero
+        let durationSeconds = max(0, CMTimeGetSeconds(durationTime))
+        let duration = formatDuration(durationSeconds)
+
+        let time = CMTime(seconds: min(1.0, durationSeconds * 0.1), preferredTimescale: 600)
+        if let cgImage = await generateCGImage(generator, at: time) {
+            return (UIImage(cgImage: cgImage), duration)
+        }
+        if let cgImage = await generateCGImage(generator, at: .zero) {
+            return (UIImage(cgImage: cgImage), duration)
+        }
+
+        return (nil, duration)
+    }
+
+    private func generateCGImage(_ generator: AVAssetImageGenerator, at time: CMTime) async -> CGImage? {
         return await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let shouldStopAccess = url.startAccessingSecurityScopedResource()
-                defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
-
-                let asset = AVURLAsset(url: url)
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = CGSize(width: 400, height: 400)
-
-                // Get duration
-                let durationSeconds = CMTimeGetSeconds(asset.duration)
-                let duration = formatDuration(durationSeconds)
-
-                // Generate thumbnail at 1 second or 10% into video
-                let time = CMTime(seconds: min(1.0, durationSeconds * 0.1), preferredTimescale: 600)
-
-                do {
-                    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
-                    let thumbnail = UIImage(cgImage: cgImage)
-                    continuation.resume(returning: (thumbnail, duration))
-                } catch {
-                    // Try at start of video
-                    do {
-                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
-                        let thumbnail = UIImage(cgImage: cgImage)
-                        continuation.resume(returning: (thumbnail, duration))
-                    } catch {
-                        continuation.resume(returning: (nil, duration))
-                    }
+            let lock = NSLock()
+            var didResume = false
+            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, result, _ in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !didResume else { return }
+                didResume = true
+                if result == .succeeded, let image = image {
+                    continuation.resume(returning: image)
+                } else {
+                    continuation.resume(returning: nil)
                 }
             }
         }

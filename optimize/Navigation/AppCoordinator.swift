@@ -459,8 +459,17 @@ class AppCoordinator: ObservableObject {
 
         Task {
             do {
-                let validation = try SecurityScopedResource.access(url) { accessibleURL in
-                    FileValidationService.shared.validate(url: accessibleURL)
+                if FileValidationService.shared.needsICloudDownload(url) {
+                    try FileValidationService.shared.startICloudDownload(url)
+                    showError(
+                        title: String(localized: "iCloud İndiriliyor", comment: "iCloud download title"),
+                        message: String(localized: "Dosya iCloud'dan indiriliyor. İndirme tamamlandığında tekrar deneyin.", comment: "iCloud download message")
+                    )
+                    return
+                }
+
+                let validation = try await SecurityScopedResource.accessAsync(url) { accessibleURL in
+                    await FileValidationService.shared.validate(url: accessibleURL)
                 }
 
                 if case .invalid(let error) = validation {
@@ -511,21 +520,28 @@ class AppCoordinator: ObservableObject {
         guard let file = currentFile else { return }
         selectedPreset = preset
 
-        if let paywall = subscriptionManager.paywallContext(for: file, preset: preset) {
-            presentPaywall(context: paywall)
-            return
-        }
+        Task {
+            let canProceed = await subscriptionManager.canPerformOperation(file: file, preset: preset)
+            if !canProceed {
+                if let paywall = subscriptionManager.paywallContext(for: file, preset: preset) {
+                    presentPaywall(context: paywall)
+                } else {
+                    presentPaywall()
+                }
+                return
+            }
 
-        // Reset observable progress state so the progress screen is accurate immediately
-        compressionService.prepareForNewTask()
+            // Reset observable progress state so the progress screen is accurate immediately
+            compressionService.prepareForNewTask()
 
-        // ARCHITECTURE: Use NavigationStack for native navigation
-        push(.progress(file, preset))
+            // ARCHITECTURE: Use NavigationStack for native navigation
+            push(.progress(file, preset))
 
-        // REFACTORED: Delegate compression to CompressionViewModel
-        compressionTask?.cancel()
-        compressionTask = Task {
-            await compressionViewModel.compress(file: file, preset: preset)
+            // REFACTORED: Delegate compression to CompressionViewModel
+            compressionTask?.cancel()
+            compressionTask = Task {
+                await compressionViewModel.compress(file: file, preset: preset)
+            }
         }
     }
 

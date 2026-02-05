@@ -163,17 +163,17 @@ struct PresetScreen: View {
                     if showAccessibilityWarning {
                         InfoBanner(
                             type: .warning,
-                            message: "Yüksek sıkıştırma metin seçilebilirliğini kaybedebilir. VoiceOver kullanıcıları veya metni kopyalaması gerekenler için 'Best Quality' önerilir.",
+                            message: AppStrings.PresetWarnings.accessibilityMessage,
                             dismissable: true
                         )
-                        .accessibilityLabel("Erişilebilirlik Uyarısı")
-                        .accessibilityHint("Yüksek sıkıştırma PDF'deki metinleri resme çevirir, bu da erişilebilirlik özelliklerini kaybettirir.")
+                        .accessibilityLabel(AppStrings.PresetWarnings.accessibilityLabel)
+                        .accessibilityHint(AppStrings.PresetWarnings.accessibilityHint)
                     }
 
                     if !isProUser {
                         InfoBanner(
                             type: .info,
-                            message: "Özel hedefler, 50 MB üzeri dosyalar ve sınırsız kullanım için Pro'ya geç.",
+                            message: AppStrings.PresetWarnings.proUpsellMessage,
                             dismissable: false
                         )
                     }
@@ -343,30 +343,30 @@ struct ValuePropGrid: View {
     private let items: [ValuePropItemModel] = [
         .init(
             icon: "lock.shield",
-            title: "On-device security",
-            subtitle: "Files processed without cloud upload"
+            title: AppStrings.PresetValueProps.onDeviceTitle,
+            subtitle: AppStrings.PresetValueProps.onDeviceSubtitle
         ),
         .init(
             icon: "hand.thumbsup",
-            title: "Quality guarantee",
-            subtitle: "Text stays sharp, colors balanced"
+            title: AppStrings.PresetValueProps.qualityTitle,
+            subtitle: AppStrings.PresetValueProps.qualitySubtitle
         ),
         .init(
             icon: "clock.arrow.2.circlepath",
-            title: "Time saver",
-            subtitle: "One-tap ready-to-share sizes"
+            title: AppStrings.PresetValueProps.timeSaverTitle,
+            subtitle: AppStrings.PresetValueProps.timeSaverSubtitle
         ),
         .init(
             icon: "arrow.uturn.backward",
-            title: "Retry protection",
-            subtitle: "Quick retry if something fails"
+            title: AppStrings.PresetValueProps.retryTitle,
+            subtitle: AppStrings.PresetValueProps.retrySubtitle
         )
     ]
 
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("Fine-tune for higher success")
+                Text(AppStrings.PresetValueProps.title)
                     .font(.appBodyMedium)
                     .foregroundStyle(.primary)
 
@@ -468,11 +468,11 @@ struct QualityPreviewCard: View {
 
     private var qualityLabel: String {
         switch selectedPresetId {
-        case "mail": return "Medium Quality"
-        case "whatsapp": return "Good Quality"
-        case "quality": return "Best Quality"
-        case "custom": return "Custom Settings"
-        default: return "Preview"
+        case "mail": return AppStrings.PresetQualityPreview.medium
+        case "whatsapp": return AppStrings.PresetQualityPreview.good
+        case "quality": return AppStrings.PresetQualityPreview.best
+        case "custom": return AppStrings.PresetQualityPreview.custom
+        default: return AppStrings.PresetQualityPreview.preview
         }
     }
 
@@ -490,7 +490,7 @@ struct QualityPreviewCard: View {
         GlassCard {
             VStack(spacing: Spacing.md) {
                 HStack {
-                    Text("Quality Preview")
+                    Text(AppStrings.PresetQualityPreview.title)
                         .font(.appCaptionMedium)
                         .foregroundStyle(.secondary)
                     Spacer()

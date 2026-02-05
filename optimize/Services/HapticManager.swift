@@ -200,8 +200,8 @@ final class HapticManager {
     private func playCelebrationPattern() {
         guard supportsHaptics, let engine = engine else {
             // Fallback: Multiple impacts
-            Task {
-                for i in 0..<3 {
+            Task { @MainActor in
+                for _ in 0..<3 {
                     impactMedium.impactOccurred(intensity: 0.8)
                     try? await Task.sleep(nanoseconds: 100_000_000)
                 }

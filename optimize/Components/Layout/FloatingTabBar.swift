@@ -61,7 +61,9 @@ struct FloatingTabBar: View {
     var onSettingsTap: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Namespace private var tabNamespace
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
@@ -92,6 +94,7 @@ struct FloatingTabBar: View {
             }
             .frame(width: 56)
         }
+        .frame(maxWidth: horizontalSizeClass == .regular ? 520 : .infinity)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
         .background(
@@ -127,8 +130,12 @@ struct FloatingTabBar: View {
             break
         }
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        if reduceMotion {
             selectedTab = tab
+        } else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedTab = tab
+            }
         }
     }
 }
@@ -140,6 +147,7 @@ struct MinimalTabButton: View {
     let isSelected: Bool
     let namespace: Namespace.ID
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -153,26 +161,38 @@ struct MinimalTabButton: View {
                 }
 
                 // Icon
-                Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.appMint : Color.primary.opacity(0.5))
-                    .symbolBounce(trigger: isSelected)
+                tabIcon
             }
             .frame(width: 44, height: 44)
             .contentShape(Circle())
         }
-        .buttonStyle(TabButtonStyle())
+        .buttonStyle(TabButtonStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(tab.label)
+    }
+
+    @ViewBuilder
+    private var tabIcon: some View {
+        let base = Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
+            .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+            .foregroundStyle(isSelected ? Color.appMint : Color.primary.opacity(0.5))
+
+        if reduceMotion {
+            base
+        } else {
+            base.symbolEffect(.bounce, value: isSelected)
+        }
     }
 }
 
 // MARK: - Tab Button Style
 
 struct TabButtonStyle: ButtonStyle {
+    let reduceMotion: Bool
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.85 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

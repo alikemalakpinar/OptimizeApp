@@ -339,6 +339,10 @@ actor OutputValidator {
 /// Ensures: No crashes, output <= input, proper cancellation, memory safety
 @MainActor
 final class SmartCompressionEngine: ObservableObject {
+    private struct UncheckedSendable<T>: @unchecked Sendable {
+        let value: T
+        init(_ value: T) { self.value = value }
+    }
 
     // MARK: - Published State
 
@@ -390,7 +394,6 @@ final class SmartCompressionEngine: ObservableObject {
         mode: CompressionMode = .visuallyLossless,
         progress: ((Double, String) -> Void)? = nil
     ) async -> CompressionJobResult {
-        let startTime = Date()
         let fileType = CompressionFileType.detect(from: url)
 
         // Get input size
@@ -566,7 +569,7 @@ final class SmartCompressionEngine: ObservableObject {
                 let validation = await validator.validate(originalSize: inputSize, outputSize: outputSize)
 
                 switch validation {
-                case .valid(let saved), .marginal(let saved):
+                case .valid, .marginal:
                     progress?(1.0, "Tamamlandı!")
                     return .success(
                         input: url,
@@ -593,7 +596,7 @@ final class SmartCompressionEngine: ObservableObject {
                             inputSize: inputSize,
                             mode: mode,
                             fileType: .image,
-                            reason: "Dosya zaten optimize edilmiş. Daha fazla sıkıştırma kaliteyi bozar.",
+                            reason: reason,
                             diagnostics: result.diagnostics
                         )
                     }
@@ -648,7 +651,7 @@ final class SmartCompressionEngine: ObservableObject {
                     let outputType: CFString
                     let outputExtension: String
 
-                    if config.preferHEIC && self.supportsHEIC() {
+                    if config.preferHEIC && Self.supportsHEIC() {
                         outputType = UTType.heic.identifier as CFString
                         outputExtension = "heic"
                     } else {
@@ -739,7 +742,7 @@ final class SmartCompressionEngine: ObservableObject {
         }
     }
 
-    private func supportsHEIC() -> Bool {
+    nonisolated private static func supportsHEIC() -> Bool {
         if #available(iOS 11.0, *) {
             return true
         }
@@ -759,8 +762,6 @@ final class SmartCompressionEngine: ObservableObject {
         let outputURL = tempDirectory.appendingPathComponent(
             "\(UUID().uuidString)_compressed.mp4"
         )
-
-        let config = videoConfig(for: mode)
 
         progress?(0.1, "HEVC kodlaması hazırlanıyor...")
 
@@ -804,88 +805,86 @@ final class SmartCompressionEngine: ObservableObject {
             exportSession.outputFileType = .mp4
             exportSession.shouldOptimizeForNetworkUse = true
 
-            // Start export with progress monitoring
+            // Start export with async progress monitoring
             progress?(0.2, "Video sıkıştırılıyor...")
 
-            // Monitor progress
+            let sessionBox = UncheckedSendable(exportSession)
+            let exportTask = Task {
+                try await sessionBox.value.export(to: outputURL, as: .mp4)
+            }
+
             let progressTask = Task {
-                while exportSession.status == .exporting || exportSession.status == .waiting {
-                    let exportProgress = Double(exportSession.progress)
-                    progress?(0.2 + (exportProgress * 0.7), "Video sıkıştırılıyor... %\(Int(exportProgress * 100))")
-                    try await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                for await state in sessionBox.value.states(updateInterval: 0.1) {
+                    switch state {
+                    case .waiting:
+                        progress?(0.2, "Video hazırlanıyor...")
+                    case .exporting(let exportProgress):
+                        let value = exportProgress.fractionCompleted
+                        progress?(0.2 + (value * 0.7), "Video sıkıştırılıyor... %\(Int(value * 100))")
+                    @unknown default:
+                        break
+                    }
                 }
             }
 
-            await exportSession.export()
-            progressTask.cancel()
-
-            // Check result
-            switch exportSession.status {
-            case .completed:
-                progress?(0.95, "Doğrulanıyor...")
-
-                let outputSize = getFileSize(outputURL)
-                let validation = await validator.validate(originalSize: inputSize, outputSize: outputSize)
-
-                switch validation {
-                case .valid, .marginal:
-                    let outputBitrate = try? await estimateVideoBitrate(asset: AVURLAsset(url: outputURL))
-
-                    let diagnostics = JobDiagnostics(
-                        originalCodec: "H.264",
-                        outputCodec: exportPreset.contains("HEVC") ? "HEVC" : "H.264",
-                        originalBitrate: originalBitrate,
-                        outputBitrate: outputBitrate,
-                        originalDimensions: originalSize,
-                        retryCount: 0,
-                        strategyUsed: exportPreset
-                    )
-
-                    progress?(1.0, "Tamamlandı!")
-                    return .success(
-                        input: url,
-                        output: outputURL,
-                        inputSize: inputSize,
-                        outputSize: outputSize,
-                        mode: mode,
-                        fileType: .video,
-                        processingTime: Date().timeIntervalSince(startTime),
-                        diagnostics: diagnostics
-                    )
-
-                case .needsRetry:
-                    try? FileManager.default.removeItem(at: outputURL)
-                    return .skipped(
-                        input: url,
-                        inputSize: inputSize,
-                        mode: mode,
-                        fileType: .video,
-                        reason: "Video zaten optimize edilmiş veya düşük bitrate'li."
-                    )
-                }
-
-            case .cancelled:
+            do {
+                try await exportTask.value
+            } catch is CancellationError {
+                progressTask.cancel()
                 try? FileManager.default.removeItem(at: outputURL)
                 return .cancelled(input: url, inputSize: inputSize, mode: mode, fileType: .video)
-
-            case .failed:
+            } catch {
+                progressTask.cancel()
                 try? FileManager.default.removeItem(at: outputURL)
                 return .failed(
                     input: url,
                     inputSize: inputSize,
                     mode: mode,
                     fileType: .video,
-                    reason: exportSession.error?.localizedDescription ?? "Video export başarısız."
+                    reason: error.localizedDescription
+                )
+            }
+
+            progressTask.cancel()
+            progress?(0.95, "Doğrulanıyor...")
+
+            let outputSize = getFileSize(outputURL)
+            let validation = await validator.validate(originalSize: inputSize, outputSize: outputSize)
+
+            switch validation {
+            case .valid, .marginal:
+                let outputBitrate = try? await estimateVideoBitrate(asset: AVURLAsset(url: outputURL))
+
+                let diagnostics = JobDiagnostics(
+                    originalCodec: "H.264",
+                    outputCodec: exportPreset.contains("HEVC") ? "HEVC" : "H.264",
+                    originalBitrate: originalBitrate,
+                    outputBitrate: outputBitrate,
+                    originalDimensions: originalSize,
+                    retryCount: 0,
+                    strategyUsed: exportPreset
                 )
 
-            default:
+                progress?(1.0, "Tamamlandı!")
+                return .success(
+                    input: url,
+                    output: outputURL,
+                    inputSize: inputSize,
+                    outputSize: outputSize,
+                    mode: mode,
+                    fileType: .video,
+                    processingTime: Date().timeIntervalSince(startTime),
+                    diagnostics: diagnostics
+                )
+
+            case .needsRetry:
                 try? FileManager.default.removeItem(at: outputURL)
-                return .failed(
+                return .skipped(
                     input: url,
                     inputSize: inputSize,
                     mode: mode,
                     fileType: .video,
-                    reason: "Beklenmeyen video export durumu."
+                    reason: "Video zaten optimize edilmiş veya düşük bitrate'li."
                 )
             }
 
@@ -1209,7 +1208,6 @@ final class SmartCompressionEngine: ObservableObject {
         progress?(0.5, "Maksimum sıkıştırma uygulanıyor...")
 
         // Very aggressive settings
-        let targetDPI: CGFloat = 72
         let quality: CGFloat = 0.4
 
         for i in 0..<pageCount {

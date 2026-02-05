@@ -267,7 +267,7 @@ actor OCRService {
         let totalPages = document.pageCount
 
         for pageIndex in 0..<totalPages {
-            try await Task.yield() // Allow cancellation
+            await Task.yield() // Allow cancellation
 
             guard let page = document.page(at: pageIndex) else { continue }
 

@@ -107,7 +107,10 @@ struct BatchProcessingScreen: View {
         .background(Color(.systemGroupedBackground))
         .sheet(isPresented: $showFilePicker) {
             BatchDocumentPicker { urls in
-                batchService.addFiles(urls, preset: selectedPreset)
+                Task {
+                    let validURLs = await validateBatchFiles(urls)
+                    batchService.addFiles(validURLs, preset: selectedPreset)
+                }
             }
         }
         .sheet(isPresented: $showShareSheet) {
@@ -135,6 +138,29 @@ struct BatchProcessingScreen: View {
     private func saveItem(_ item: BatchItem) {
         selectedItemForShare = item
         showFileSaver = true
+    }
+
+    private func validateBatchFiles(_ urls: [URL]) async -> [URL] {
+        var valid: [URL] = []
+
+        for url in urls {
+            do {
+                if FileValidationService.shared.needsICloudDownload(url) {
+                    try FileValidationService.shared.startICloudDownload(url)
+                    continue
+                }
+                let result = try await SecurityScopedResource.accessAsync(url) { accessibleURL in
+                    await FileValidationService.shared.validate(url: accessibleURL)
+                }
+                if result.isValid {
+                    valid.append(url)
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return valid
     }
 }
 
@@ -479,7 +505,7 @@ private struct CompletedSection: View {
                 }
 
                 Button(action: onClear) {
-                    Text("Temizle")
+                    Text(AppStrings.Batch.clear)
                         .font(.appCaption)
                         .foregroundStyle(.secondary)
                 }
@@ -503,7 +529,7 @@ private struct CompletedSection: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 12))
-                            Text("Tümünü Paylaş")
+                            Text(AppStrings.Batch.shareAll)
                                 .font(.appCaption)
                         }
                         .foregroundStyle(Color.appAccent)
@@ -566,7 +592,7 @@ private struct CompletedItemRow: View {
                                     .foregroundStyle(Color.appMint)
                             }
                         } else if item.status == .failed {
-                            Text(item.error ?? "Bilinmeyen hata")
+                            Text(item.error ?? AppStrings.Batch.unknownError)
                                 .font(.appCaption)
                                 .foregroundStyle(.red)
                         }
@@ -604,7 +630,7 @@ private struct CompletedItemRow: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.system(size: 14, weight: .medium))
-                                Text("Paylaş")
+                                Text(AppStrings.UI.share)
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                             }
                             .foregroundStyle(.white)
@@ -628,7 +654,7 @@ private struct CompletedItemRow: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "square.and.arrow.down")
                                     .font(.system(size: 14, weight: .medium))
-                                Text("Kaydet")
+                                Text(AppStrings.UI.save)
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                             }
                             .foregroundStyle(Color.appAccent)
@@ -688,7 +714,15 @@ private struct BatchShareSheet: UIViewControllerRepresentable {
         let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
         // iPad fix: prevent crash by providing sourceView
         if let popover = controller.popoverPresentationController {
-            popover.sourceView = UIView()
+            if let sourceView = controller.view {
+                popover.sourceView = sourceView
+                popover.sourceRect = CGRect(
+                    x: sourceView.bounds.midX,
+                    y: sourceView.bounds.midY,
+                    width: 0,
+                    height: 0
+                )
+            }
             popover.permittedArrowDirections = []
         }
         return controller

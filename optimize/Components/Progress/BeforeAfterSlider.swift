@@ -171,31 +171,41 @@ struct BeforeAfterSlider: View {
     // MARK: - Video Thumbnail
 
     private func generateVideoThumbnail(url: URL) async -> UIImage? {
+        let shouldStopAccess = url.startAccessingSecurityScopedResource()
+        defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
+
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 600, height: 600)
+
+        let durationTime = (try? await asset.load(.duration)) ?? .zero
+        let durationSeconds = max(0, CMTimeGetSeconds(durationTime))
+        let time = CMTime(seconds: min(1.0, durationSeconds * 0.1), preferredTimescale: 600)
+
+        if let cgImage = await generateCGImage(generator, at: time) {
+            return UIImage(cgImage: cgImage)
+        }
+        if let cgImage = await generateCGImage(generator, at: .zero) {
+            return UIImage(cgImage: cgImage)
+        }
+
+        return nil
+    }
+
+    private func generateCGImage(_ generator: AVAssetImageGenerator, at time: CMTime) async -> CGImage? {
         return await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let shouldStopAccess = url.startAccessingSecurityScopedResource()
-                defer { if shouldStopAccess { url.stopAccessingSecurityScopedResource() } }
-
-                let asset = AVURLAsset(url: url)
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = CGSize(width: 600, height: 600)
-
-                // Get frame at 1 second or 10% into video
-                let durationSeconds = CMTimeGetSeconds(asset.duration)
-                let time = CMTime(seconds: min(1.0, durationSeconds * 0.1), preferredTimescale: 600)
-
-                do {
-                    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
-                    continuation.resume(returning: UIImage(cgImage: cgImage))
-                } catch {
-                    // Try at start
-                    do {
-                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
-                        continuation.resume(returning: UIImage(cgImage: cgImage))
-                    } catch {
-                        continuation.resume(returning: nil)
-                    }
+            let lock = NSLock()
+            var didResume = false
+            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, result, _ in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !didResume else { return }
+                didResume = true
+                if result == .succeeded, let image = image {
+                    continuation.resume(returning: image)
+                } else {
+                    continuation.resume(returning: nil)
                 }
             }
         }

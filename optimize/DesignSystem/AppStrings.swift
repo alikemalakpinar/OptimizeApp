@@ -67,6 +67,13 @@ struct AppStrings {
         static var settings: String { String(localized: "Ayarlar", comment: "Tab: Settings") }
     }
 
+    // MARK: - Batch
+    enum Batch {
+        static var clear: String { String(localized: "Temizle", comment: "Batch: Clear") }
+        static var shareAll: String { String(localized: "Tümünü Paylaş", comment: "Batch: Share all") }
+        static var unknownError: String { String(localized: "Bilinmeyen hata", comment: "Batch: Unknown error") }
+    }
+
     // MARK: - Screen Titles
     enum Titles {
         static var home: String { String(localized: "Optimize", comment: "Screen title: Home") }
@@ -76,6 +83,22 @@ struct AppStrings {
         static var result: String { String(localized: "Sonuç", comment: "Screen title: Result") }
         static var history: String { String(localized: "Geçmiş", comment: "Screen title: History") }
         static var settings: String { String(localized: "Ayarlar", comment: "Screen title: Settings") }
+    }
+
+    // MARK: - Analyze Screen
+    enum Analyze {
+        static var analyzing: String { String(localized: "Analiz Ediliyor...", comment: "Analyze: Analyzing state") }
+        static var continueAction: String { String(localized: "Devam", comment: "Analyze: Continue button") }
+        static var resultsTitle: String { String(localized: "Analiz Sonuçları", comment: "Analyze: Results title") }
+        static var scanningMessages: [String] {
+            [
+                String(localized: "Görseller taranıyor...", comment: "Analyze: Message 1"),
+                String(localized: "Metin alanları inceleniyor...", comment: "Analyze: Message 2"),
+                String(localized: "Gereksiz veriler tespit ediliyor...", comment: "Analyze: Message 3"),
+                String(localized: "En iyi sıkıştırma stratejisi belirleniyor...", comment: "Analyze: Message 4"),
+                String(localized: "Dosya yapısı eşleştiriliyor...", comment: "Analyze: Message 5")
+            ]
+        }
     }
 
     // MARK: - Preset Names
@@ -96,12 +119,78 @@ struct AppStrings {
         static var aggressiveCancel: String { String(localized: "Vazgeç", comment: "Warning: Cancel button") }
     }
 
+    // MARK: - Preset Value Props
+    enum PresetValueProps {
+        static var title: String { String(localized: "Daha yüksek başarı için ince ayar", comment: "Preset: Value prop title") }
+        static var onDeviceTitle: String { String(localized: "Cihaz içi güvenlik", comment: "Preset: Value prop 1 title") }
+        static var onDeviceSubtitle: String { String(localized: "Dosyalar buluta yüklenmeden işlenir", comment: "Preset: Value prop 1 subtitle") }
+        static var qualityTitle: String { String(localized: "Kalite garantisi", comment: "Preset: Value prop 2 title") }
+        static var qualitySubtitle: String { String(localized: "Metinler net, renkler dengeli kalır", comment: "Preset: Value prop 2 subtitle") }
+        static var timeSaverTitle: String { String(localized: "Zamandan tasarruf", comment: "Preset: Value prop 3 title") }
+        static var timeSaverSubtitle: String { String(localized: "Tek dokunuşla paylaşılabilir boyutlar", comment: "Preset: Value prop 3 subtitle") }
+        static var retryTitle: String { String(localized: "Tekrar deneme koruması", comment: "Preset: Value prop 4 title") }
+        static var retrySubtitle: String { String(localized: "Bir hata olursa hızlı tekrar deneme", comment: "Preset: Value prop 4 subtitle") }
+    }
+
+    // MARK: - Preset Quality Preview
+    enum PresetQualityPreview {
+        static var title: String { String(localized: "Kalite Önizleme", comment: "Preset: Quality preview title") }
+        static var medium: String { String(localized: "Orta Kalite", comment: "Preset: Medium quality label") }
+        static var good: String { String(localized: "İyi Kalite", comment: "Preset: Good quality label") }
+        static var best: String { String(localized: "En İyi Kalite", comment: "Preset: Best quality label") }
+        static var custom: String { String(localized: "Özel Ayarlar", comment: "Preset: Custom label") }
+        static var preview: String { String(localized: "Önizleme", comment: "Preset: Preview label") }
+    }
+
+    // MARK: - Preset Warnings
+    enum PresetWarnings {
+        static var accessibilityMessage: String {
+            String(localized: "Yüksek sıkıştırma metin seçilebilirliğini kaybedebilir. VoiceOver kullanıcıları veya metni kopyalaması gerekenler için 'En İyi Kalite' önerilir.", comment: "Preset: Accessibility warning message")
+        }
+        static var accessibilityLabel: String {
+            String(localized: "Erişilebilirlik Uyarısı", comment: "Preset: Accessibility warning label")
+        }
+        static var accessibilityHint: String {
+            String(localized: "Yüksek sıkıştırma PDF'deki metinleri resme çevirir, bu da erişilebilirlik özelliklerini kaybettirir.", comment: "Preset: Accessibility warning hint")
+        }
+        static var proUpsellMessage: String {
+            String(localized: "Özel hedefler, 50 MB üzeri dosyalar ve sınırsız kullanım için Pro'ya geç.", comment: "Preset: Pro upsell message")
+        }
+    }
+
     // MARK: - Result Screen
     enum Result {
         static var success: String { String(localized: "Başarılı!", comment: "Result: Success") }
         static var saved: String { String(localized: "Kazandığınız Alan", comment: "Result: Space saved") }
         static var reduction: String { String(localized: "küçültme", comment: "Result: Reduction percentage") }
         static var beforeAfter: String { String(localized: "Öncesi / Sonrası", comment: "Result: Before/After") }
+    }
+
+    // MARK: - Converter
+    enum Converter {
+        static var errorTitle: String { String(localized: "Hata", comment: "Converter: Error title") }
+        static var ok: String { String(localized: "Tamam", comment: "Converter: OK button") }
+        static var convert: String { String(localized: "Dönüştür", comment: "Converter: Convert button") }
+        static var share: String { String(localized: "Paylaş", comment: "Converter: Share button") }
+        static var close: String { String(localized: "Kapat", comment: "Converter: Close button") }
+        static var done: String { String(localized: "Bitti", comment: "Converter: Done button") }
+        static var completedTitle: String { String(localized: "Dönüşüm Tamamlandı!", comment: "Converter: Completed title") }
+        static var title: String { String(localized: "Dosya Dönüştürücü", comment: "Converter: Title") }
+        static var subtitle: String { String(localized: "PDF, resim ve video dosyalarını farklı formatlara dönüştürün", comment: "Converter: Subtitle") }
+    }
+
+    // MARK: - Settings Debug
+    enum SettingsDebug {
+        static var forceProMode: String { String(localized: "Pro Modunu Zorla", comment: "Settings Debug: Force Pro Mode") }
+        static var proActive: String { String(localized: "PRO MOD AKTİF", comment: "Settings Debug: Pro mode active") }
+        static var freeMode: String { String(localized: "ÜCRETSİZ MOD", comment: "Settings Debug: Free mode") }
+        static var resetDailyLimit: String { String(localized: "Günlük Limiti Sıfırla", comment: "Settings Debug: Reset daily limit") }
+        static func currentUsage(_ count: Int, _ limit: String) -> String {
+            String(localized: "Mevcut: \(count)/\(limit)", comment: "Settings Debug: Current usage")
+        }
+        static var reset: String { String(localized: "Sıfırla", comment: "Settings Debug: Reset") }
+        static var developerOverride: String { String(localized: "Geliştirici Override", comment: "Settings Debug: Developer override") }
+        static var debugOnly: String { String(localized: "SADECE DEBUG - Bu kontroller StoreKit’i bypass eder ve Release derlemelerde kaldırılır.", comment: "Settings Debug: Debug only note") }
     }
 
     // MARK: - Onboarding
@@ -278,6 +367,8 @@ struct AppStrings {
         static var manageSubscription: String { String(localized: "Aboneliği Yönet", comment: "Settings: Link") }
 
         static var madeWith: String { String(localized: "İstanbul'da ❤️ ile yapıldı", comment: "Settings: Footer") }
+        static func appVersion(_ version: String) -> String { String(localized: "Optimize v\(version)", comment: "Settings: App version label") }
+        static var proBadge: String { String(localized: "PRO", comment: "Settings: Pro badge") }
 
         static func daysFormat(_ days: Int) -> String {
             String(localized: "\(days) gün", comment: "Settings: Days format")

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import UIKit
 import StoreKit
 
@@ -212,8 +213,13 @@ struct ResultScreen: View {
     }
 
     private func requestAppStoreReview() {
-        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            SKStoreReviewController.requestReview(in: scene)
+        guard let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
+            return
+        }
+
+        if #available(iOS 18.0, *) {
+            AppStore.requestReview(in: scene)
         }
     }
 }

@@ -15,6 +15,7 @@
 
 import Foundation
 import StoreKit
+import StoreKit
 import UIKit
 
 // MARK: - Result ViewModel Protocol
@@ -127,7 +128,9 @@ final class ResultViewModel: ObservableObject, ResultViewModelProtocol {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             if let windowScene = UIApplication.shared.connectedScenes
                 .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-                SKStoreReviewController.requestReview(in: windowScene)
+                if #available(iOS 18.0, *) {
+                    AppStore.requestReview(in: windowScene)
+                }
             }
         }
     }

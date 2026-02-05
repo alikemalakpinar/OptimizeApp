@@ -402,7 +402,7 @@ final class AdvancedImageEncoder {
         // Sample every 1000th pixel
         var hasTransparentPixels = false
         var sampleCount = 0
-        var stride = max(1, length / (1000 * bytesPerPixel))
+        let stride = max(1, length / (1000 * bytesPerPixel))
 
         for i in Swift.stride(from: 0, to: length, by: stride * bytesPerPixel) {
             if i + bytesPerPixel > length { break }

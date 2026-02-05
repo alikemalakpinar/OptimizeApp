@@ -108,7 +108,7 @@ struct ModernPaywallScreen: View {
     private var weeklyFromYearly: String {
         if let product = subscriptionManager.products.first(where: { $0.id.contains("yearly") }) {
             let weeklyValue = product.price / 52
-            return weeklyValue.formatted(.currency(code: product.priceFormatStyle.currencyCode ?? "TRY"))
+            return weeklyValue.formatted(.currency(code: product.priceFormatStyle.currencyCode))
         }
         return "--"
     }
@@ -159,7 +159,7 @@ struct ModernPaywallScreen: View {
                     .padding(.horizontal)
                     .padding(.top, 12)
                     .alert(restoreAlertTitle, isPresented: $showRestoreAlert) {
-                        Button("Tamam", role: .cancel) {
+                        Button(AppStrings.UI.done, role: .cancel) {
                             if restoreState == .success || restoreState == .alreadyPremium {
                                 onDismiss()
                             }
@@ -371,46 +371,36 @@ struct ModernPaywallScreen: View {
         Haptics.selection()
 
         Task {
-            do {
-                // Check if already premium first
+            // Check if already premium first
+            if subscriptionManager.status.isPro {
+                await MainActor.run {
+                    restoreState = .alreadyPremium
+                    restoreAlertTitle = "🎉 Zaten Premium!"
+                    restoreAlertMessage = "Premium üyeliğiniz aktif durumda. Tüm özelliklere erişebilirsiniz."
+                    showRestoreAlert = true
+                    Haptics.success()
+                }
+                return
+            }
+
+            // Attempt restore
+            await subscriptionManager.restore()
+
+            // Check result after restore
+            await MainActor.run {
                 if subscriptionManager.status.isPro {
-                    await MainActor.run {
-                        restoreState = .alreadyPremium
-                        restoreAlertTitle = "🎉 Zaten Premium!"
-                        restoreAlertMessage = "Premium üyeliğiniz aktif durumda. Tüm özelliklere erişebilirsiniz."
-                        showRestoreAlert = true
-                        Haptics.success()
-                    }
-                    return
+                    restoreState = .success
+                    restoreAlertTitle = "🎉 Başarılı!"
+                    restoreAlertMessage = "Premium üyeliğiniz geri yüklendi! Artık tüm özelliklere sınırsız erişebilirsiniz."
+                    Haptics.success()
+                    SoundManager.shared.playPremiumUnlockSound()
+                } else {
+                    restoreState = .noSubscription
+                    restoreAlertTitle = "ℹ️ Bilgi"
+                    restoreAlertMessage = "Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı.\n\nDaha önce satın aldıysanız:\n• Aynı Apple ID ile giriş yaptığınızdan emin olun\n• App Store'da oturum açık olduğunu kontrol edin"
+                    Haptics.warning()
                 }
-
-                // Attempt restore
-                await subscriptionManager.restore()
-
-                // Check result after restore
-                await MainActor.run {
-                    if subscriptionManager.status.isPro {
-                        restoreState = .success
-                        restoreAlertTitle = "🎉 Başarılı!"
-                        restoreAlertMessage = "Premium üyeliğiniz geri yüklendi! Artık tüm özelliklere sınırsız erişebilirsiniz."
-                        Haptics.success()
-                        SoundManager.shared.playPremiumUnlockSound()
-                    } else {
-                        restoreState = .noSubscription
-                        restoreAlertTitle = "ℹ️ Bilgi"
-                        restoreAlertMessage = "Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı.\n\nDaha önce satın aldıysanız:\n• Aynı Apple ID ile giriş yaptığınızdan emin olun\n• App Store'da oturum açık olduğunu kontrol edin"
-                        Haptics.warning()
-                    }
-                    showRestoreAlert = true
-                }
-            } catch {
-                await MainActor.run {
-                    restoreState = .error
-                    restoreAlertTitle = "⚠️ Hata"
-                    restoreAlertMessage = "Geri yükleme sırasında bir hata oluştu.\n\nLütfen:\n• İnternet bağlantınızı kontrol edin\n• App Store'a giriş yaptığınızdan emin olun\n• Birkaç dakika sonra tekrar deneyin"
-                    showRestoreAlert = true
-                    Haptics.error()
-                }
+                showRestoreAlert = true
             }
         }
     }

@@ -42,7 +42,7 @@ protocol CompressionServiceProtocol: AnyObject {
     func compressFile(
         at sourceURL: URL,
         preset: CompressionPreset,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws -> URL
 
     /// Prepare service for a new task (reset state)
@@ -67,6 +67,10 @@ protocol CompressionServiceProtocol: AnyObject {
 /// - Memory-optimized with CGContext-based rendering (no UIImage intermediates)
 /// - Added smart vector detection beyond text length
 final class UltimatePDFCompressionService: ObservableObject, CompressionServiceProtocol {
+    private struct UncheckedSendable<T>: @unchecked Sendable {
+        let value: T
+        init(_ value: T) { self.value = value }
+    }
 
     // MARK: - Shared Instance (Composition Root Only)
 
@@ -178,7 +182,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
     func compressFile(
         at sourceURL: URL,
         preset: CompressionPreset,
-        onProgress: @escaping (ProcessingStage, Double) -> Void
+        onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws -> URL {
         let fileType = FileType.from(extension: sourceURL.pathExtension)
 
@@ -252,7 +256,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             try Task.checkCancellation()
 
             // SAFETY: Create backup before destructive operation
-            guard let backup = PDFBackupManager.shared.createBackup(for: sourceURL) else {
+            guard PDFBackupManager.shared.createBackup(for: sourceURL) != nil else {
                 // If backup fails, fall back to safe compression
                 return try await compressPDF(at: sourceURL, preset: .commercial, onProgress: onProgress)
             }
@@ -346,7 +350,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         // Perform heavy PDF loading on background thread
         // NOTE: Using Task.detached to escape @MainActor context for CPU-intensive work
         // Priority is explicitly set to maintain responsiveness
-        let (document, pageCount, outputURL) = try await Task.detached(priority: .userInitiated) { [self] in
+        let (document, outputURL) = try await Task.detached(priority: .userInitiated) { [self] in
             // Check cancellation early
             try Task.checkCancellation()
 
@@ -364,7 +368,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             }
 
             let outputURL = self.generateOutputURL(for: sourceURL)
-            return (document, pageCount, outputURL)
+            return (document, outputURL)
         }.value
 
         onProgress(.preparing, 0.5)
@@ -474,32 +478,6 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             var totalTextLength = 0
             var vectorOperatorCount = 0
 
-            // PDF operators that indicate vector content
-            let vectorOperators = [
-                "re",   // Rectangle
-                "m",    // Move to
-                "l",    // Line to
-                "c",    // Curve to (bezier)
-                "v",    // Curve to (initial point)
-                "y",    // Curve to (final point)
-                "h",    // Close path
-                "S",    // Stroke
-                "s",    // Close and stroke
-                "f",    // Fill
-                "F",    // Fill (alternate)
-                "B",    // Fill and stroke
-                "b",    // Close, fill and stroke
-                "n",    // End path
-                "W",    // Clipping path
-                "cm",   // Concatenate matrix (transforms)
-                "q",    // Save graphics state
-                "Q",    // Restore graphics state
-                "rg",   // Set RGB color
-                "RG",   // Set RGB stroke color
-                "k",    // Set CMYK color
-                "K"     // Set CMYK stroke color
-            ]
-
             for i in 0..<checkCount {
                 try Task.checkCancellation()
                 guard let page = document.page(at: i) else { continue }
@@ -584,7 +562,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             for pageIndex in 0..<pageCount {
                 try Task.checkCancellation()
 
-                try autoreleasepool {
+                autoreleasepool {
                     guard let page = document.page(at: pageIndex) else { return }
 
                     // Use multi-signal vector detection
@@ -781,9 +759,6 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             let vectorRatio = Double(vectorHeavyPages.count) / Double(min(pageCount, 50))
             let isDigitalDocument = vectorRatio > 0.5
 
-            // For digital documents, use hybrid approach
-            let outputDocument = PDFDocument()
-
             // CRITICAL: Use file-based data consumer for streaming to disk
             guard let consumer = CGDataConsumer(url: outputURL as CFURL),
                   let pdfContext = CGContext(consumer: consumer, mediaBox: nil, nil) else {
@@ -795,8 +770,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 try Task.checkCancellation()
 
                 // DEEP autoreleasepool for aggressive memory cleanup
-                try autoreleasepool {
-                    try autoreleasepool {
+                autoreleasepool {
+                    autoreleasepool {
                         guard let page = document.page(at: pageIndex) else { return }
 
                         let pageRect = page.bounds(for: .mediaBox)
@@ -1076,7 +1051,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         let qualityStep: Float = 0.1
         let maxAttempts = 5
 
-        for attempt in 0..<maxAttempts {
+        for _ in 0..<maxAttempts {
             guard let jpegData = image.jpegData(compressionQuality: CGFloat(currentQuality)),
                   let compressedImage = UIImage(data: jpegData) else {
                 continue
@@ -1616,34 +1591,27 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
         onProgress(.optimizing, 0.05)
 
+        let sessionBox = UncheckedSendable(exportSession)
         try await withTaskCancellationHandler(operation: {
             let progressTask = Task {
-                while exportSession.status == .waiting || exportSession.status == .exporting {
-                    try await Task.sleep(nanoseconds: 150_000_000)  // 150ms - daha sık güncelleme
-                    await MainActor.run {
-                        let current = Double(exportSession.progress)
-                        self.progress = current
-                        onProgress(.optimizing, current)
+                for await state in sessionBox.value.states(updateInterval: 0.15) {
+                    switch state {
+                    case .exporting(let value):
+                        await MainActor.run {
+                            let current = value.fractionCompleted
+                            self.progress = current
+                            onProgress(.optimizing, current)
+                        }
+                    case .waiting:
+                        break
+                    @unknown default:
+                        break
                     }
                 }
             }
 
-            try await withCheckedThrowingContinuation { continuation in
-                exportSession.exportAsynchronously {
-                    progressTask.cancel()
-
-                    switch exportSession.status {
-                    case .completed:
-                        continuation.resume(returning: ())
-                    case .failed:
-                        continuation.resume(throwing: CompressionError.exportFailed)
-                    case .cancelled:
-                        continuation.resume(throwing: CompressionError.cancelled)
-                    default:
-                        continuation.resume(throwing: CompressionError.unknown(underlying: exportSession.error))
-                    }
-                }
-            }
+            defer { progressTask.cancel() }
+            try await sessionBox.value.export(to: outputURL, as: .mp4)
         }, onCancel: {
             exportSession.cancelExport()
         })
@@ -1661,17 +1629,11 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 fallbackSession.outputFileType = .mp4
                 fallbackSession.shouldOptimizeForNetworkUse = true
 
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    fallbackSession.exportAsynchronously {
-                        switch fallbackSession.status {
-                        case .completed:
-                            continuation.resume(returning: ())
-                        default:
-                            // Orijinal dosyayı kopyala
-                            try? FileManager.default.copyItem(at: sourceURL, to: outputURL)
-                            continuation.resume(returning: ())
-                        }
-                    }
+                do {
+                    try await fallbackSession.export(to: outputURL, as: .mp4)
+                } catch {
+                    // Orijinal dosyayı kopyala
+                    try? FileManager.default.copyItem(at: sourceURL, to: outputURL)
                 }
             }
         }
@@ -1907,7 +1869,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         case .image:
             return try analyzeImage(file: file)
         case .video:
-            return analyzeVideo(file: file)
+            return await analyzeVideo(file: file)
         case .document, .unknown:
             return analyzeGeneric(file: file)
         }
@@ -1994,13 +1956,13 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         )
     }
 
-    private func analyzeVideo(file: FileInfo) -> AnalysisResult {
-        if file.url.startAccessingSecurityScopedResource() {
-            defer { file.url.stopAccessingSecurityScopedResource() }
-        }
+    private func analyzeVideo(file: FileInfo) async -> AnalysisResult {
+        let didAccess = file.url.startAccessingSecurityScopedResource()
+        defer { if didAccess { file.url.stopAccessingSecurityScopedResource() } }
 
         let asset = AVURLAsset(url: file.url)
-        let duration = CMTimeGetSeconds(asset.duration)
+        let durationTime = (try? await asset.load(.duration)) ?? .zero
+        let duration = CMTimeGetSeconds(durationTime)
         let isLarge = file.sizeMB > 80 || duration > 120
 
         return AnalysisResult(
@@ -2014,9 +1976,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
     }
 
     private func analyzeGeneric(file: FileInfo) -> AnalysisResult {
-        if file.url.startAccessingSecurityScopedResource() {
-            defer { file.url.stopAccessingSecurityScopedResource() }
-        }
+        let didAccess = file.url.startAccessingSecurityScopedResource()
+        defer { if didAccess { file.url.stopAccessingSecurityScopedResource() } }
 
         let highSavings = file.sizeMB > 20
 

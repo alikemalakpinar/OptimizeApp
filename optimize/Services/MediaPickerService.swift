@@ -237,13 +237,18 @@ struct MediaPicker: UIViewControllerRepresentable {
             }
         }
 
+        private struct UncheckedItemProvider: @unchecked Sendable {
+            let provider: NSItemProvider
+        }
+
         private func loadImage(from itemProvider: NSItemProvider) async -> MediaSelectionResult? {
+            let uncheckedProvider = UncheckedItemProvider(provider: itemProvider)
             return await withCheckedContinuation { continuation in
                 // Try to load as file first (preserves original format)
-                itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, error in
+                uncheckedProvider.provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, error in
                     guard let sourceURL = url, error == nil else {
                         // Fallback: Load as data
-                        itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                        uncheckedProvider.provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
                             guard let data = data else {
                                 continuation.resume(returning: nil)
                                 return

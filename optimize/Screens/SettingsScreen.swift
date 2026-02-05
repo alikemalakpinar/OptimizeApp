@@ -270,9 +270,9 @@ struct SettingsScreen: View {
                         HStack {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Force Pro Mode")
+                                    Text(AppStrings.SettingsDebug.forceProMode)
                                         .foregroundStyle(.primary)
-                                    Text(SubscriptionManager.forceProMode ? "PRO MODE ACTIVE" : "FREE MODE")
+                                    Text(SubscriptionManager.forceProMode ? AppStrings.SettingsDebug.proActive : AppStrings.SettingsDebug.freeMode)
                                         .font(.caption)
                                         .foregroundStyle(SubscriptionManager.forceProMode ? .green : .secondary)
                                 }
@@ -295,9 +295,14 @@ struct SettingsScreen: View {
                         HStack {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Reset Daily Limit")
+                                    Text(AppStrings.SettingsDebug.resetDailyLimit)
                                         .foregroundStyle(.primary)
-                                    Text("Current: \(SubscriptionManager.shared.status.dailyUsageCount)/\(SubscriptionManager.shared.status.dailyUsageLimit == .max ? "∞" : "\(SubscriptionManager.shared.status.dailyUsageLimit)")")
+                                    Text(
+                                        AppStrings.SettingsDebug.currentUsage(
+                                            SubscriptionManager.shared.status.dailyUsageCount,
+                                            SubscriptionManager.shared.status.dailyUsageLimit == .max ? "∞" : "\(SubscriptionManager.shared.status.dailyUsageLimit)"
+                                        )
+                                    )
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -306,7 +311,7 @@ struct SettingsScreen: View {
                                     .foregroundStyle(.orange)
                             }
                             Spacer()
-                            Text("Reset")
+                            Text(AppStrings.SettingsDebug.reset)
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
@@ -314,11 +319,11 @@ struct SettingsScreen: View {
                 } header: {
                     HStack {
                         Image(systemName: "hammer.fill")
-                        Text("Developer Override")
+                        Text(AppStrings.SettingsDebug.developerOverride)
                     }
                     .foregroundStyle(.orange)
                 } footer: {
-                    Text("DEBUG ONLY - These controls bypass StoreKit and are stripped from Release builds.")
+                    Text(AppStrings.SettingsDebug.debugOnly)
                         .foregroundStyle(.orange)
                 }
                 #endif
@@ -328,7 +333,7 @@ struct SettingsScreen: View {
                     HStack {
                         Spacer()
                         VStack(spacing: 4) {
-                            Text("Optimize v\(appVersion)")
+                            Text(AppStrings.Settings.appVersion(appVersion))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text(AppStrings.Settings.madeWith)
@@ -500,7 +505,7 @@ struct PremiumBannerRow: View {
 
                 Spacer()
 
-                Text("PRO")
+                Text(AppStrings.Settings.proBadge)
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.sm)

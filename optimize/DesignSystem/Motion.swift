@@ -321,8 +321,7 @@ struct CelebrationBurstView: View {
 
     private func burst() {
         particles = (0..<particleCount).map { index in
-            let angle = (Double(index) / Double(particleCount)) * 2 * .pi
-            return Particle(color: colors[index % colors.count])
+            Particle(color: colors[index % colors.count])
         }
 
         for (index, _) in particles.enumerated() {

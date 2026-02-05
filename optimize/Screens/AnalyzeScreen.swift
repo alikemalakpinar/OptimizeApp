@@ -25,18 +25,14 @@ struct AnalyzeScreen: View {
     @State private var showResults = false
 
     // User-friendly analysis messages
-    private let analysisMessages = [
-        "Scanning images...",
-        "Examining text areas...",
-        "Detecting unnecessary data...",
-        "Determining best compression strategy...",
-        "Mapping file structure..."
-    ]
+    private var analysisMessages: [String] {
+        AppStrings.Analyze.scanningMessages
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             // Compact Navigation Header
-            NavigationHeader("Analysis", onBack: onBack)
+            NavigationHeader(AppStrings.Titles.analyze, onBack: onBack)
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.md) {
@@ -116,7 +112,7 @@ struct AnalyzeScreen: View {
                     }
                 } else {
                     PrimaryButton(
-                        title: isAnalyzing ? "Analyzing..." : "Continue",
+                        title: isAnalyzing ? AppStrings.Analyze.analyzing : AppStrings.Analyze.continueAction,
                         icon: isAnalyzing ? nil : "arrow.right",
                         isLoading: isAnalyzing,
                         isDisabled: isAnalyzing || analysisResult == nil
@@ -254,6 +250,7 @@ struct AnalysisScanView: View {
     let currentIndex: Int
 
     @State private var scanPosition: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GlassCard {
@@ -315,6 +312,7 @@ struct AnalysisScanView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .appMint))
                             .scaleEffect(0.8)
+                            .accessibilityLabel("Analiz devam ediyor")
 
                         Text(statusMessages[min(currentIndex, statusMessages.count - 1)])
                             .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -331,11 +329,14 @@ struct AnalysisScanView: View {
                         }
                     }
                     .padding(.top, Spacing.xs)
+                    .accessibilityLabel("Analiz adımları")
+                    .accessibilityValue("\(min(currentIndex + 1, statusMessages.count)) / \(statusMessages.count)")
                 }
             }
             .padding(.vertical, Spacing.lg)
         }
         .onAppear {
+            guard reduceMotion == false else { return }
             withAnimation(
                 .easeInOut(duration: 1.5)
                 .repeatForever(autoreverses: true)
@@ -355,7 +356,7 @@ struct AnalysisResultCard: View {
             VStack(spacing: Spacing.md) {
                 // Section header
                 HStack {
-                    Text("Analysis Results")
+                    Text(AppStrings.Analyze.resultsTitle)
                         .font(.appSection)
                         .foregroundStyle(.primary)
                     Spacer()

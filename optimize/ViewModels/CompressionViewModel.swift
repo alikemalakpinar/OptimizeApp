@@ -119,6 +119,27 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     /// Called when compression fails and retry is available
     var onRetryAvailable: ((CompressionError) -> Void)?
 
+    // MARK: - Progress Updates
+
+    private struct WeakBox<T: AnyObject>: @unchecked Sendable {
+        weak var value: T?
+        init(_ value: T) {
+            self.value = value
+        }
+    }
+
+    private func applyProgress(stage: ProcessingStage, progress: Double, operationID: UUID) {
+        guard activeCompressionID == operationID,
+              cancellationRequested == false,
+              Task.isCancelled == false else {
+            return
+        }
+
+        currentStage = stage
+        self.progress = progress
+        status = .compressing(progress: progress, stage: stage)
+    }
+
     /// Called when compression fails permanently (no retry)
     var onCompressionFailed: ((CompressionError) -> Void)?
 
@@ -231,23 +252,16 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
         ])
 
         // Prepare service
-        await service.prepareForNewTask()
+        service.prepareForNewTask()
 
         do {
+            let selfBox = WeakBox(self)
             let outputURL = try await service.compressFile(
                 at: file.url,
                 preset: preset
-            ) { [weak self] stage, prog in
-                guard let self = self,
-                      self.activeCompressionID == operationID,
-                      self.cancellationRequested == false,
-                      Task.isCancelled == false else {
-                    return
-                }
+            ) { stage, prog in
                 Task { @MainActor in
-                    self?.currentStage = stage
-                    self?.progress = prog
-                    self?.status = .compressing(progress: prog, stage: stage)
+                    selfBox.value?.applyProgress(stage: stage, progress: prog, operationID: operationID)
                 }
             }
 
@@ -259,7 +273,7 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
 
             // Get compressed file size
             let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            let compressedSize = attributes[.size] as? Int64 ?? 0
+            let compressedSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
 
             let result = CompressionResult(
                 originalFile: file,
@@ -464,7 +478,7 @@ extension CompressionViewModel {
         ])
 
         // Prepare service
-        await service.prepareForNewTask()
+        service.prepareForNewTask()
 
         // Preflight analysis
         let preflightReport = await PreflightAnalyzer.shared.analyze(url: file.url)
@@ -482,21 +496,14 @@ extension CompressionViewModel {
             let fileType = FileType.from(extension: file.url.pathExtension)
             let outputURL: URL
 
+            let selfBox = WeakBox(self)
             if fileType == .pdf, let pdfService = service as? UltimatePDFCompressionService {
                 outputURL = try await pdfService.compressPDF(
                     at: file.url,
                     profile: profile
-                ) { [weak self] stage, prog in
-                    guard let self = self,
-                          self.activeCompressionID == operationID,
-                          self.cancellationRequested == false,
-                          Task.isCancelled == false else {
-                        return
-                    }
+                ) { stage, prog in
                     Task { @MainActor in
-                        self?.currentStage = stage
-                        self?.progress = prog
-                        self?.status = .compressing(progress: prog, stage: stage)
+                        selfBox.value?.applyProgress(stage: stage, progress: prog, operationID: operationID)
                     }
                 }
             } else {
@@ -504,17 +511,9 @@ extension CompressionViewModel {
                 outputURL = try await service.compressFile(
                     at: file.url,
                     preset: CompressionPreset.from(profile: profile)
-                ) { [weak self] stage, prog in
-                    guard let self = self,
-                          self.activeCompressionID == operationID,
-                          self.cancellationRequested == false,
-                          Task.isCancelled == false else {
-                        return
-                    }
+                ) { stage, prog in
                     Task { @MainActor in
-                        self?.currentStage = stage
-                        self?.progress = prog
-                        self?.status = .compressing(progress: prog, stage: stage)
+                        selfBox.value?.applyProgress(stage: stage, progress: prog, operationID: operationID)
                     }
                 }
             }
@@ -527,7 +526,7 @@ extension CompressionViewModel {
 
             // Get compressed file size
             let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            let compressedSize = attributes[.size] as? Int64 ?? 0
+            let compressedSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
 
             let result = CompressionResult(
                 originalFile: file,

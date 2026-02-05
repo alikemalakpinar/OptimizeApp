@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import UIKit
 import StoreKit
 
@@ -194,9 +195,13 @@ struct RatingRequestView: View {
     }
 
     private func requestReview() {
-        if let windowScene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-            SKStoreReviewController.requestReview(in: windowScene)
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else {
+            return
+        }
+
+        if #available(iOS 18.0, *) {
+            AppStore.requestReview(in: windowScene)
         }
     }
 }

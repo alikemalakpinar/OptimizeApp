@@ -216,8 +216,7 @@ final class iCloudFileHandler: ObservableObject {
 
     @MainActor @objc private func queryDidUpdate(_ notification: Notification) {
         guard let query = notification.object as? NSMetadataQuery,
-              let item = query.results.first as? NSMetadataItem,
-              let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL else {
+              let item = query.results.first as? NSMetadataItem else {
             return
         }
 

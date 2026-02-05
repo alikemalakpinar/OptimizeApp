@@ -75,7 +75,12 @@ enum ConversionError: LocalizedError {
 
 @MainActor
 final class FileConverterService: ObservableObject {
-    static let shared = FileConverterService()
+    @MainActor static let shared = FileConverterService(subscriptionManager: .shared)
+
+    private struct UncheckedSendable<T>: @unchecked Sendable {
+        let value: T
+        init(_ value: T) { self.value = value }
+    }
 
     // MARK: - Dependencies
 
@@ -89,7 +94,7 @@ final class FileConverterService: ObservableObject {
 
     // MARK: - Initialization
 
-    private init(subscriptionManager: SubscriptionManager = .shared) {
+    private init(subscriptionManager: SubscriptionManager) {
         self.subscriptionManager = subscriptionManager
     }
 
@@ -490,26 +495,38 @@ final class FileConverterService: ObservableObject {
         exportSession.outputURL = outputURL
         exportSession.outputFileType = format.avFileType
 
-        // Monitor progress
+        // Monitor progress using async state sequence
+        let sessionBox = UncheckedSendable(exportSession)
         let progressTask = Task {
-            while !Task.isCancelled && exportSession.status == .exporting {
-                let prog = Double(exportSession.progress)
-                await MainActor.run {
-                    self.progress = prog
-                    progressHandler?(prog)
+            for await state in sessionBox.value.states(updateInterval: 0.1) {
+                guard !Task.isCancelled else { break }
+                switch state {
+                case .exporting(let value):
+                    let prog = value.fractionCompleted
+                    await MainActor.run {
+                        self.progress = prog
+                        progressHandler?(prog)
+                    }
+                case .waiting:
+                    break
+                @unknown default:
+                    break
                 }
-                try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
 
-        await exportSession.export()
-        progressTask.cancel()
-
-        if exportSession.status == .completed {
-            return outputURL
-        } else {
-            throw exportSession.error ?? ConversionError.exportFailed
+        do {
+            guard let fileType = format.avFileType else {
+                throw ConversionError.exportFailed
+            }
+            try await sessionBox.value.export(to: outputURL, as: fileType)
+        } catch {
+            progressTask.cancel()
+            throw error
         }
+
+        progressTask.cancel()
+        return outputURL
     }
 
     // MARK: - Video to GIF
@@ -535,11 +552,8 @@ final class FileConverterService: ObservableObject {
         for i in 0..<frameCount {
             let time = CMTime(seconds: duration * Double(i) / Double(frameCount), preferredTimescale: 600)
 
-            do {
-                let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
+            if let cgImage = await generateCGImage(generator, at: time) {
                 images.append(UIImage(cgImage: cgImage))
-            } catch {
-                continue
             }
 
             let prog = Double(i + 1) / Double(frameCount) * 0.8
@@ -589,6 +603,24 @@ final class FileConverterService: ObservableObject {
         progressHandler?(1.0)
 
         return outputURL
+    }
+
+    private func generateCGImage(_ generator: AVAssetImageGenerator, at time: CMTime) async -> CGImage? {
+        return await withCheckedContinuation { continuation in
+            let lock = NSLock()
+            var didResume = false
+            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, result, _ in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !didResume else { return }
+                didResume = true
+                if result == .succeeded, let image = image {
+                    continuation.resume(returning: image)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     // MARK: - Document to PDF
@@ -822,4 +854,3 @@ enum VideoQuality: String, CaseIterable {
     case high = "Yuksek"
     case original = "Orijinal"
 }
-

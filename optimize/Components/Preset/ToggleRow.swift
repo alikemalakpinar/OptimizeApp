@@ -149,8 +149,8 @@ struct PickerRow<T: Hashable>: View {
                     GlassCard {
                         VStack(spacing: Spacing.md) {
                             ToggleRow(
-                                title: "Process on Wi-Fi",
-                                subtitle: "Don't use mobile data",
+                                title: "Wi‑Fi ile işle",
+                                subtitle: "Mobil veri kullanma",
                                 icon: "wifi",
                                 isOn: $wifiOnly
                             )
@@ -158,7 +158,7 @@ struct PickerRow<T: Hashable>: View {
                             Divider()
 
                             ToggleRow(
-                                title: "Delete after processing",
+                                title: "İşlem sonrası sil",
                                 icon: "trash",
                                 isOn: $deleteAfter
                             )
@@ -167,14 +167,14 @@ struct PickerRow<T: Hashable>: View {
 
                     GlassCard {
                         PickerRow(
-                            title: "Default preset",
+                            title: "Varsayılan preset",
                             icon: "slider.horizontal.3",
                             options: ["mail", "whatsapp", "quality"],
                             optionLabel: { option in
                                 switch option {
-                                case "mail": return "Mail (25 MB)"
-                                case "whatsapp": return "WhatsApp"
-                                case "quality": return "Best Quality"
+                                case "mail": return AppStrings.Presets.mail
+                                case "whatsapp": return AppStrings.Presets.whatsapp
+                                case "quality": return AppStrings.Presets.quality
                                 default: return option
                                 }
                             },

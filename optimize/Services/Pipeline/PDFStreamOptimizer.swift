@@ -449,7 +449,7 @@ extension PDFStreamOptimizer {
         var imagesCompressed = 0
 
         for batchStart in stride(from: 0, to: pageCount, by: batchSize) {
-            try autoreleasepool {
+            autoreleasepool {
                 let batchEnd = min(batchStart + batchSize, pageCount)
 
                 for pageIndex in batchStart..<batchEnd {

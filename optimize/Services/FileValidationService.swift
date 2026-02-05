@@ -134,7 +134,7 @@ final class FileValidationService {
     // MARK: - Main Validation
 
     /// Comprehensive file validation
-    func validate(url: URL) -> FileValidationResult {
+    func validate(url: URL) async -> FileValidationResult {
         // 1. Check file exists
         guard FileManager.default.fileExists(atPath: url.path) else {
             // Could be iCloud placeholder
@@ -180,7 +180,7 @@ final class FileValidationService {
         } else if supportedImageExtensions.contains(ext) {
             return validateImage(url: url)
         } else if supportedVideoExtensions.contains(ext) {
-            return validateVideo(url: url)
+            return await validateVideo(url: url)
         } else {
             return .invalid(.unsupportedFormat(detected: ext, expected: "PDF, Image, or Video"))
         }
@@ -245,22 +245,24 @@ final class FileValidationService {
 
     // MARK: - Video Validation
 
-    private func validateVideo(url: URL) -> FileValidationResult {
+    private func validateVideo(url: URL) async -> FileValidationResult {
         let asset = AVURLAsset(url: url)
 
         // Check if asset is playable
-        guard asset.isPlayable else {
+        let isPlayable = (try? await asset.load(.isPlayable)) ?? false
+        guard isPlayable else {
             return .invalid(.corruptedFile(details: "Video oynatılamıyor"))
         }
 
         // Check duration
-        let duration = CMTimeGetSeconds(asset.duration)
+        let durationTime = (try? await asset.load(.duration)) ?? .zero
+        let duration = CMTimeGetSeconds(durationTime)
         if duration <= 0 || duration.isNaN || duration.isInfinite {
             return .invalid(.corruptedFile(details: "Geçersiz video süresi"))
         }
 
         // Check for video track
-        let videoTracks = asset.tracks(withMediaType: .video)
+        let videoTracks = (try? await asset.loadTracks(withMediaType: .video)) ?? []
         if videoTracks.isEmpty {
             return .invalid(.corruptedFile(details: "Video kaydı bulunamadı"))
         }
@@ -298,13 +300,13 @@ final class FileValidationService {
 extension FileValidationService {
 
     /// Quick validation check (returns bool)
-    func isValid(_ url: URL) -> Bool {
-        validate(url: url).isValid
+    func isValid(_ url: URL) async -> Bool {
+        await validate(url: url).isValid
     }
 
     /// Get validation error message for display
-    func getValidationMessage(_ url: URL) -> String? {
-        let result = validate(url: url)
+    func getValidationMessage(_ url: URL) async -> String? {
+        let result = await validate(url: url)
         return result.error?.errorDescription
     }
 

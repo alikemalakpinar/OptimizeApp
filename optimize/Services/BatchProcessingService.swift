@@ -32,7 +32,7 @@ import UIKit
 
 @MainActor
 final class BatchProcessingService: ObservableObject {
-    static let shared = BatchProcessingService()
+    @MainActor static let shared = BatchProcessingService(subscriptionManager: .shared)
 
     // MARK: - Dependencies
 
@@ -70,7 +70,7 @@ final class BatchProcessingService: ObservableObject {
 
     // MARK: - Initialization
 
-    private init(subscriptionManager: SubscriptionManager = .shared) {
+    private init(subscriptionManager: SubscriptionManager) {
         self.subscriptionManager = subscriptionManager
     }
 

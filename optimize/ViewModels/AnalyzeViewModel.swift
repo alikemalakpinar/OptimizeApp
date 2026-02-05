@@ -98,7 +98,7 @@ final class AnalyzeViewModel: ObservableObject, AnalyzeViewModelProtocol {
         analytics.track(.fileAnalysisStarted)
 
         do {
-            let result = try await compressionService.analyze(file: file)
+            let result = try await analyzeWithTimeout(file: file)
             analysisResult = result
             state = .completed(result)
 
@@ -111,6 +111,27 @@ final class AnalyzeViewModel: ObservableObject, AnalyzeViewModelProtocol {
             analysisResult = nil
             state = .failed(error.localizedDescription)
             onAnalysisFailed?(error)
+        }
+    }
+
+    // MARK: - Timeout Handling
+
+    private func analyzeWithTimeout(file: FileInfo) async throws -> AnalysisResult {
+        let timeoutSeconds: UInt64 = 20
+        return try await withThrowingTaskGroup(of: AnalysisResult.self) { group in
+            group.addTask { [compressionService] in
+                try await compressionService.analyze(file: file)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutSeconds * 1_000_000_000)
+                throw CompressionError.timeout
+            }
+
+            guard let result = try await group.next() else {
+                throw CompressionError.unknown(underlying: nil)
+            }
+            group.cancelAll()
+            return result
         }
     }
 

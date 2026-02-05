@@ -135,7 +135,7 @@ actor PreflightAnalyzer {
         var colorSpace = "sRGB"
         var needsConversion = false
         var dimensions: CGSize?
-        var warnings: [String] = []
+        let warnings: [String] = []
         var compressionPotential: Double = 0.3 // Base potential
 
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {

@@ -26,6 +26,7 @@ struct ProgressScreen: View {
     @State private var pulseAnimation = false
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Fun facts / "Did you know" messages - Localized via AppStrings
     private var funFacts: [String] {
@@ -147,13 +148,17 @@ struct ProgressScreen: View {
             }
         }
         .onAppear {
-            startFactRotation()
-            startDetailRotation()
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            if reduceMotion == false {
+                startFactRotation()
+                startDetailRotation()
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    showContent = true
+                }
+                withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                    pulseAnimation = true
+                }
+            } else {
                 showContent = true
-            }
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                pulseAnimation = true
             }
             Haptics.impact(style: .light)
         }
@@ -162,6 +167,7 @@ struct ProgressScreen: View {
             detailTimer?.invalidate()
         }
         .onChange(of: compressionService.progress) { oldProgress, newProgress in
+            guard reduceMotion == false else { return }
             let oldMilestone = Int(oldProgress * 4)
             let newMilestone = Int(newProgress * 4)
             if newMilestone > oldMilestone {

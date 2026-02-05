@@ -403,17 +403,13 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     /// Note: In StoreKit 2, checking Transaction.currentEntitlements is sufficient
     /// AppStore.sync() forces password entry which creates poor UX
     func restore() async {
-        do {
-            // Simply check current entitlements - no need for AppStore.sync()
-            // which forces password entry and creates poor user experience
-            await updateSubscriptionStatus()
+        // Simply check current entitlements - no need for AppStore.sync()
+        // which forces password entry and creates poor user experience
+        await updateSubscriptionStatus()
 
-            // If still no subscription found, show appropriate message
-            if !status.isPro {
-                purchaseError = "No active subscription found. Please ensure you're signed in with the correct Apple ID."
-            }
-        } catch {
-            purchaseError = "Failed to restore: \(error.localizedDescription)"
+        // If still no subscription found, show appropriate message
+        if !status.isPro {
+            purchaseError = "No active subscription found. Please ensure you're signed in with the correct Apple ID."
         }
     }
 
@@ -491,19 +487,13 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     /// - Runs continuously in background
     /// - Properly dispatches UI updates to MainActor
     private func listenForTransactions() -> Task<Void, Error> {
-        return Task.detached { [weak self] in
+        return Task { [weak self] in
             for await result in Transaction.updates {
-                // Check if self still exists (app might be terminating)
-                guard self != nil else { break }
+                guard let self else { break }
 
                 if case .verified(let transaction) = result {
                     await transaction.finish()
-                    // Properly dispatch UI updates to MainActor
-                    await MainActor.run {
-                        Task { [weak self] in
-                            await self?.updateSubscriptionStatus()
-                        }
-                    }
+                    await self.updateSubscriptionStatus()
                 }
             }
         }

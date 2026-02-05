@@ -16,6 +16,11 @@ import CryptoKit
 final class ThumbnailCacheService: ObservableObject {
     static let shared = ThumbnailCacheService()
 
+    private struct WeakBox<T: AnyObject>: @unchecked Sendable {
+        weak var value: T?
+        init(_ value: T) { self.value = value }
+    }
+
     // MARK: - Configuration
 
     /// Maximum cache size in bytes (100 MB default)
@@ -99,14 +104,15 @@ final class ThumbnailCacheService: ObservableObject {
     func clearCache() async {
         memoryCache.removeAllObjects()
 
+        let selfBox = WeakBox(self)
         await withCheckedContinuation { continuation in
-            cacheQueue.async { [weak self] in
-                guard let self = self else {
+            cacheQueue.async {
+                guard let self = selfBox.value else {
                     continuation.resume()
                     return
                 }
 
-                let cacheDir = self.getCacheDirectory()
+                let cacheDir = Self.cacheDirectory(named: self.cacheDirectoryName)
                 try? FileManager.default.removeItem(at: cacheDir)
                 try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
 
@@ -124,14 +130,15 @@ final class ThumbnailCacheService: ObservableObject {
         let cacheKey = generateCacheKey(for: url)
         memoryCache.removeObject(forKey: cacheKey as NSString)
 
+        let selfBox = WeakBox(self)
         await withCheckedContinuation { continuation in
-            cacheQueue.async { [weak self] in
-                guard let self = self else {
+            cacheQueue.async {
+                guard let self = selfBox.value else {
                     continuation.resume()
                     return
                 }
 
-                let filePath = self.getCacheDirectory().appendingPathComponent(cacheKey + ".jpg")
+                let filePath = Self.cacheDirectory(named: self.cacheDirectoryName).appendingPathComponent(cacheKey + ".jpg")
                 try? FileManager.default.removeItem(at: filePath)
                 continuation.resume()
             }
@@ -157,20 +164,21 @@ final class ThumbnailCacheService: ObservableObject {
 
     // MARK: - Disk Cache Operations
 
-    private func getCacheDirectory() -> URL {
+    nonisolated private static func cacheDirectory(named name: String) -> URL {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        return caches.appendingPathComponent(cacheDirectoryName)
+        return caches.appendingPathComponent(name)
     }
 
     private func initializeCache() async {
+        let selfBox = WeakBox(self)
         await withCheckedContinuation { continuation in
-            cacheQueue.async { [weak self] in
-                guard let self = self else {
+            cacheQueue.async {
+                guard let self = selfBox.value else {
                     continuation.resume()
                     return
                 }
 
-                let cacheDir = self.getCacheDirectory()
+                let cacheDir = Self.cacheDirectory(named: self.cacheDirectoryName)
 
                 // Create cache directory if needed
                 if !FileManager.default.fileExists(atPath: cacheDir.path) {
@@ -178,7 +186,14 @@ final class ThumbnailCacheService: ObservableObject {
                 }
 
                 // Calculate stats and cleanup
-                self.performCleanup()
+                let stats = Self.performCleanupOnQueue(
+                    cacheDir: cacheDir,
+                    maxCacheSize: self.maxCacheSize,
+                    maxCacheAge: self.maxCacheAge
+                )
+                Task { @MainActor in
+                    self.cacheStats = stats
+                }
 
                 continuation.resume()
             }
@@ -186,14 +201,15 @@ final class ThumbnailCacheService: ObservableObject {
     }
 
     private func loadFromDisk(key: String) async -> UIImage? {
+        let selfBox = WeakBox(self)
         return await withCheckedContinuation { continuation in
-            cacheQueue.async { [weak self] in
-                guard let self = self else {
+            cacheQueue.async {
+                guard let self = selfBox.value else {
                     continuation.resume(returning: nil)
                     return
                 }
 
-                let filePath = self.getCacheDirectory().appendingPathComponent(key + ".jpg")
+                let filePath = Self.cacheDirectory(named: self.cacheDirectoryName).appendingPathComponent(key + ".jpg")
 
                 guard FileManager.default.fileExists(atPath: filePath.path),
                       let data = try? Data(contentsOf: filePath),
@@ -214,14 +230,15 @@ final class ThumbnailCacheService: ObservableObject {
     }
 
     private func saveToDisk(image: UIImage, key: String) async {
+        let selfBox = WeakBox(self)
         await withCheckedContinuation { continuation in
-            cacheQueue.async { [weak self] in
-                guard let self = self else {
+            cacheQueue.async {
+                guard let self = selfBox.value else {
                     continuation.resume()
                     return
                 }
 
-                let filePath = self.getCacheDirectory().appendingPathComponent(key + ".jpg")
+                let filePath = Self.cacheDirectory(named: self.cacheDirectoryName).appendingPathComponent(key + ".jpg")
 
                 // Compress to JPEG for efficient storage
                 guard let data = image.jpegData(compressionQuality: 0.8) else {
@@ -235,11 +252,9 @@ final class ThumbnailCacheService: ObservableObject {
                 Task { @MainActor in
                     self.cacheStats.itemCount += 1
                     self.cacheStats.totalSize += Int64(data.count)
-                }
-
-                // Check if cleanup needed
-                if self.cacheStats.totalSize > self.maxCacheSize {
-                    self.performCleanup()
+                    if self.cacheStats.totalSize > self.maxCacheSize {
+                        Task { await self.performCleanupAsync() }
+                    }
                 }
 
                 continuation.resume()
@@ -247,15 +262,45 @@ final class ThumbnailCacheService: ObservableObject {
         }
     }
 
-    private func performCleanup() {
-        let cacheDir = getCacheDirectory()
+    private func performCleanupAsync() async {
+        let cacheDir = Self.cacheDirectory(named: cacheDirectoryName)
+        let maxCacheSize = maxCacheSize
+        let maxCacheAge = maxCacheAge
+
+        let selfBox = WeakBox(self)
+        await withCheckedContinuation { continuation in
+            cacheQueue.async {
+                guard let self = selfBox.value else {
+                    continuation.resume()
+                    return
+                }
+
+                let stats = Self.performCleanupOnQueue(
+                    cacheDir: cacheDir,
+                    maxCacheSize: maxCacheSize,
+                    maxCacheAge: maxCacheAge
+                )
+                Task { @MainActor in
+                    self.cacheStats = stats
+                }
+
+                continuation.resume()
+            }
+        }
+    }
+
+    nonisolated private static func performCleanupOnQueue(
+        cacheDir: URL,
+        maxCacheSize: Int64,
+        maxCacheAge: TimeInterval
+    ) -> CacheStats {
         let fileManager = FileManager.default
 
         guard let files = try? fileManager.contentsOfDirectory(
             at: cacheDir,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
             options: [.skipsHiddenFiles]
-        ) else { return }
+        ) else { return CacheStats() }
 
         var totalSize: Int64 = 0
         var itemCount = 0
@@ -303,9 +348,7 @@ final class ThumbnailCacheService: ObservableObject {
             totalSize = currentSize
         }
 
-        Task { @MainActor in
-            self.cacheStats = CacheStats(itemCount: itemCount, totalSize: totalSize)
-        }
+        return CacheStats(itemCount: itemCount, totalSize: totalSize)
     }
 
     // MARK: - Thumbnail Generation
@@ -408,15 +451,28 @@ final class ThumbnailCacheService: ObservableObject {
                 generator.maximumSize = CGSize(width: 300, height: 300)
 
                 let time = CMTime(seconds: 1.0, preferredTimescale: 600)
+                let times = [NSValue(time: time), NSValue(time: .zero)]
+                let lock = NSLock()
+                var didResume = false
+                generator.generateCGImagesAsynchronously(forTimes: times) { _, cgImage, _, result, _ in
+                    lock.lock()
+                    defer { lock.unlock() }
+                    guard didResume == false else { return }
 
-                do {
-                    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
-                    continuation.resume(returning: UIImage(cgImage: cgImage))
-                } catch {
-                    do {
-                        let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
-                        continuation.resume(returning: UIImage(cgImage: cgImage))
-                    } catch {
+                    switch result {
+                    case .succeeded:
+                        if let cgImage = cgImage {
+                            didResume = true
+                            continuation.resume(returning: UIImage(cgImage: cgImage))
+                        } else {
+                            didResume = true
+                            continuation.resume(returning: nil)
+                        }
+                    case .failed, .cancelled:
+                        didResume = true
+                        continuation.resume(returning: nil)
+                    @unknown default:
+                        didResume = true
                         continuation.resume(returning: nil)
                     }
                 }

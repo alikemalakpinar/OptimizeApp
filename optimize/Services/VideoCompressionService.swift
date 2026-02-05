@@ -186,6 +186,10 @@ enum VideoCompressionError: LocalizedError {
 // MARK: - Video Compression Service
 
 actor VideoCompressionService {
+    private struct UncheckedSendable<T>: @unchecked Sendable {
+        let value: T
+        init(_ value: T) { self.value = value }
+    }
 
     // MARK: - Properties
 
@@ -366,35 +370,30 @@ actor VideoCompressionService {
         currentExportSession = exportSession
 
         // Progress monitoring task
+        let sessionBox = UncheckedSendable(exportSession)
         let progressTask = Task {
-            while !Task.isCancelled && !isCancelled {
-                try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                await MainActor.run {
-                    progress(Double(exportSession.progress))
+            for await state in sessionBox.value.states(updateInterval: 0.1) {
+                guard !Task.isCancelled && !isCancelled else { break }
+                if case .exporting(let value) = state {
+                    await MainActor.run {
+                        progress(value.fractionCompleted)
+                    }
                 }
             }
         }
 
-        // Perform export
-        await exportSession.export()
-
-        // Stop progress monitoring
-        progressTask.cancel()
-
-        // Check result
-        switch exportSession.status {
-        case .completed:
-            return getFileSize(outputURL)
-
-        case .failed:
-            throw VideoCompressionError.exportFailed(exportSession.error)
-
-        case .cancelled:
+        do {
+            try await sessionBox.value.export(to: outputURL, as: .mp4)
+        } catch is CancellationError {
+            progressTask.cancel()
             throw VideoCompressionError.cancelled
-
-        default:
-            throw VideoCompressionError.exportFailed(nil)
+        } catch {
+            progressTask.cancel()
+            throw VideoCompressionError.exportFailed(error)
         }
+
+        progressTask.cancel()
+        return getFileSize(outputURL)
     }
 
     // MARK: - Aggressive Retry (Compression Guarantee)
@@ -430,31 +429,33 @@ actor VideoCompressionService {
 
             currentExportSession = exportSession
 
-            await exportSession.export()
-
-            if exportSession.status == .completed {
-                let compressedSize = getFileSize(outputURL)
-
-                if compressedSize < originalSize {
-                    let duration = (try? await asset.load(.duration).seconds) ?? 0
-                    let savings = Int((1 - Double(compressedSize) / Double(originalSize)) * 100)
-
-                    #if DEBUG
-                    print("✅ [VideoCompression] Aggressive pass succeeded: \(savings)% reduction with \(presetName)")
-                    #endif
-
-                    return VideoCompressionResult(
-                        outputURL: outputURL,
-                        originalSize: originalSize,
-                        compressedSize: compressedSize,
-                        duration: duration,
-                        preset: .whatsapp
-                    )
-                }
-
-                // Still not smaller, clean up and try next
-                try? FileManager.default.removeItem(at: outputURL)
+            do {
+                try await exportSession.export(to: outputURL, as: .mp4)
+            } catch {
+                continue
             }
+
+            let compressedSize = getFileSize(outputURL)
+
+            if compressedSize < originalSize {
+                let duration = (try? await asset.load(.duration).seconds) ?? 0
+                let savings = Int((1 - Double(compressedSize) / Double(originalSize)) * 100)
+
+                #if DEBUG
+                print("✅ [VideoCompression] Aggressive pass succeeded: \(savings)% reduction with \(presetName)")
+                #endif
+
+                return VideoCompressionResult(
+                    outputURL: outputURL,
+                    originalSize: originalSize,
+                    compressedSize: compressedSize,
+                    duration: duration,
+                    preset: .whatsapp
+                )
+            }
+
+            // Still not smaller, clean up and try next
+            try? FileManager.default.removeItem(at: outputURL)
         }
 
         return nil
