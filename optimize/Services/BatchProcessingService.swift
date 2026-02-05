@@ -303,6 +303,11 @@ final class BatchProcessingService: ObservableObject {
         }
 
         do {
+            if Task.isCancelled {
+                await MainActor.run { self.markCancelled(item.id) }
+                return
+            }
+
             // Access security-scoped resource
             let shouldStop = item.sourceURL.startAccessingSecurityScopedResource()
             defer { if shouldStop { item.sourceURL.stopAccessingSecurityScopedResource() } }
@@ -321,6 +326,11 @@ final class BatchProcessingService: ObservableObject {
                 }
             )
 
+            if Task.isCancelled {
+                await MainActor.run { self.markCancelled(item.id) }
+                return
+            }
+
             // Create result from compressed file
             let compressedSize = (try? FileManager.default.attributesOfItem(atPath: compressedURL.path)[.size] as? Int64) ?? 0
             let originalFileInfo = FileInfo(
@@ -337,20 +347,28 @@ final class BatchProcessingService: ObservableObject {
             // Mark as completed
             await MainActor.run {
                 if let index = queue.firstIndex(where: { $0.id == item.id }) {
-                    var completedItem = queue[index]
-                    completedItem.status = .completed
-                    completedItem.result = result
-                    completedItem.endTime = Date()
-                    completedItems.insert(completedItem, at: 0)
-                    queue.remove(at: index)
-                    updateProgress()
+                    if queue[index].status == .cancelled {
+                        markCancelled(item.id)
+                    } else {
+                        var completedItem = queue[index]
+                        completedItem.status = .completed
+                        completedItem.result = result
+                        completedItem.endTime = Date()
+                        completedItems.insert(completedItem, at: 0)
+                        queue.remove(at: index)
+                        updateProgress()
 
-                    // Add to history
-                    HistoryManager.shared.addFromResult(result, presetId: item.preset.id)
+                        // Add to history
+                        HistoryManager.shared.addFromResult(result, presetId: item.preset.id)
+                    }
                 }
             }
 
         } catch {
+            if Task.isCancelled {
+                await MainActor.run { self.markCancelled(item.id) }
+                return
+            }
             // Mark as failed
             await MainActor.run {
                 if let index = queue.firstIndex(where: { $0.id == item.id }) {
@@ -368,7 +386,19 @@ final class BatchProcessingService: ObservableObject {
 
     private func updateItemProgress(_ itemId: UUID, progress: Double) {
         if let index = queue.firstIndex(where: { $0.id == itemId }) {
+            guard queue[index].status != .cancelled else { return }
             queue[index].progress = progress
+        }
+    }
+
+    private func markCancelled(_ itemId: UUID) {
+        if let index = queue.firstIndex(where: { $0.id == itemId }) {
+            var cancelledItem = queue[index]
+            cancelledItem.status = .cancelled
+            cancelledItem.endTime = Date()
+            completedItems.insert(cancelledItem, at: 0)
+            queue.remove(at: index)
+            updateProgress()
         }
     }
 

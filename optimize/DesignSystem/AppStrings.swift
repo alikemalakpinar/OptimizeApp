@@ -537,22 +537,7 @@ struct AppStrings {
         }
     }
 
-    // MARK: - Fun Facts (Processing Screen)
-    enum FunFacts {
-        static var fact1: String { String(localized: "Biliyor muydunuz? PDF'lerin %40'ı gözle görülemeyen veri içerir.", comment: "Fun fact 1") }
-        static var fact2: String { String(localized: "Fontlarınızı diyete sokuyoruz...", comment: "Fun fact 2") }
-        static var fact3: String { String(localized: "Her sıkıştırılan MB bir kedi mutlu ediyor. (Kaynak: Biz)", comment: "Fun fact 3") }
-        static var fact4: String { String(localized: "Dosyanızdaki fazlalıkları kesiyoruz...", comment: "Fun fact 4") }
-        static var fact5: String { String(localized: "Dijital detoks uyguluyoruz...", comment: "Fun fact 5") }
-        static var fact6: String { String(localized: "Gereksiz piksellere tek tek veda ediyoruz...", comment: "Fun fact 6") }
-        static var fact7: String { String(localized: "Dosyanızı e-postaya sığdırma sanatında ustalaşıyoruz...", comment: "Fun fact 7") }
-        static var fact8: String { String(localized: "Görünmez metadata avına çıkıyoruz...", comment: "Fun fact 8") }
 
-        /// All fun facts as an array for random selection
-        static var all: [String] {
-            [fact1, fact2, fact3, fact4, fact5, fact6, fact7, fact8]
-        }
-    }
 
     // MARK: - Victory Stamps (Result Screen)
     enum VictoryStamp {

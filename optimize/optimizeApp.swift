@@ -260,11 +260,15 @@ struct RootViewWithCoordinator: View {
             AnalyzeScreen(
                 file: file,
                 analysisResult: coordinator.currentAnalysis,
+                analysisState: coordinator.analyzeViewModel.state,
                 subscriptionStatus: coordinator.subscriptionStatus,
                 paywallContext: coordinator.paywallContext,
                 onContinue: { coordinator.analyzeComplete() },
                 onBack: { coordinator.goBack() },
                 onReplace: { coordinator.requestFilePicker() },
+                onRetry: {
+                    Task { await coordinator.performAnalysis(for: file) }
+                },
                 onUpgrade: { coordinator.presentPaywall(context: coordinator.paywallContext) }
             )
             .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
@@ -285,7 +289,7 @@ struct RootViewWithCoordinator: View {
                 file: file,
                 preset: preset,
                 compressionService: coordinator.compressionService,
-                onCancel: { coordinator.goHome() }
+                onCancel: { coordinator.cancelCompression() }
             )
             .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 

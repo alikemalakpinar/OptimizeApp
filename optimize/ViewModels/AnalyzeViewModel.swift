@@ -92,6 +92,7 @@ final class AnalyzeViewModel: ObservableObject, AnalyzeViewModelProtocol {
     /// - Parameter file: The file to analyze
     func analyze(file: FileInfo) async {
         self.file = file
+        analysisResult = nil
         state = .analyzing
 
         analytics.track(.fileAnalysisStarted)
@@ -105,23 +106,11 @@ final class AnalyzeViewModel: ObservableObject, AnalyzeViewModelProtocol {
             onAnalysisCompleted?(file, result)
 
         } catch {
-            // Provide fallback analysis on error
-            let fallbackResult = AnalysisResult(
-                pageCount: file.pageCount ?? 1,
-                imageCount: 0,
-                imageDensity: .medium,
-                estimatedSavings: .medium,
-                isAlreadyOptimized: false,
-                originalDPI: nil
-            )
-
-            analysisResult = fallbackResult
-            state = .completed(fallbackResult)
-
+            // Surface error instead of masking as "completed"
             analytics.trackError(error, context: "file_analysis")
-
-            // Still call completion with fallback - don't block user
-            onAnalysisCompleted?(file, fallbackResult)
+            analysisResult = nil
+            state = .failed(error.localizedDescription)
+            onAnalysisFailed?(error)
         }
     }
 

@@ -80,6 +80,10 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     @Published private(set) var progress: Double = 0
     @Published private(set) var currentStage: ProcessingStage = .preparing
 
+    // MARK: - Cancellation Control
+    private var activeCompressionID = UUID()
+    private var cancellationRequested = false
+
     // MARK: - Page Limits (Unified Policy)
     // Free users: Limited to 100 pages (reasonable for personal use)
     // Pro users: Unlimited (no artificial cap)
@@ -142,9 +146,26 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     ///   - file: The file to compress
     ///   - preset: The compression preset to use
     func compress(file: FileInfo, preset: CompressionPreset) async {
+        cancellationRequested = false
+        let operationID = UUID()
+        activeCompressionID = operationID
+
         lastFile = file
         lastPreset = preset
         lastError = nil
+
+        if subscriptionManager.status.isPro {
+            let isEntitled = await subscriptionManager.verifyEntitlementForCriticalOperation()
+            if !isEntitled {
+                NotificationCenter.default.post(
+                    name: .showPaywallForFeature,
+                    object: nil,
+                    userInfo: ["feature": PremiumFeature.unlimitedUsage]
+                )
+                handleError(.accessDenied, preset: preset)
+                return
+            }
+        }
 
         // Check page count against subscription-based limits
         // Pro users: No limit
@@ -217,11 +238,23 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
                 at: file.url,
                 preset: preset
             ) { [weak self] stage, prog in
+                guard let self = self,
+                      self.activeCompressionID == operationID,
+                      self.cancellationRequested == false,
+                      Task.isCancelled == false else {
+                    return
+                }
                 Task { @MainActor in
                     self?.currentStage = stage
                     self?.progress = prog
                     self?.status = .compressing(progress: prog, stage: stage)
                 }
+            }
+
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
             }
 
             // Get compressed file size
@@ -257,9 +290,19 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
             onCompressionCompleted?(result)
 
         } catch let error as CompressionError {
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
+            }
             handleError(error, preset: preset)
 
         } catch {
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
+            }
             let compressionError = CompressionError.unknown(underlying: error)
             handleError(compressionError, preset: preset)
         }
@@ -277,6 +320,8 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
 
     /// Cancel the current compression
     func cancel() {
+        cancellationRequested = true
+        activeCompressionID = UUID() // Invalidate any in-flight callbacks
         status = .cancelled
         retryCount = 0
         onCancelled?()
@@ -329,9 +374,27 @@ extension CompressionViewModel {
     /// Compress with OptimizationProfile for advanced control
     /// Uses new Preflight → Optimize → Sanitize pipeline
     func compress(file: FileInfo, profile: OptimizationProfile) async {
+        cancellationRequested = false
+        let operationID = UUID()
+        activeCompressionID = operationID
+
         lastFile = file
         lastPreset = CompressionPreset.from(profile: profile)
         lastError = nil
+        let safePreset = lastPreset ?? CompressionPreset.from(profile: profile)
+
+        if subscriptionManager.status.isPro {
+            let isEntitled = await subscriptionManager.verifyEntitlementForCriticalOperation()
+            if !isEntitled {
+                NotificationCenter.default.post(
+                    name: .showPaywallForFeature,
+                    object: nil,
+                    userInfo: ["feature": PremiumFeature.unlimitedUsage]
+                )
+                handleError(.accessDenied, preset: safePreset)
+                return
+            }
+        }
 
         // Check page count against subscription-based limits
         // Pro users: No limit (Ultra mode for streaming)
@@ -368,7 +431,7 @@ extension CompressionViewModel {
                     )
                 }
                 let error = CompressionError.fileTooLarge
-                handleError(error, preset: lastPreset!)
+                handleError(error, preset: safePreset)
                 return
             }
         }
@@ -386,7 +449,7 @@ extension CompressionViewModel {
             #if DEBUG
             print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
             #endif
-            handleError(.saveFailed, preset: lastPreset!)
+            handleError(.saveFailed, preset: safePreset)
             return
         } catch {
             // Non-disk-space error, continue anyway
@@ -424,6 +487,12 @@ extension CompressionViewModel {
                     at: file.url,
                     profile: profile
                 ) { [weak self] stage, prog in
+                    guard let self = self,
+                          self.activeCompressionID == operationID,
+                          self.cancellationRequested == false,
+                          Task.isCancelled == false else {
+                        return
+                    }
                     Task { @MainActor in
                         self?.currentStage = stage
                         self?.progress = prog
@@ -436,12 +505,24 @@ extension CompressionViewModel {
                     at: file.url,
                     preset: CompressionPreset.from(profile: profile)
                 ) { [weak self] stage, prog in
+                    guard let self = self,
+                          self.activeCompressionID == operationID,
+                          self.cancellationRequested == false,
+                          Task.isCancelled == false else {
+                        return
+                    }
                     Task { @MainActor in
                         self?.currentStage = stage
                         self?.progress = prog
                         self?.status = .compressing(progress: prog, stage: stage)
                     }
                 }
+            }
+
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
             }
 
             // Get compressed file size
@@ -480,18 +561,35 @@ extension CompressionViewModel {
             onCompressionCompleted?(result)
 
         } catch let error as CompressionError {
-            handleError(error, preset: CompressionPreset.from(profile: profile))
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
+            }
+            handleError(error, preset: safePreset)
 
         } catch {
+            guard activeCompressionID == operationID,
+                  cancellationRequested == false,
+                  Task.isCancelled == false else {
+                return
+            }
             let compressionError = CompressionError.unknown(underlying: error)
-            handleError(compressionError, preset: CompressionPreset.from(profile: profile))
+            handleError(compressionError, preset: safePreset)
         }
     }
 
     /// Get recommended profile based on file analysis
     func getRecommendedProfile(for file: FileInfo) async -> OptimizationProfile {
         let report = await PreflightAnalyzer.shared.analyze(url: file.url)
-        return OptimizationProfile.from(preset: CompressionPreset.from(profile: .balanced))
+        switch report.suggestedStrategy {
+        case .quick:
+            return .quick
+        case .balanced:
+            return .balanced
+        case .ultra:
+            return .ultra
+        }
     }
 }
 

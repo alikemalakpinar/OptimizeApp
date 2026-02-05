@@ -203,6 +203,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         profile: OptimizationProfile,
         onProgress: @escaping @Sendable (ProcessingStage, Double) -> Void
     ) async throws -> URL {
+        try Task.checkCancellation()
         // Update UI state
         await MainActor.run {
             isProcessing = true
@@ -221,6 +222,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         // Step 1: Preflight Analysis
         onProgress(.preparing, 0.1)
         let preflightReport = await PreflightAnalyzer.shared.analyze(url: sourceURL)
+        try Task.checkCancellation()
 
         await MainActor.run {
             statusMessage = preflightReport.recommendation
@@ -247,6 +249,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 statusMessage = "⚠️ Ultra mod: PDF yeniden inşa ediliyor (formlar düzleştirilecek)..."
                 currentStage = .optimizing
             }
+            try Task.checkCancellation()
 
             // SAFETY: Create backup before destructive operation
             guard let backup = PDFBackupManager.shared.createBackup(for: sourceURL) else {
@@ -265,6 +268,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                     }
                     onProgress(.optimizing, progress)
                 }
+                try Task.checkCancellation()
 
                 // Verify size improvement
                 if result.rebuiltSize >= result.originalSize {
@@ -1291,6 +1295,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) async throws -> URL {
+        try Task.checkCancellation()
         await MainActor.run {
             isProcessing = true
             progress = 0
@@ -1311,6 +1316,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
 
+        try Task.checkCancellation()
+
         // ═══════════════════════════════════════════════════════════════════════════════
         // IMAGEIO-POWERED COMPRESSION (v3.0)
         // Uses Apple's recommended approach from WWDC 2018 "Image and Graphics Best Practices"
@@ -1323,6 +1330,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
 
         onProgress(.preparing, 0.5)
+        try Task.checkCancellation()
 
         // Step 2: Determine target DPI level based on preset
         let targetDPI: ImageDPILevel
@@ -1350,6 +1358,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         let needsDownsampling = targetMax > 0 && currentMax > targetMax
 
         onProgress(.optimizing, 0.2)
+        try Task.checkCancellation()
 
         // Step 4: Prepare output URL
         let ext = sourceURL.pathExtension.lowercased()
@@ -1364,6 +1373,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 needsDownsampling: needsDownsampling
             )
 
+            try Task.checkCancellation()
+
             if hasTransparency {
                 // Keep as PNG
                 try compressedData.write(to: outputURL, options: .atomic)
@@ -1375,6 +1386,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         } else {
             // JPEG/HEIC: Use ImageIO downsampling directly from file
             onProgress(.optimizing, 0.4)
+            try Task.checkCancellation()
 
             let config = ImageIODownsampler.Configuration(
                 maxPixelSize: targetMax,
@@ -1401,6 +1413,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             }
 
             onProgress(.optimizing, 0.8)
+            try Task.checkCancellation()
 
             guard let finalData = compressedData else {
                 // Fallback: Load image traditionally and compress
@@ -1414,6 +1427,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
 
         onProgress(.optimizing, 0.9)
+        try Task.checkCancellation()
 
         await MainActor.run {
             currentStage = .downloading
@@ -1538,6 +1552,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) async throws -> URL {
+        try Task.checkCancellation()
         await MainActor.run {
             isProcessing = true
             progress = 0
@@ -1601,33 +1616,37 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
         onProgress(.optimizing, 0.05)
 
-        let progressTask = Task {
-            while exportSession.status == .waiting || exportSession.status == .exporting {
-                try await Task.sleep(nanoseconds: 150_000_000)  // 150ms - daha sık güncelleme
-                await MainActor.run {
-                    let current = Double(exportSession.progress)
-                    self.progress = current
-                    onProgress(.optimizing, current)
+        try await withTaskCancellationHandler(operation: {
+            let progressTask = Task {
+                while exportSession.status == .waiting || exportSession.status == .exporting {
+                    try await Task.sleep(nanoseconds: 150_000_000)  // 150ms - daha sık güncelleme
+                    await MainActor.run {
+                        let current = Double(exportSession.progress)
+                        self.progress = current
+                        onProgress(.optimizing, current)
+                    }
                 }
             }
-        }
 
-        try await withCheckedThrowingContinuation { continuation in
-            exportSession.exportAsynchronously {
-                progressTask.cancel()
+            try await withCheckedThrowingContinuation { continuation in
+                exportSession.exportAsynchronously {
+                    progressTask.cancel()
 
-                switch exportSession.status {
-                case .completed:
-                    continuation.resume(returning: ())
-                case .failed:
-                    continuation.resume(throwing: CompressionError.exportFailed)
-                case .cancelled:
-                    continuation.resume(throwing: CompressionError.cancelled)
-                default:
-                    continuation.resume(throwing: CompressionError.unknown(underlying: exportSession.error))
+                    switch exportSession.status {
+                    case .completed:
+                        continuation.resume(returning: ())
+                    case .failed:
+                        continuation.resume(throwing: CompressionError.exportFailed)
+                    case .cancelled:
+                        continuation.resume(throwing: CompressionError.cancelled)
+                    default:
+                        continuation.resume(throwing: CompressionError.unknown(underlying: exportSession.error))
+                    }
                 }
             }
-        }
+        }, onCancel: {
+            exportSession.cancelExport()
+        })
 
         // SIZE GUARD: Sıkıştırılmış dosya orijinalden büyükse, daha agresif preset dene
         let originalSize = try FileManager.default.attributesOfItem(atPath: sourceURL.path)[.size] as? Int64 ?? 0
@@ -1719,6 +1738,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         preset: CompressionPreset,
         onProgress: @escaping (ProcessingStage, Double) -> Void
     ) throws -> URL {
+        try Task.checkCancellation()
         Task { @MainActor in
             isProcessing = true
             progress = 0
@@ -1741,6 +1761,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
         let data = try Data(contentsOf: sourceURL)
         onProgress(.preparing, 1.0)
+        try Task.checkCancellation()
 
         Task { @MainActor in
             currentStage = .optimizing

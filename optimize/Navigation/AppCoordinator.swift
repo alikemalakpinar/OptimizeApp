@@ -15,7 +15,6 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 import Combine
-import StoreKit
 
 // MARK: - App State
 
@@ -195,6 +194,7 @@ class AppCoordinator: ObservableObject {
     @Published var lastError: Error?
     private var retryCount = 0
     private let maxRetries = 2
+    private var compressionTask: Task<Void, Never>?
 
     // MARK: - ViewModels (MVVM-C Architecture)
 
@@ -247,7 +247,6 @@ class AppCoordinator: ObservableObject {
     private let hasSeenOnboardingKey = "hasSeenOnboarding"
     private let hasSeenCommitmentKey = "hasSeenCommitment"
     private let hasSeenRatingRequestKey = "hasSeenRatingRequest"
-    private let successCountKey = "successfulCompressionCount"
 
     /// ONBOARDING FLOW IMPROVEMENT:
     /// Commitment and Rating screens are now shown AFTER first successful compression,
@@ -339,6 +338,10 @@ class AppCoordinator: ObservableObject {
             // and navigate back naturally using swipe gestures
             if self.shouldShowCommitmentAfterCompression {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    guard self.currentResult?.id == result.id,
+                          self.navigationPath.isEmpty == false else {
+                        return
+                    }
                     self.showCommitmentSheet = true
                 }
             }
@@ -456,6 +459,17 @@ class AppCoordinator: ObservableObject {
 
         Task {
             do {
+                let validation = try SecurityScopedResource.access(url) { accessibleURL in
+                    FileValidationService.shared.validate(url: accessibleURL)
+                }
+
+                if case .invalid(let error) = validation {
+                    let messageParts = [error.errorDescription, error.recoverySuggestion].compactMap { $0 }
+                    let message = messageParts.joined(separator: "\n\n")
+                    showError(title: String(localized: "Dosya Hatası", comment: "File validation error title"), message: message)
+                    return
+                }
+
                 let fileInfo = try FileInfo.from(url: url)
                 currentFile = fileInfo
 
@@ -509,7 +523,8 @@ class AppCoordinator: ObservableObject {
         push(.progress(file, preset))
 
         // REFACTORED: Delegate compression to CompressionViewModel
-        Task {
+        compressionTask?.cancel()
+        compressionTask = Task {
             await compressionViewModel.compress(file: file, preset: preset)
         }
     }
@@ -530,7 +545,8 @@ class AppCoordinator: ObservableObject {
         push(.progress(file, preset))
 
         // REFACTORED: Delegate retry to CompressionViewModel
-        Task {
+        compressionTask?.cancel()
+        compressionTask = Task {
             await compressionViewModel.retry()
         }
     }
@@ -539,6 +555,12 @@ class AppCoordinator: ObservableObject {
         showRetryAlert = false
         retryCount = 0
         goHome()
+    }
+
+    func cancelCompression() {
+        compressionTask?.cancel()
+        compressionTask = nil
+        compressionViewModel.cancel()
     }
 
     func shareResult() {
@@ -630,10 +652,15 @@ class AppCoordinator: ObservableObject {
     }
 
     func goHome() {
+        compressionTask?.cancel()
+        compressionTask = nil
         currentFile = nil
         currentAnalysis = nil
         currentResult = nil
         selectedPreset = nil
+        analyzeViewModel.reset()
+        compressionViewModel.reset()
+        resultViewModel.reset()
 
         withAnimation(AppAnimation.standard) {
             // ARCHITECTURE: Clear navigation stack for clean return to home
@@ -661,30 +688,6 @@ class AppCoordinator: ObservableObject {
         showPaywall = false
         showModernPaywall = false
         paywallContext = nil
-    }
-
-    // MARK: - Smart Review Prompt
-    /// Requests App Store review at optimal moments (3rd, 10th, 50th successful compression)
-    /// Only triggers when savings are meaningful (>20%)
-    private func requestReviewIfAppropriate(savingsPercent: Int) {
-        // Only ask for review if user had a good experience (>20% savings)
-        guard savingsPercent > 20 else { return }
-
-        // Increment and get success count
-        let successCount = UserDefaults.standard.integer(forKey: successCountKey) + 1
-        UserDefaults.standard.set(successCount, forKey: successCountKey)
-
-        // Request review at milestone counts: 3rd, 10th, 50th successful compression
-        let reviewMilestones = [3, 10, 50]
-        guard reviewMilestones.contains(successCount) else { return }
-
-        // Delay to let the result screen render first
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            if let windowScene = UIApplication.shared.connectedScenes
-                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
-                SKStoreReviewController.requestReview(in: windowScene)
-            }
-        }
     }
 
     // MARK: - Error Handling

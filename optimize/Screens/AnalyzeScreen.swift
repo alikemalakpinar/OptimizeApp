@@ -10,12 +10,14 @@ import SwiftUI
 struct AnalyzeScreen: View {
     let file: FileInfo
     let analysisResult: AnalysisResult?
+    let analysisState: AnalysisState
     let subscriptionStatus: SubscriptionStatus
     let paywallContext: PaywallContext?
 
     let onContinue: () -> Void
     let onBack: () -> Void
     let onReplace: () -> Void
+    let onRetry: () -> Void
     let onUpgrade: () -> Void
 
     @State private var isAnalyzing = true
@@ -62,7 +64,12 @@ struct AnalyzeScreen: View {
                     )
 
                     // Analysis Animation or Results
-                    if isAnalyzing || analysisResult == nil {
+                    if case .failed(let message) = analysisState {
+                        AnalysisErrorCard(
+                            message: message
+                        )
+                        .transition(.opacity)
+                    } else if isAnalyzing || analysisResult == nil {
                         AnalysisScanView(
                             statusMessages: analysisMessages,
                             currentIndex: statusIndex
@@ -94,13 +101,28 @@ struct AnalyzeScreen: View {
 
             // Bottom CTA
             VStack(spacing: Spacing.sm) {
-                PrimaryButton(
-                    title: isAnalyzing ? "Analyzing..." : "Continue",
-                    icon: isAnalyzing ? nil : "arrow.right",
-                    isLoading: isAnalyzing,
-                    isDisabled: isAnalyzing || analysisResult == nil
-                ) {
-                    onContinue()
+                if case .failed = analysisState {
+                    PrimaryButton(
+                        title: "Tekrar Dene",
+                        icon: "arrow.clockwise"
+                    ) {
+                        onRetry()
+                    }
+                    SecondaryButton(
+                        title: "Dosyayı Değiştir",
+                        icon: "doc.badge.plus"
+                    ) {
+                        onReplace()
+                    }
+                } else {
+                    PrimaryButton(
+                        title: isAnalyzing ? "Analyzing..." : "Continue",
+                        icon: isAnalyzing ? nil : "arrow.right",
+                        isLoading: isAnalyzing,
+                        isDisabled: isAnalyzing || analysisResult == nil
+                    ) {
+                        onContinue()
+                    }
                 }
             }
             .padding(.horizontal, Spacing.md)
@@ -109,6 +131,16 @@ struct AnalyzeScreen: View {
         }
         .appBackgroundLayered()
         .onAppear {
+            switch analysisState {
+            case .analyzing:
+                isAnalyzing = true
+            case .completed:
+                isAnalyzing = false
+            case .failed:
+                isAnalyzing = false
+            case .idle:
+                isAnalyzing = false
+            }
             startAnalysisAnimation()
         }
         .onChange(of: analysisResult) { _, newValue in
@@ -116,13 +148,27 @@ struct AnalyzeScreen: View {
                 completeAnalysis()
             }
         }
+        .onChange(of: analysisState) { _, newValue in
+            switch newValue {
+            case .analyzing:
+                isAnalyzing = true
+            case .completed:
+                completeAnalysis()
+            case .failed:
+                isAnalyzing = false
+            case .idle:
+                isAnalyzing = false
+            }
+        }
     }
 
     private func startAnalysisAnimation() {
+        guard isAnalyzing else { return }
         // Cycle through status messages
         let messageInterval: Double = 0.6
         for (index, _) in analysisMessages.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * messageInterval) {
+                guard isAnalyzing else { return }
                 withAnimation {
                     statusIndex = index
                 }
@@ -145,6 +191,28 @@ struct AnalyzeScreen: View {
             showResults = true
         }
         Haptics.success()
+    }
+}
+
+// MARK: - Analysis Error Card
+struct AnalysisErrorCard: View {
+    let message: String
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color.orange)
+                    Text("Analiz Başarısız")
+                        .font(.appBodyMedium)
+                }
+
+                Text(message)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -508,11 +576,20 @@ struct SavingsPotentialView: View {
             isAlreadyOptimized: false,
             originalDPI: 300
         ),
+        analysisState: .completed(AnalysisResult(
+            pageCount: 84,
+            imageCount: 42,
+            imageDensity: .high,
+            estimatedSavings: .high,
+            isAlreadyOptimized: false,
+            originalDPI: 300
+        )),
         subscriptionStatus: .free,
         paywallContext: .proRequired,
         onContinue: {},
         onBack: {},
         onReplace: {},
+        onRetry: {},
         onUpgrade: {}
     )
 }

@@ -120,6 +120,7 @@ struct ProgressScreen: View {
                     Button(action: {
                         Haptics.warning()
                         factTimer?.invalidate()
+                        detailTimer?.invalidate()
                         onCancel()
                     }) {
                         HStack(spacing: 8) {
@@ -754,18 +755,7 @@ private struct EnhancedFunFactCard: View {
     }
 }
 
-// MARK: - Processing Stage Extensions
-private extension ProcessingStage {
-    /// Turkish localized names for processing stages
-    var localizedName: String {
-        switch self {
-        case .preparing: return "Hazırlık"
-        case .uploading: return "Analiz"
-        case .optimizing: return "Optimizasyon"
-        case .downloading: return "Tamamlama"
-        }
-    }
-}
+
 
 #Preview {
     ProgressScreen(
