@@ -1636,6 +1636,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             let progressTask = Task {
                 for await state in sessionBox.value.states(updateInterval: 0.15) {
                     switch state {
+                    case .pending:
+                        break
                     case .exporting(let value):
                         await MainActor.run {
                             let current = value.fractionCompleted
@@ -1653,7 +1655,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
             defer { progressTask.cancel() }
             try await sessionBox.value.export(to: outputURL, as: .mp4)
         }, onCancel: {
-            exportSession.cancelExport()
+            sessionBox.value.cancelExport()
         })
 
         // SIZE GUARD: Sıkıştırılmış dosya orijinalden büyükse, daha agresif preset dene

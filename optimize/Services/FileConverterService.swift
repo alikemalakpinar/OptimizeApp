@@ -501,6 +501,8 @@ final class FileConverterService: ObservableObject {
             for await state in sessionBox.value.states(updateInterval: 0.1) {
                 guard !Task.isCancelled else { break }
                 switch state {
+                case .pending:
+                    break
                 case .exporting(let value):
                     let prog = value.fractionCompleted
                     await MainActor.run {

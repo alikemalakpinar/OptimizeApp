@@ -18,7 +18,6 @@
 import Foundation
 import ImageIO
 import UIKit
-import UniformTypeIdentifiers
 
 // MARK: - HEIC Conversion Service
 
@@ -35,9 +34,9 @@ final class HEICConversionService {
 
         var utType: CFString {
             switch self {
-            case .heic: return AVFileType.heic as CFString
-            case .jpeg: return kUTTypeJPEG
-            case .png: return kUTTypePNG
+            case .heic: return "public.heic" as CFString
+            case .jpeg: return "public.jpeg" as CFString
+            case .png: return "public.png" as CFString
             }
         }
 
