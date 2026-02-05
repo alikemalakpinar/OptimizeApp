@@ -75,8 +75,8 @@ struct ModernPaywallScreen: View {
         static let proSupport = String(localized: "paywall.feature.pro_support", defaultValue: "Pro Destek")
 
         // Gauge Labels
-        static let maximum = String(localized: "paywall.gauge.maximum", defaultValue: "MAXIMUM")
-        static let limited = String(localized: "paywall.gauge.limited", defaultValue: "LIMITED")
+        static let maximum = String(localized: "paywall.gauge.maximum", defaultValue: "MAKSİMUM")
+        static let limited = String(localized: "paywall.gauge.limited", defaultValue: "SINIRLI")
     }
 
     // MARK: - Computed Properties

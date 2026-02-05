@@ -97,7 +97,7 @@ struct NavigationHeader: View {
                     HStack(spacing: Spacing.xxs) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("Back")
+                        Text(AppStrings.Navigation.back)
                             .font(.system(size: 17))
                     }
                     .foregroundStyle(Color.appAccent)

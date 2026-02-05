@@ -373,7 +373,7 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         guard let product = products.first(where: { $0.id == productId }) else {
             // Fallback: Try to fetch product directly
             guard let product = try await Product.products(for: [productId]).first else {
-                purchaseError = "Product not found"
+                purchaseError = "Ürün bulunamadı"
                 throw SubscriptionError.productNotFound
             }
             try await performPurchase(product: product)
@@ -398,7 +398,7 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             throw SubscriptionError.userCancelled
 
         case .pending:
-            purchaseError = "Purchase pending approval"
+            purchaseError = "Satın alma onay bekliyor"
             throw SubscriptionError.pending
 
         @unknown default:
@@ -416,7 +416,7 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
         // If still no subscription found, show appropriate message
         if !status.isPro {
-            purchaseError = "No active subscription found. Please ensure you're signed in with the correct Apple ID."
+            purchaseError = "Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı. Doğru hesapla giriş yaptığınızdan emin olun."
         }
     }
 
@@ -553,44 +553,44 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
         if status.dailyUsageCount >= freeDailyLimit {
             return PaywallContext(
-                title: "Daily limit reached",
-                subtitle: "Free plan includes \(freeDailyLimit) optimization per day.",
+                title: "Günlük Limit Doldu",
+                subtitle: "Ücretsiz plan günde \(freeDailyLimit) optimizasyon hakkı içerir.",
                 icon: "clock.badge.exclamationmark.fill",
                 highlights: [
-                    "Unlimited conversions with Pro",
-                    "Priority compression tuned for quality",
-                    "Target sizes & custom presets",
-                    "All file types supported"
+                    "Pro ile sınırsız dönüştürme",
+                    "Kalite odaklı öncelikli sıkıştırma",
+                    "Hedef boyut ve özel ayarlar",
+                    "Tüm dosya türleri desteklenir"
                 ],
-                limitDescription: "You have used \(status.dailyUsageCount) / \(freeDailyLimit) free conversions today.",
+                limitDescription: "Bugün \(status.dailyUsageCount) / \(freeDailyLimit) ücretsiz hakkınızı kullandınız.",
                 ctaText: "Sınırı Kaldır"
             )
         }
 
         if file.sizeMB > freeMaxFileSizeMB {
             return PaywallContext(
-                title: "Large file detected",
-                subtitle: "Files over \(Int(freeMaxFileSizeMB)) MB need Pro for reliable compression.",
+                title: "Büyük Dosya Algılandı",
+                subtitle: "\(Int(freeMaxFileSizeMB)) MB üzeri dosyalar için Pro gereklidir.",
                 icon: "doc.badge.arrow.up.fill",
                 highlights: [
-                    "Handles files up to 1 GB",
-                    "Loss-aware profiles for scans & photos",
-                    "Batch-ready pipeline with no ads"
+                    "1 GB'a kadar dosya desteği",
+                    "Tarama ve fotoğraflara özel profiller",
+                    "Reklamsız toplu işlem hattı"
                 ],
-                limitDescription: "\(file.name) is \(Int(file.sizeMB)) MB",
+                limitDescription: "\(file.name) — \(Int(file.sizeMB)) MB",
                 ctaText: "Büyük Dosyaları Aç"
             )
         }
 
         if let preset, preset.isProOnly {
             return PaywallContext(
-                title: "Custom targets are Pro",
-                subtitle: "Dial-in a precise output size and unlock smarter profiles.",
+                title: "Özel Ayarlar Pro Özelliği",
+                subtitle: "Hedef boyut belirleyin ve gelişmiş profillerin kilidini açın.",
                 icon: "slider.horizontal.3",
                 highlights: [
-                    "Target-size slider",
-                    "Best quality & mail presets",
-                    "Unlimited conversions"
+                    "Hedef boyut kaydırıcısı",
+                    "En iyi kalite ve mail ayarları",
+                    "Sınırsız dönüştürme"
                 ],
                 limitDescription: nil,
                 ctaText: "Gelişmiş Ayarları Aç"
@@ -638,6 +638,21 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     func resetToFree() {
         status = SubscriptionStatus.free
         UserDefaults.standard.set(SubscriptionPlan.free.rawValue, forKey: planKey)
+        persistUsage()
+    }
+
+    /// Grant bonus daily credits to free users (e.g., after rating the app)
+    /// Reduces the daily usage count, effectively giving extra compression slots
+    func grantBonusCredits(amount: Int) {
+        guard status.plan == .free else { return }
+        let newCount = max(0, status.dailyUsageCount - amount)
+        status = SubscriptionStatus(
+            plan: status.plan,
+            isActive: status.isActive,
+            expiresAt: status.expiresAt,
+            dailyUsageCount: newCount,
+            dailyUsageLimit: freeDailyLimit
+        )
         persistUsage()
     }
 
@@ -774,17 +789,17 @@ enum SubscriptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .productNotFound:
-            return "Subscription product not found. Please try again later."
+            return "Abonelik ürünü bulunamadı. Lütfen daha sonra tekrar deneyin."
         case .purchaseFailed:
-            return "Purchase failed. Please check your payment method."
+            return "Satın alma başarısız oldu. Lütfen ödeme yönteminizi kontrol edin."
         case .userCancelled:
-            return "Purchase was cancelled."
+            return "Satın alma iptal edildi."
         case .pending:
-            return "Purchase is pending approval."
+            return "Satın alma onay bekliyor."
         case .verificationFailed:
-            return "Could not verify purchase. Please contact support."
+            return "Satın alma doğrulanamadı. Lütfen destek ile iletişime geçin."
         case .unknown:
-            return "An unknown error occurred. Please try again."
+            return "Bilinmeyen bir hata oluştu. Lütfen tekrar deneyin."
         }
     }
 }
@@ -820,10 +835,10 @@ extension SubscriptionManager {
     }
 
     /// Maximum files in batch queue
-    /// Free: 2 files (teaser)
+    /// Free: 5 files (allows meaningful testing before paywall)
     /// Pro: Unlimited
     var maxBatchQueueSize: Int {
-        status.isPro ? .max : 2
+        status.isPro ? .max : 5
     }
 
     /// Can use advanced compression presets?

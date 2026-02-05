@@ -538,20 +538,13 @@ private struct CompletedSection: View {
                 .padding(.vertical, Spacing.xs)
             }
 
-            VStack(spacing: Spacing.xs) {
-                ForEach(items.prefix(10)) { item in
+            LazyVStack(spacing: Spacing.xs) {
+                ForEach(items) { item in
                     CompletedItemRow(
                         item: item,
                         onShare: { onShare(item) },
                         onSave: { onSave(item) }
                     )
-                }
-
-                if items.count > 10 {
-                    Text("ve \(items.count - 10) daha fazla...")
-                        .font(.appCaption)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, Spacing.xs)
                 }
             }
         }

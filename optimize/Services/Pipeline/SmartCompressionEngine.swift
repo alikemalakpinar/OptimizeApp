@@ -109,7 +109,7 @@ struct CompressionJobResult: Equatable {
         case .success:
             return "Başarılı! %\(savingsPercent) küçültüldü (\(savingsDescription) tasarruf)"
         case .skipped:
-            return reason.isEmpty ? "Dosya zaten optimize edilmiş." : reason
+            return reason.isEmpty ? "Dosya zaten en iyi boyutta." : "Dosya zaten optimize edilmiş, ek küçültme yapılamadı."
         case .failed:
             return reason.isEmpty ? "İşlem başarısız oldu." : reason
         case .cancelled:
@@ -676,8 +676,8 @@ final class SmartCompressionEngine: ObservableObject {
                         return
                     }
 
-                    // Calculate quality based on retry count
-                    let quality = retryCount > 0 ? max(0.3, config.quality - 0.2) : config.quality
+                    // Calculate quality based on retry count - drop more aggressively on retry
+                    let quality = retryCount > 0 ? max(0.3, config.quality - 0.25) : config.quality
 
                     // Build destination options
                     var options: [CFString: Any] = [
@@ -1293,21 +1293,21 @@ final class SmartCompressionEngine: ObservableObject {
         switch mode {
         case .lossless:
             return ImageCompressionConfig(
-                quality: 0.95,
+                quality: 0.90,
                 maxDimension: 0, // No downscaling
                 stripMetadata: true,
                 preferHEIC: false
             )
         case .visuallyLossless:
             return ImageCompressionConfig(
-                quality: 0.80,
-                maxDimension: 4096,
+                quality: 0.70,
+                maxDimension: 3840, // 4K cap
                 stripMetadata: true,
                 preferHEIC: true
             )
         case .maxShrink:
             return ImageCompressionConfig(
-                quality: 0.60,
+                quality: 0.50,
                 maxDimension: 2048,
                 stripMetadata: true,
                 preferHEIC: true
