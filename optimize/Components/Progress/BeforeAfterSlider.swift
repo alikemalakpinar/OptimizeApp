@@ -323,6 +323,8 @@ private struct ComparisonView: View {
 
     /// Press-to-compare state (Instagram style)
     @State private var isShowingOriginal = false
+    /// Drag position for magnifying glass
+    @State private var dragLocation: CGPoint = .zero
 
     var body: some View {
         GeometryReader { geo in
@@ -364,12 +366,32 @@ private struct ComparisonView: View {
                                     isDragging = true
                                     let newPos = value.location.x / geo.size.width
                                     sliderPosition = min(max(newPos, 0.05), 0.95)
+                                    dragLocation = CGPoint(
+                                        x: geo.size.width * sliderPosition,
+                                        y: geo.size.height * 0.5
+                                    )
                                     Haptics.impact(style: .light)
                                 }
                                 .onEnded { _ in
                                     isDragging = false
                                 }
                         )
+                }
+
+                // MAGNIFYING GLASS LOUPE - Shows zoomed view at slider seam during drag
+                if isDragging && !isShowingOriginal {
+                    MagnifyingLoupe(
+                        originalImage: originalImage,
+                        compressedImage: compressedImage,
+                        position: sliderPosition,
+                        containerSize: geo.size
+                    )
+                    .position(
+                        x: geo.size.width * sliderPosition,
+                        y: max(50, dragLocation.y - 70)
+                    )
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(10)
                 }
 
                 // Labels with press-to-compare indicator
@@ -379,6 +401,7 @@ private struct ComparisonView: View {
                     isShowingOriginal: isShowingOriginal
                 )
             }
+            .animation(.easeOut(duration: 0.15), value: isDragging)
             // PRESS-TO-COMPARE: Long press to see original
             .onLongPressGesture(minimumDuration: 0.1, pressing: { pressing in
                 withAnimation(.easeInOut(duration: 0.15)) {
@@ -395,6 +418,82 @@ private struct ComparisonView: View {
             RoundedRectangle(cornerRadius: Radius.md)
                 .stroke(Color.glassBorder, lineWidth: 0.5)
         )
+    }
+}
+
+// MARK: - Magnifying Loupe
+
+/// Magnifying glass effect that shows a zoomed split view at the slider seam
+private struct MagnifyingLoupe: View {
+    let originalImage: UIImage
+    let compressedImage: UIImage
+    let position: CGFloat // 0..1
+    let containerSize: CGSize
+
+    private let loupeSize: CGFloat = 80
+    private let zoomFactor: CGFloat = 2.5
+
+    var body: some View {
+        ZStack {
+            // Background circle with shadow
+            Circle()
+                .fill(Color.black)
+                .frame(width: loupeSize, height: loupeSize)
+                .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+
+            // Split zoomed view: left = original, right = compressed
+            HStack(spacing: 0) {
+                // Left half: Original (zoomed)
+                Image(uiImage: originalImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: loupeSize * zoomFactor, height: loupeSize * zoomFactor)
+                    .offset(
+                        x: -(containerSize.width * position * zoomFactor) + loupeSize * 0.25,
+                        y: 0
+                    )
+                    .frame(width: loupeSize / 2, height: loupeSize)
+                    .clipped()
+
+                // Right half: Compressed (zoomed)
+                Image(uiImage: compressedImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: loupeSize * zoomFactor, height: loupeSize * zoomFactor)
+                    .offset(
+                        x: -(containerSize.width * position * zoomFactor) + loupeSize * 0.25,
+                        y: 0
+                    )
+                    .frame(width: loupeSize / 2, height: loupeSize)
+                    .clipped()
+            }
+            .clipShape(Circle())
+
+            // Divider line in center
+            Rectangle()
+                .fill(.white.opacity(0.8))
+                .frame(width: 1.5, height: loupeSize)
+
+            // Border ring
+            Circle()
+                .stroke(.white, lineWidth: 2.5)
+                .frame(width: loupeSize, height: loupeSize)
+
+            // Labels
+            HStack {
+                Text("B")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .offset(x: -loupeSize * 0.15)
+                Spacer()
+                Text("A")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.appMint.opacity(0.9))
+                    .offset(x: loupeSize * 0.15)
+            }
+            .frame(width: loupeSize)
+        }
+        .frame(width: loupeSize, height: loupeSize)
     }
 }
 

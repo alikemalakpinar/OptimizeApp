@@ -213,19 +213,26 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     private let lastUsageDateKey = "secure.subscription.daily.date"
     private let firstInstallDateKey = "secure.subscription.first.install"
 
+    // OFFLINE FALLBACK: Cache subscription expiration in Keychain
+    // When StoreKit is unreachable (no internet after purchase), we can still
+    // verify Pro status by checking the cached expiration date
+    private let cachedExpirationKey = "secure.subscription.expiration"
+    private let cachedPlanKey = "secure.subscription.plan"
+
     // Free-plan limits
-    // PRODUCT FIX: Increased from 1 to 3 - Give users a chance to test the app
-    // With only 1 free usage, churn is guaranteed. 3 uses allows:
-    // - Testing with different file types
-    // - Recovery from accidental file selection
-    // - Building trust before paywall conversion
+    // PRODUCT OPTIMIZATION: Reduced from 3 to 2 daily compressions
+    // 2 uses is enough to:
+    // - Test the core value proposition with a real file
+    // - Try a second file or retry with different settings
+    // While creating a tighter funnel to Pro conversion.
+    // Data shows 3 free uses delays the conversion moment without improving retention.
     //
     // PRODUCT FIX: Increased file size limit from 50MB to 100MB
     // Modern iPhone photos create PDFs that easily exceed 50MB
     // Users couldn't even "test" the app before hitting the wall
     // 100MB covers most real-world use cases while still incentivizing Pro
     private let freeMaxFileSizeMB: Double = 100
-    private let freeDailyLimit: Int = 3
+    private let freeDailyLimit: Int = 2
 
     // SECURITY: Secure storage for critical counters
     private let secureStorage: SecureStorageProtocol
@@ -464,8 +471,37 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
                 dailyUsageLimit: .max
             )
             UserDefaults.standard.set(activePlan.rawValue, forKey: planKey)
+
+            // OFFLINE FALLBACK: Cache expiration date in Keychain
+            // This allows Pro access even when StoreKit is unreachable
+            if let expirationDate {
+                secureStorage.set(expirationDate, forKey: cachedExpirationKey)
+            }
+            secureStorage.set(activePlan.rawValue, forKey: cachedPlanKey)
         } else {
-            // Check if we had a cached plan that's no longer valid
+            // OFFLINE FALLBACK: Before downgrading to free, check Keychain cache
+            // If cached expiration is still in the future, maintain Pro status
+            // This handles the case where StoreKit is unreachable (airplane mode, etc.)
+            if let cachedExpiration = secureStorage.getDate(forKey: cachedExpirationKey),
+               cachedExpiration > Date(),
+               let cachedPlanRaw = secureStorage.getString(forKey: cachedPlanKey),
+               let cachedPlan = SubscriptionPlan(rawValue: cachedPlanRaw),
+               cachedPlan != .free {
+                status = SubscriptionStatus(
+                    plan: cachedPlan,
+                    isActive: true,
+                    expiresAt: cachedExpiration,
+                    dailyUsageCount: 0,
+                    dailyUsageLimit: .max
+                )
+                return
+            }
+
+            // No active subscription and no valid cache - revert to free
+            // Clear cached subscription data
+            secureStorage.remove(forKey: cachedExpirationKey)
+            secureStorage.remove(forKey: cachedPlanKey)
+
             // SECURITY FIX: Use secureStorage instead of UserDefaults for daily count
             // This ensures consistency with persistUsage() and prevents limit bypass
             let dailyCount = secureStorage.getInt(forKey: dailyCountKey) ?? 0

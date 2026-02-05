@@ -226,7 +226,8 @@ struct RootViewWithCoordinator: View {
                     onOpenSettings: { coordinator.openSettings() },
                     onUpgrade: { coordinator.presentPaywall() },
                     onBatchProcessing: { coordinator.openBatchProcessing() },
-                    onConverter: { coordinator.openConverter() }
+                    onConverter: { coordinator.openConverter() },
+                    onStorageAnalysis: { coordinator.openStorageAnalysis() }
                 )
                 .safeAreaInset(edge: .bottom) {
                     Color.clear.frame(height: 90) // Tab bar boşluğu
@@ -326,6 +327,12 @@ struct RootViewWithCoordinator: View {
 
         case .converter:
             ConverterScreen(
+                onBack: { coordinator.goBack() }
+            )
+            .toolbar(.hidden, for: .navigationBar)
+
+        case .storageAnalysis:
+            StorageAnalysisScreen(
                 onBack: { coordinator.goBack() }
             )
             .toolbar(.hidden, for: .navigationBar)

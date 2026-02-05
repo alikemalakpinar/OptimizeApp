@@ -290,18 +290,6 @@ struct AppStrings {
 
     // MARK: - Home Screen Specific
     enum Home {
-        // Dynamic Greeting - Time-based personalized greetings
-        static var greetingMorning: String { String(localized: "Günaydın", comment: "Greeting: Morning") }
-        static var greetingMorningSubtitle: String { String(localized: "Bugün dosyaları hafifletelim mi?", comment: "Greeting: Morning subtitle") }
-        static var greetingAfternoon: String { String(localized: "İyi günler", comment: "Greeting: Afternoon") }
-        static var greetingAfternoonSubtitle: String { String(localized: "Optimize etmeye hazır mısın?", comment: "Greeting: Afternoon subtitle") }
-        static var greetingEvening: String { String(localized: "İyi akşamlar", comment: "Greeting: Evening") }
-        static var greetingEveningSubtitle: String { String(localized: "Gün sonu temizliği başlasın.", comment: "Greeting: Evening subtitle") }
-        static var greetingNight: String { String(localized: "İyi geceler", comment: "Greeting: Night") }
-        static var greetingNightSubtitle: String { String(localized: "Telefonunda yer açıp uyuyabilirsin.", comment: "Greeting: Night subtitle") }
-        static var greetingWeekend: String { String(localized: "Hafta sonu keyfi", comment: "Greeting: Weekend") }
-        static var greetingWeekendSubtitle: String { String(localized: "Hafta sonu temizliği başlasın.", comment: "Greeting: Weekend subtitle") }
-
         static var recentActivity: String { String(localized: "Son İşlemler", comment: "Home: Recent Activity") }
         static var viewAll: String { String(localized: "Tümü", comment: "Home: View All") }
         static var performanceTitle: String { String(localized: "Performans Özeti", comment: "Home: Performance Title") }
@@ -318,6 +306,14 @@ struct AppStrings {
         static var storageTitle: String { String(localized: "Depolama Alanın", comment: "Empty: Title") }
         static var storageSubtitle: String { String(localized: "Rahatlamak İstiyor", comment: "Empty: Subtitle") }
         static var storageBody: String { String(localized: "İlk dosyanı seç ve sihri başlat", comment: "Empty: Body") }
+
+        // Storage Usage Bar
+        static var storageUsed: String { String(localized: "Depolama Alanı", comment: "Storage: Title") }
+        static var storageFull: String { String(localized: "Dolu", comment: "Storage: Full label") }
+        static var storageFree: String { String(localized: "Boş", comment: "Storage: Free label") }
+        static var storageCritical: String { String(localized: "Kritik! Alan neredeyse doldu", comment: "Storage: Critical warning") }
+        static var storageLow: String { String(localized: "Alan azalıyor", comment: "Storage: Low warning") }
+        static var storageCleanNow: String { String(localized: "Hemen Temizle", comment: "Storage: Clean now CTA") }
 
         // Membership Status Card (moved from hardcoded)
         static var proActive: String { String(localized: "Pro aktif", comment: "Membership: Pro active") }
@@ -393,6 +389,11 @@ struct AppStrings {
         // Before/After Comparison
         static var qualityComparison: String { String(localized: "Kalite Karşılaştırması", comment: "Result: Quality comparison header") }
         static var dragOrHold: String { String(localized: "Kaydır veya basılı tut", comment: "Result: Interaction hint") }
+
+        // Photo equivalent
+        static func photoEquivalent(_ count: Int) -> String {
+            String(localized: "\(count) yeni fotoğraf için yer açıldı", comment: "Result: Photo equivalent of saved space")
+        }
     }
 
     // MARK: - Modern Paywall
@@ -704,5 +705,81 @@ struct AppStrings {
     enum PresetOptions {
         static var whatsapp: String { String(localized: "WhatsApp", comment: "Preset: WhatsApp") }
         static var mail25MB: String { String(localized: "Mail (25 MB)", comment: "Preset: Mail 25MB") }
+    }
+
+    // MARK: - Preset Settings
+    enum PresetSettings {
+        static var preserveTextTitle: String { String(localized: "Metin Seçilebilirliğini Koru", comment: "Preset Setting: Preserve text selectability") }
+        static var preserveTextSubtitle: String { String(localized: "PDF'deki metinler kopyalanabilir kalır", comment: "Preset Setting: Text stays copyable in PDF") }
+    }
+
+    // MARK: - Storage Analysis
+    enum Analysis {
+        static var title: String { String(localized: "Depolama Analizi", comment: "Analysis: Screen title") }
+        static var analyzeButton: String { String(localized: "Analiz Et", comment: "Analysis: Analyze button") }
+        static var scanning: String { String(localized: "Galeri Taranıyor", comment: "Analysis: Scanning") }
+        static var requestingAccess: String { String(localized: "Erişim isteniyor...", comment: "Analysis: Requesting access") }
+        static var scanningScreenshots: String { String(localized: "Ekran görüntüleri taranıyor...", comment: "Analysis: Scanning screenshots") }
+        static var scanningVideos: String { String(localized: "Büyük videolar aranıyor...", comment: "Analysis: Scanning videos") }
+        static var scanningDuplicates: String { String(localized: "Benzer fotoğraflar tespit ediliyor...", comment: "Analysis: Scanning duplicates") }
+
+        // Results
+        static var foundOptimizable: String { String(localized: "Optimize Edilebilir Alan", comment: "Analysis: Found optimizable") }
+        static var items: String { String(localized: "dosya", comment: "Analysis: Items count label") }
+        static var categoriesLabel: String { String(localized: "kategori", comment: "Analysis: Categories label") }
+
+        // Categories
+        static var screenshotsTitle: String { String(localized: "Ekran Görüntüleri", comment: "Analysis: Screenshots title") }
+        static func screenshotsSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) ekran görüntüsü bulundu", comment: "Analysis: Screenshots subtitle")
+        }
+        static var largeVideosTitle: String { String(localized: "Büyük Videolar", comment: "Analysis: Large videos title") }
+        static func largeVideosSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) büyük video (50MB+)", comment: "Analysis: Large videos subtitle")
+        }
+        static var duplicatesTitle: String { String(localized: "Olası Tekrarlar", comment: "Analysis: Duplicates title") }
+        static func duplicatesSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) benzer dosya tespit edildi", comment: "Analysis: Duplicates subtitle")
+        }
+
+        // Similar photos (Vision framework)
+        static var scanningSimilar: String { String(localized: "Benzer fotoğraflar karşılaştırılıyor...", comment: "Analysis: Scanning similar photos with Vision") }
+        static var similarTitle: String { String(localized: "Benzer Fotoğraflar", comment: "Analysis: Similar photos title") }
+        static func similarSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) benzer fotoğraf tespit edildi", comment: "Analysis: Similar photos subtitle")
+        }
+        static func deleteSimilar(_ count: Int) -> String {
+            String(localized: "\(count) Benzer Fotoğrafı Sil", comment: "Analysis: Delete similar photos")
+        }
+
+        // Actions
+        static func deleteScreenshots(_ count: Int) -> String {
+            String(localized: "\(count) Ekran Görüntüsünü Sil", comment: "Analysis: Delete screenshots")
+        }
+        static func deleteVideos(_ count: Int) -> String {
+            String(localized: "\(count) Videoyu Sil", comment: "Analysis: Delete videos")
+        }
+        static func deleteDuplicates(_ count: Int) -> String {
+            String(localized: "\(count) Tekrarı Sil", comment: "Analysis: Delete duplicates")
+        }
+        static func andMore(_ count: Int) -> String {
+            String(localized: "ve \(count) tane daha...", comment: "Analysis: And more items")
+        }
+
+        // Empty state
+        static var allCleanTitle: String { String(localized: "Her Şey Temiz!", comment: "Analysis: All clean title") }
+        static var allCleanBody: String { String(localized: "Galeride optimize edilecek bir şey bulunamadı. Harika iş!", comment: "Analysis: All clean body") }
+
+        // Permission
+        static var permissionTitle: String { String(localized: "Fotoğraf Erişimi Gerekli", comment: "Analysis: Permission title") }
+        static var permissionBody: String { String(localized: "Galeri analizi yapabilmek için fotoğraf kütüphanesine erişim izni gerekiyor.", comment: "Analysis: Permission body") }
+        static var openSettings: String { String(localized: "Ayarları Aç", comment: "Analysis: Open settings") }
+
+        // Error
+        static var retry: String { String(localized: "Tekrar Dene", comment: "Analysis: Retry") }
+
+        // iCloud tip
+        static var iCloudTipTitle: String { String(localized: "iCloud Alanın da Düşer", comment: "Analysis: iCloud tip title") }
+        static var iCloudTipBody: String { String(localized: "Galeriden sildiğin dosyalar iCloud'dan da kaldırılır. Böylece iCloud yükseltmesine gerek kalmaz.", comment: "Analysis: iCloud tip body") }
     }
 }

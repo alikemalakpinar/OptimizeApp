@@ -34,6 +34,7 @@ enum AppScreen: Hashable {
     case settings
     case batchProcessing
     case converter
+    case storageAnalysis
 
     // MARK: - Hashable Conformance (Required for NavigationPath)
 
@@ -52,6 +53,7 @@ enum AppScreen: Hashable {
         case .settings: hasher.combine("settings")
         case .batchProcessing: hasher.combine("batchProcessing")
         case .converter: hasher.combine("converter")
+        case .storageAnalysis: hasher.combine("storageAnalysis")
         }
     }
 
@@ -65,7 +67,8 @@ enum AppScreen: Hashable {
              (.history, .history),
              (.settings, .settings),
              (.batchProcessing, .batchProcessing),
-             (.converter, .converter):
+             (.converter, .converter),
+             (.storageAnalysis, .storageAnalysis):
             return true
         case (.analyze(let lFile), .analyze(let rFile)):
             return lFile.id == rFile.id
@@ -518,6 +521,7 @@ class AppCoordinator: ObservableObject {
 
     func startCompression(preset: CompressionPreset) {
         guard let file = currentFile else { return }
+        Haptics.impact(style: .medium)
         selectedPreset = preset
 
         Task {
@@ -630,7 +634,14 @@ class AppCoordinator: ObservableObject {
         push(.converter)
     }
 
+    /// Open storage analysis screen
+    func openStorageAnalysis() {
+        analytics.track(.settingsOpened) // Reuse existing event or add dedicated one
+        push(.storageAnalysis)
+    }
+
     func goBack() {
+        Haptics.selection()
         withAnimation(AppAnimation.standard) {
             // ARCHITECTURE: Use NavigationPath for native back navigation
             if !navigationPath.isEmpty {
@@ -668,6 +679,7 @@ class AppCoordinator: ObservableObject {
     }
 
     func goHome() {
+        Haptics.impact(style: .light)
         compressionTask?.cancel()
         compressionTask = nil
         currentFile = nil
@@ -710,6 +722,7 @@ class AppCoordinator: ObservableObject {
 
     /// Show error with user-friendly title and message
     func showError(title: String = String(localized: "Hata", comment: "Error title"), message: String) {
+        Haptics.error()
         errorTitle = title
         errorMessage = message
         showError = true

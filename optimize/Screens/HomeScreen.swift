@@ -20,6 +20,7 @@ struct HomeScreen: View {
     let onUpgrade: () -> Void
     let onBatchProcessing: () -> Void
     let onConverter: () -> Void
+    let onStorageAnalysis: () -> Void
 
     init(
         coordinator: AppCoordinator,
@@ -29,7 +30,8 @@ struct HomeScreen: View {
         onOpenSettings: @escaping () -> Void,
         onUpgrade: @escaping () -> Void,
         onBatchProcessing: @escaping () -> Void = {},
-        onConverter: @escaping () -> Void = {}
+        onConverter: @escaping () -> Void = {},
+        onStorageAnalysis: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.subscriptionStatus = subscriptionStatus
@@ -39,6 +41,7 @@ struct HomeScreen: View {
         self.onUpgrade = onUpgrade
         self.onBatchProcessing = onBatchProcessing
         self.onConverter = onConverter
+        self.onStorageAnalysis = onStorageAnalysis
     }
 
     var recentHistory: [HistoryItem] {
@@ -84,12 +87,16 @@ struct HomeScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.xl) {
+                    // Storage Usage Bar - creates urgency
+                    StorageUsageBar(onSelectFile: onSelectFile, onAnalyze: onStorageAnalysis)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.top, Spacing.xs)
+
                     MembershipStatusCard(
                         status: subscriptionStatus,
                         onUpgrade: onUpgrade
                     )
                     .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.xs)
 
                     // Main CTA Section with Breathing Effect
                     VStack(spacing: Spacing.lg) {
@@ -389,6 +396,135 @@ struct BreathingCTACard: View {
             breathScale = 1.0
             ringOpacity = 0.3
         }
+    }
+}
+
+// MARK: - Storage Usage Bar
+/// Shows device storage usage with a progress bar to create urgency
+/// Uses DiskSpaceGuard to query real device storage data
+/// Color-coded: green (healthy) -> orange (low) -> red (critical)
+struct StorageUsageBar: View {
+    let onSelectFile: () -> Void
+    let onAnalyze: () -> Void
+
+    @State private var diskInfo: DiskSpaceInfo?
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var usedFraction: Double {
+        guard let info = diskInfo, info.totalCapacity > 0 else { return 0 }
+        return Double(info.usedCapacity) / Double(info.totalCapacity)
+    }
+
+    private var barColor: Color {
+        if usedFraction >= 0.9 { return .warmCoral }
+        if usedFraction >= 0.75 { return .warmOrange }
+        return .appMint
+    }
+
+    private var statusText: String? {
+        guard let info = diskInfo else { return nil }
+        if info.isCriticallyLow { return AppStrings.Home.storageCritical }
+        if info.isLow { return AppStrings.Home.storageLow }
+        return nil
+    }
+
+    var body: some View {
+        if let info = diskInfo {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Header row
+                HStack {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: usedFraction >= 0.9 ? "externaldrive.fill.badge.exclamationmark" : "externaldrive.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(barColor)
+
+                        Text(AppStrings.Home.storageUsed)
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer()
+
+                    Text("\(Int(usedFraction * 100))% \(AppStrings.Home.storageFull)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(barColor)
+                }
+
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        // Background track
+                        Capsule()
+                            .fill(colorScheme == .dark ? Color(.tertiarySystemBackground) : Color(.systemGray5))
+
+                        // Filled portion
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [barColor.opacity(0.8), barColor],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(0, geo.size.width * usedFraction))
+                    }
+                }
+                .frame(height: 8)
+
+                // Bottom row: free space + analyze button
+                HStack {
+                    Text("\(info.formattedAvailable) \(AppStrings.Home.storageFree)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button(action: {
+                        Haptics.impact()
+                        onAnalyze()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(AppStrings.Analysis.analyzeButton)
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 5)
+                        .background(
+                            LinearGradient(
+                                colors: [barColor.opacity(0.9), barColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        usedFraction >= 0.9
+                            ? barColor.opacity(0.3)
+                            : Color.cardBorder,
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
+        }
+    }
+
+    init(onSelectFile: @escaping () -> Void, onAnalyze: @escaping () -> Void = {}) {
+        self.onSelectFile = onSelectFile
+        self.onAnalyze = onAnalyze
+        _diskInfo = State(initialValue: DiskSpaceGuard.getCurrentDiskSpace())
     }
 }
 
@@ -955,76 +1091,6 @@ struct QuickAccessBar: View {
             RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
                 .stroke(Color.cardBorder, lineWidth: 0.5)
         )
-    }
-}
-
-// MARK: - Dynamic Greeting View (DEPRECATED - kept for backwards compatibility)
-/// Time-based personalized greeting that creates emotional connection with the user
-/// Changes based on: Morning (5-12), Afternoon (12-17), Evening (17-21), Night (21-5), Weekend
-/// NOTE: This view is no longer used on HomeScreen - replaced by QuickAccessBar
-struct DynamicGreetingView: View {
-    @State private var greeting: (title: String, subtitle: String) = ("", "")
-    @State private var iconName: String = "sun.max.fill"
-    @State private var iconColor: Color = .warmOrange
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            // Animated icon
-            Image(systemName: iconName)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundStyle(iconColor)
-                .symbolBounce(trigger: true)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(greeting.title)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                Text(greeting.subtitle)
-                    .font(.appCaption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-        .onAppear {
-            updateGreeting()
-        }
-    }
-
-    private func updateGreeting() {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: Date())
-        let weekday = calendar.component(.weekday, from: Date())
-
-        // Weekend check (Saturday = 7, Sunday = 1)
-        let isWeekend = weekday == 1 || weekday == 7
-
-        if isWeekend {
-            greeting = (AppStrings.Home.greetingWeekend, AppStrings.Home.greetingWeekendSubtitle)
-            iconName = "sparkles"
-            iconColor = .premiumPurple
-        } else if hour >= 5 && hour < 12 {
-            // Morning
-            greeting = (AppStrings.Home.greetingMorning, AppStrings.Home.greetingMorningSubtitle)
-            iconName = "sun.max.fill"
-            iconColor = .warmOrange
-        } else if hour >= 12 && hour < 17 {
-            // Afternoon
-            greeting = (AppStrings.Home.greetingAfternoon, AppStrings.Home.greetingAfternoonSubtitle)
-            iconName = "sun.min.fill"
-            iconColor = .warmOrange
-        } else if hour >= 17 && hour < 21 {
-            // Evening
-            greeting = (AppStrings.Home.greetingEvening, AppStrings.Home.greetingEveningSubtitle)
-            iconName = "sunset.fill"
-            iconColor = .warmCoral
-        } else {
-            // Night (21-5)
-            greeting = (AppStrings.Home.greetingNight, AppStrings.Home.greetingNightSubtitle)
-            iconName = "moon.stars.fill"
-            iconColor = .premiumIndigo
-        }
     }
 }
 

@@ -38,10 +38,6 @@
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>OptimizeApp, sıkıştırılmış fotoğrafları kameranıza kaydetmek için izin gerektirir.</string>
 
-    <!-- Camera Access (optional - for future features) -->
-    <key>NSCameraUsageDescription</key>
-    <string>OptimizeApp, fotoğraf çekerek doğrudan sıkıştırma yapabilmeniz için kamera erişimi ister.</string>
-
     <!-- Face ID / Touch ID (for secure premium features) -->
     <key>NSFaceIDUsageDescription</key>
     <string>Premium özelliklerinizi korumak için Face ID kullanılabilir.</string>

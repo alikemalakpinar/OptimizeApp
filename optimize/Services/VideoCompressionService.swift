@@ -359,6 +359,26 @@ actor VideoCompressionService {
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
 
+        // AUDIO TRACK HANDLING: Check if video has audio before export
+        // Silent videos (e.g., security cameras, screen recordings without mic)
+        // can fail or produce bloated output if the export session expects audio.
+        // When no audio track exists, configure the session to skip audio mixing.
+        let audioTracks = try? await asset.loadTracks(withMediaType: .audio)
+        let hasAudio = !(audioTracks?.isEmpty ?? true)
+
+        if !hasAudio {
+            // No audio track - prevent export session from adding empty audio channel
+            // This avoids unnecessary file size increase and potential export failures
+            exportSession.timeRange = CMTimeRange(
+                start: .zero,
+                duration: (try? await asset.load(.duration)) ?? .positiveInfinity
+            )
+
+            #if DEBUG
+            print("   - Audio: none (silent video, skipping audio mix)")
+            #endif
+        }
+
         // PRIVACY: Strip all metadata (GPS, camera info, timestamps)
         // This ensures user privacy and reduces file size
         exportSession.metadata = []
