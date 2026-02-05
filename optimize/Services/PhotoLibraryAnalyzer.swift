@@ -41,6 +41,7 @@ struct MediaCategory: Identifiable {
         case largeVideos
         case duplicates
         case similarPhotos
+        case blurryPhotos
     }
 }
 
@@ -130,6 +131,10 @@ final class PhotoLibraryAnalyzer: ObservableObject {
 
             group.addTask { [weak self] in
                 await self?.findSimilarPhotos()
+            }
+
+            group.addTask { [weak self] in
+                await self?.findBlurryPhotos()
             }
 
             var results: [MediaCategory] = []
@@ -435,6 +440,132 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             assets: similarAssets,
             totalBytes: totalBytes
         )
+    }
+
+    // MARK: - Blurry Photo Detection (Laplacian Variance)
+
+    /// Find blurry photos using Laplacian variance analysis.
+    /// Low variance = blurry image (uniform pixel values).
+    /// Analyzes the most recent 150 photos to keep scan time reasonable.
+    private func findBlurryPhotos() async -> MediaCategory? {
+        await MainActor.run {
+            currentStep = AppStrings.Analysis.scanningBlurry
+            progress = 0.78
+        }
+
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = 150
+
+        let results = PHAsset.fetchAssets(with: .image, options: options)
+
+        let imageManager = PHImageManager.default()
+        let requestOptions = PHImageRequestOptions()
+        requestOptions.deliveryMode = .highQualityFormat
+        requestOptions.isNetworkAccessAllowed = false
+        requestOptions.isSynchronous = false
+        requestOptions.resizeMode = .fast
+
+        let targetSize = CGSize(width: 200, height: 200)
+        // Laplacian variance threshold - values below this are considered blurry
+        let blurThreshold: Double = 50.0
+
+        var blurryAssets: [PHAsset] = []
+        var totalBytes: Int64 = 0
+
+        var assetsToCheck: [(asset: PHAsset, size: Int64)] = []
+        results.enumerateObjects { asset, _, _ in
+            let resources = PHAssetResource.assetResources(for: asset)
+            let size = (resources.first.flatMap { $0.value(forKey: "fileSize") as? Int64 }) ?? 0
+            if size > 100_000 { // Skip tiny files
+                assetsToCheck.append((asset, size))
+            }
+        }
+
+        for item in assetsToCheck {
+            let image: UIImage? = await withCheckedContinuation { continuation in
+                imageManager.requestImage(
+                    for: item.asset,
+                    targetSize: targetSize,
+                    contentMode: .aspectFill,
+                    options: requestOptions
+                ) { image, _ in
+                    continuation.resume(returning: image)
+                }
+            }
+
+            guard let cgImage = image?.cgImage else { continue }
+
+            let variance = laplacianVariance(of: cgImage)
+            if variance < blurThreshold {
+                blurryAssets.append(item.asset)
+                totalBytes += item.size
+            }
+        }
+
+        await MainActor.run { progress = 0.88 }
+
+        guard !blurryAssets.isEmpty else { return nil }
+
+        return MediaCategory(
+            id: "blurry_photos",
+            type: .blurryPhotos,
+            title: AppStrings.Analysis.blurryTitle,
+            subtitle: AppStrings.Analysis.blurrySubtitle(blurryAssets.count),
+            icon: "camera.metering.unknown",
+            iconColor: "warmOrange",
+            assets: blurryAssets,
+            totalBytes: totalBytes
+        )
+    }
+
+    /// Compute Laplacian variance to measure image sharpness.
+    /// A 3x3 Laplacian kernel is convolved with the grayscale image.
+    /// Low variance = blurry, high variance = sharp.
+    private func laplacianVariance(of image: CGImage) -> Double {
+        let width = image.width
+        let height = image.height
+        guard width > 2, height > 2 else { return 0 }
+
+        // Convert to grayscale pixel buffer
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else { return 0 }
+
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        // Apply 3x3 Laplacian kernel: [0,1,0; 1,-4,1; 0,1,0]
+        var sum: Double = 0
+        var sumSq: Double = 0
+        var count: Double = 0
+
+        for y in 1..<(height - 1) {
+            for x in 1..<(width - 1) {
+                let idx = y * width + x
+                let laplacian = -4.0 * Double(pixels[idx])
+                    + Double(pixels[idx - 1])
+                    + Double(pixels[idx + 1])
+                    + Double(pixels[idx - width])
+                    + Double(pixels[idx + width])
+
+                sum += laplacian
+                sumSq += laplacian * laplacian
+                count += 1
+            }
+        }
+
+        guard count > 0 else { return 0 }
+        let mean = sum / count
+        let variance = (sumSq / count) - (mean * mean)
+        return variance
     }
 
     /// Generate a Vision feature print for a photo asset
