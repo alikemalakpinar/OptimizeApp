@@ -816,6 +816,8 @@ final class SmartCompressionEngine: ObservableObject {
             let progressTask = Task {
                 for await state in sessionBox.value.states(updateInterval: 0.1) {
                     switch state {
+                    case .pending:
+                        progress?(0.15, "Video hazırlanıyor...")
                     case .waiting:
                         progress?(0.2, "Video hazırlanıyor...")
                     case .exporting(let exportProgress):
