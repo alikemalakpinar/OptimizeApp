@@ -319,6 +319,14 @@ struct AppStrings {
         static var storageSubtitle: String { String(localized: "Rahatlamak İstiyor", comment: "Empty: Subtitle") }
         static var storageBody: String { String(localized: "İlk dosyanı seç ve sihri başlat", comment: "Empty: Body") }
 
+        // Storage Usage Bar
+        static var storageUsed: String { String(localized: "Depolama Alanı", comment: "Storage: Title") }
+        static var storageFull: String { String(localized: "Dolu", comment: "Storage: Full label") }
+        static var storageFree: String { String(localized: "Boş", comment: "Storage: Free label") }
+        static var storageCritical: String { String(localized: "Kritik! Alan neredeyse doldu", comment: "Storage: Critical warning") }
+        static var storageLow: String { String(localized: "Alan azalıyor", comment: "Storage: Low warning") }
+        static var storageCleanNow: String { String(localized: "Hemen Temizle", comment: "Storage: Clean now CTA") }
+
         // Membership Status Card (moved from hardcoded)
         static var proActive: String { String(localized: "Pro aktif", comment: "Membership: Pro active") }
         static var freePlan: String { String(localized: "Ücretsiz plan", comment: "Membership: Free plan") }

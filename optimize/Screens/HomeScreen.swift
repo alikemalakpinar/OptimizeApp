@@ -84,12 +84,16 @@ struct HomeScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Spacing.xl) {
+                    // Storage Usage Bar - creates urgency
+                    StorageUsageBar(onSelectFile: onSelectFile)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.top, Spacing.xs)
+
                     MembershipStatusCard(
                         status: subscriptionStatus,
                         onUpgrade: onUpgrade
                     )
                     .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.xs)
 
                     // Main CTA Section with Breathing Effect
                     VStack(spacing: Spacing.lg) {
@@ -389,6 +393,129 @@ struct BreathingCTACard: View {
             breathScale = 1.0
             ringOpacity = 0.3
         }
+    }
+}
+
+// MARK: - Storage Usage Bar
+/// Shows device storage usage with a progress bar to create urgency
+/// Uses DiskSpaceGuard to query real device storage data
+/// Color-coded: green (healthy) -> orange (low) -> red (critical)
+struct StorageUsageBar: View {
+    let onSelectFile: () -> Void
+
+    @State private var diskInfo: DiskSpaceInfo?
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var usedFraction: Double {
+        guard let info = diskInfo, info.totalCapacity > 0 else { return 0 }
+        return Double(info.usedCapacity) / Double(info.totalCapacity)
+    }
+
+    private var barColor: Color {
+        if usedFraction >= 0.9 { return .warmCoral }
+        if usedFraction >= 0.75 { return .warmOrange }
+        return .appMint
+    }
+
+    private var statusText: String? {
+        guard let info = diskInfo else { return nil }
+        if info.isCriticallyLow { return AppStrings.Home.storageCritical }
+        if info.isLow { return AppStrings.Home.storageLow }
+        return nil
+    }
+
+    var body: some View {
+        if let info = diskInfo {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                // Header row
+                HStack {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: usedFraction >= 0.9 ? "externaldrive.fill.badge.exclamationmark" : "externaldrive.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(barColor)
+
+                        Text(AppStrings.Home.storageUsed)
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer()
+
+                    Text("\(Int(usedFraction * 100))% \(AppStrings.Home.storageFull)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(barColor)
+                }
+
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        // Background track
+                        Capsule()
+                            .fill(colorScheme == .dark ? Color(.tertiarySystemBackground) : Color(.systemGray5))
+
+                        // Filled portion
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [barColor.opacity(0.8), barColor],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(0, geo.size.width * usedFraction))
+                    }
+                }
+                .frame(height: 8)
+
+                // Bottom row: used/total + warning or CTA
+                HStack {
+                    Text("\(info.formattedAvailable) \(AppStrings.Home.storageFree)")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    if let warning = statusText {
+                        Button(action: {
+                            Haptics.impact()
+                            onSelectFile()
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(warning)
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 9, weight: .bold))
+                            }
+                            .foregroundStyle(barColor)
+                        }
+                    } else {
+                        Text(info.formattedTotal)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        usedFraction >= 0.9
+                            ? barColor.opacity(0.3)
+                            : Color.cardBorder,
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
+        }
+    }
+
+    init(onSelectFile: @escaping () -> Void) {
+        self.onSelectFile = onSelectFile
+        _diskInfo = State(initialValue: DiskSpaceGuard.getCurrentDiskSpace())
     }
 }
 
