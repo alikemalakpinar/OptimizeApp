@@ -339,8 +339,10 @@ final class PhotoLibraryAnalyzer: ObservableObject {
 
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
-        requestOptions.deliveryMode = .fastFormat
-        requestOptions.isNetworkAccessAllowed = false
+        // .highQualityFormat guarantees a single callback, preventing
+        // "SWIFT TASK CONTINUATION MISUSE" crashes with withCheckedContinuation
+        requestOptions.deliveryMode = .highQualityFormat
+        requestOptions.isNetworkAccessAllowed = true
         requestOptions.isSynchronous = false
         requestOptions.resizeMode = .fast
 

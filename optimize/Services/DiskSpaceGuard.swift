@@ -58,8 +58,12 @@ struct DiskSpaceInfo {
     let availableCapacityForImportantUsage: Int64
     let availableCapacityForOpportunisticUsage: Int64
 
+    /// Use availableCapacityForImportantUsage for display and checks.
+    /// This includes purgeable space that iOS can reclaim, matching the value
+    /// shown in Settings > General > iPhone Storage.
+    /// Raw `availableCapacity` excludes purgeable caches and shows misleadingly low values.
     var usedCapacity: Int64 {
-        totalCapacity - availableCapacity
+        totalCapacity - availableCapacityForImportantUsage
     }
 
     var usedPercentage: Double {
@@ -68,7 +72,7 @@ struct DiskSpaceInfo {
     }
 
     var formattedAvailable: String {
-        ByteCountFormatter.string(fromByteCount: availableCapacity, countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: availableCapacityForImportantUsage, countStyle: .file)
     }
 
     var formattedTotal: String {
@@ -77,12 +81,12 @@ struct DiskSpaceInfo {
 
     /// True if storage is critically low (< 500MB)
     var isCriticallyLow: Bool {
-        availableCapacity < 500_000_000 // 500 MB
+        availableCapacityForImportantUsage < 500_000_000 // 500 MB
     }
 
     /// True if storage is low (< 1GB)
     var isLow: Bool {
-        availableCapacity < 1_000_000_000 // 1 GB
+        availableCapacityForImportantUsage < 1_000_000_000 // 1 GB
     }
 }
 
@@ -140,7 +144,7 @@ final class DiskSpaceGuard {
 
         // Check for critically low space first
         if diskInfo.isCriticallyLow {
-            throw DiskSpaceError.criticallyLow(available: diskInfo.availableCapacity)
+            throw DiskSpaceError.criticallyLow(available: diskInfo.availableCapacityForImportantUsage)
         }
 
         // Calculate required space with safety buffer

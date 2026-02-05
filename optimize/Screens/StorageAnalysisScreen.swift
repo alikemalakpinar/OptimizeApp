@@ -16,6 +16,10 @@ struct StorageAnalysisScreen: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    // Scanning animation state
+    @State private var scanningFileName: String = "IMG_001.JPG"
+    @State private var scanTimer: Timer?
+
     var body: some View {
         VStack(spacing: 0) {
             NavigationHeader(AppStrings.Analysis.title, onBack: onBack)
@@ -55,48 +59,94 @@ struct StorageAnalysisScreen: View {
         }
     }
 
-    // MARK: - Loading
+    // MARK: - Enhanced Loading View (Radar Scan Effect)
 
     private func loadingView(text: String) -> some View {
-        VStack(spacing: Spacing.lg) {
+        VStack(spacing: Spacing.xl) {
             Spacer()
 
-            // Animated scanning indicator
+            // Radar scan effect
             ZStack {
-                Circle()
-                    .stroke(Color.appMint.opacity(0.2), lineWidth: 4)
-                    .frame(width: 80, height: 80)
+                // Pulsing outer rings
+                ForEach(0..<3, id: \.self) { i in
+                    Circle()
+                        .stroke(Color.appMint.opacity(0.3), lineWidth: 1)
+                        .frame(width: 100 + CGFloat(i * 40), height: 100 + CGFloat(i * 40))
+                        .scaleEffect(analyzer.state == .analyzing ? 1.1 : 1.0)
+                        .opacity(analyzer.state == .analyzing ? 0.0 : 0.5)
+                        .animation(
+                            .easeOut(duration: 2.0).repeatForever(autoreverses: false).delay(Double(i) * 0.4),
+                            value: analyzer.state
+                        )
+                }
 
+                // Progress ring
                 Circle()
                     .trim(from: 0, to: analyzer.progress)
                     .stroke(
-                        LinearGradient(
-                            colors: [Color.premiumPurple, Color.premiumBlue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                        AngularGradient(
+                            colors: [.premiumPurple, .premiumBlue, .appMint],
+                            center: .center
                         ),
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
-                    .frame(width: 80, height: 80)
+                    .frame(width: 120, height: 120)
                     .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.3), value: analyzer.progress)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: analyzer.progress)
 
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(Color.premiumPurple)
+                // Center icon and percentage
+                VStack(spacing: 4) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 32))
+                        .foregroundStyle(Color.premiumBlue)
+
+                    Text("\(Int(analyzer.progress * 100))%")
+                        .font(.caption.bold())
+                        .fontDesign(.monospaced)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .padding(.bottom, 20)
 
-            VStack(spacing: Spacing.xs) {
-                Text(AppStrings.Analysis.scanning)
+            // Dynamic text area
+            VStack(spacing: Spacing.sm) {
+                Text(text)
                     .font(.appBodyBold)
                     .foregroundStyle(.primary)
 
-                Text(text)
-                    .font(.appCaption)
-                    .foregroundStyle(.secondary)
+                // Rapidly changing file name for "scanning" feel
+                HStack(spacing: 0) {
+                    Text("Taranıyor: ")
+                        .foregroundStyle(.secondary)
+                    Text(scanningFileName)
+                        .foregroundStyle(Color.premiumPurple)
+                        .fontDesign(.monospaced)
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.1), value: scanningFileName)
+                }
+                .font(.appCaption)
+                .frame(height: 20)
             }
 
             Spacer()
+        }
+        .onAppear {
+            startScanningEffect()
+        }
+        .onDisappear {
+            scanTimer?.invalidate()
+            scanTimer = nil
+        }
+    }
+
+    private func startScanningEffect() {
+        scanTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+            let extensions = ["JPG", "PNG", "MOV", "HEIC", "MP4"]
+            let randomId = Int.random(in: 1000...9999)
+            let randomExt = extensions.randomElement() ?? "JPG"
+            Task { @MainActor in
+                scanningFileName = "IMG_\(randomId).\(randomExt)"
+            }
         }
     }
 
@@ -512,8 +562,11 @@ private struct AssetThumbnail: View {
 
     private func loadThumbnail() async {
         let options = PHImageRequestOptions()
-        options.deliveryMode = .opportunistic
-        options.isNetworkAccessAllowed = false
+        // FIX: .opportunistic can call the handler twice (low-quality + high-quality),
+        // causing "SWIFT TASK CONTINUATION MISUSE" fatal error.
+        // .highQualityFormat guarantees a single callback.
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
         options.resizeMode = .fast
 
         let size = CGSize(width: 200, height: 200)
