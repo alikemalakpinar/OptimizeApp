@@ -752,6 +752,16 @@ struct AppStrings {
             String(localized: "\(count) Benzer Fotoğrafı Sil", comment: "Analysis: Delete similar photos")
         }
 
+        // Blurry photos (Laplacian variance)
+        static var scanningBlurry: String { String(localized: "Bulanık fotoğraflar tespit ediliyor...", comment: "Analysis: Scanning blurry photos") }
+        static var blurryTitle: String { String(localized: "Bulanık Fotoğraflar", comment: "Analysis: Blurry photos title") }
+        static func blurrySubtitle(_ count: Int) -> String {
+            String(localized: "\(count) bulanık fotoğraf bulundu", comment: "Analysis: Blurry photos subtitle")
+        }
+        static func deleteBlurry(_ count: Int) -> String {
+            String(localized: "\(count) Bulanık Fotoğrafı Sil", comment: "Analysis: Delete blurry photos")
+        }
+
         // Actions
         static func deleteScreenshots(_ count: Int) -> String {
             String(localized: "\(count) Ekran Görüntüsünü Sil", comment: "Analysis: Delete screenshots")
@@ -768,7 +778,7 @@ struct AppStrings {
 
         // Empty state
         static var allCleanTitle: String { String(localized: "Her Şey Temiz!", comment: "Analysis: All clean title") }
-        static var allCleanBody: String { String(localized: "Galeride optimize edilecek bir şey bulunamadı. Harika iş!", comment: "Analysis: All clean body") }
+        static var allCleanBody: String { String(localized: "Temizlenecek bir şey bulunamadı. Harika iş!", comment: "Analysis: All clean body") }
 
         // Permission
         static var permissionTitle: String { String(localized: "Fotoğraf Erişimi Gerekli", comment: "Analysis: Permission title") }
@@ -781,5 +791,51 @@ struct AppStrings {
         // iCloud tip
         static var iCloudTipTitle: String { String(localized: "iCloud Alanın da Düşer", comment: "Analysis: iCloud tip title") }
         static var iCloudTipBody: String { String(localized: "Galeriden sildiğin dosyalar iCloud'dan da kaldırılır. Böylece iCloud yükseltmesine gerek kalmaz.", comment: "Analysis: iCloud tip body") }
+
+        // Contacts analysis
+        static var scanningContacts: String { String(localized: "Rehber taranıyor...", comment: "Analysis: Scanning contacts") }
+        static var contactsDuplicateTitle: String { String(localized: "Tekrarlanan Kişiler", comment: "Analysis: Duplicate contacts title") }
+        static func contactsDuplicateSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) tekrarlanan kişi tespit edildi", comment: "Analysis: Duplicate contacts subtitle")
+        }
+        static var contactsNamelessTitle: String { String(localized: "İsimsiz Kişiler", comment: "Analysis: Nameless contacts title") }
+        static func contactsNamelessSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) isimsiz kişi bulundu", comment: "Analysis: Nameless contacts subtitle")
+        }
+        static var contactsEmptyTitle: String { String(localized: "Boş Kişiler", comment: "Analysis: Empty contacts title") }
+        static func contactsEmptySubtitle(_ count: Int) -> String {
+            String(localized: "\(count) bilgisiz kişi kaydı", comment: "Analysis: Empty contacts subtitle")
+        }
+        static func deleteContacts(_ count: Int) -> String {
+            String(localized: "\(count) Kişiyi Sil", comment: "Analysis: Delete contacts")
+        }
+
+        // Calendar analysis
+        static var scanningCalendar: String { String(localized: "Takvim etkinlikleri taranıyor...", comment: "Analysis: Scanning calendar") }
+        static var calendarOldTitle: String { String(localized: "Eski Etkinlikler", comment: "Analysis: Old events title") }
+        static func calendarOldSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) eski etkinlik (6 ay+)", comment: "Analysis: Old events subtitle")
+        }
+        static var calendarSpamTitle: String { String(localized: "Spam Takvimler", comment: "Analysis: Spam calendars title") }
+        static func calendarSpamSubtitle(_ count: Int) -> String {
+            String(localized: "\(count) şüpheli takvim aboneliği", comment: "Analysis: Spam calendars subtitle")
+        }
+        static func deleteEvents(_ count: Int) -> String {
+            String(localized: "\(count) Etkinliği Sil", comment: "Analysis: Delete events")
+        }
+        static func deleteCalendar(_ name: String) -> String {
+            String(localized: "\"\(name)\" Takvimini Kaldır", comment: "Analysis: Remove calendar")
+        }
+
+        // Clipboard
+        static var clipboardTitle: String { String(localized: "Pano Temizliği", comment: "Analysis: Clipboard title") }
+        static var clipboardBody: String { String(localized: "Kopyaladığınız metinler, şifreler veya fotoğraflar hâlâ panoda olabilir.", comment: "Analysis: Clipboard body") }
+        static var clipboardClear: String { String(localized: "Panoyu Temizle", comment: "Analysis: Clear clipboard") }
+        static var clipboardCleared: String { String(localized: "Pano temizlendi!", comment: "Analysis: Clipboard cleared") }
+        static var clipboardEmpty: String { String(localized: "Pano zaten boş", comment: "Analysis: Clipboard already empty") }
+
+        // Section headers
+        static var sectionMedia: String { String(localized: "Medya Temizliği", comment: "Analysis: Media section header") }
+        static var sectionSystem: String { String(localized: "Sistem Temizliği", comment: "Analysis: System section header") }
     }
 }

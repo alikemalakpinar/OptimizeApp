@@ -14,6 +14,7 @@ struct RatingRequestView: View {
     @State private var animateStars = false
     @State private var animateContent = false
     @State private var selectedReviewIndex = 0
+    @State private var showRewardAlert = false
 
     let onComplete: () -> Void
 
@@ -158,8 +159,10 @@ struct RatingRequestView: View {
             // Next button
             Button(action: {
                 Haptics.success()
+                // Grant bonus credits as reward for rating intent
+                SubscriptionManager.shared.grantBonusCredits(amount: 3)
                 requestReview()
-                onComplete()
+                showRewardAlert = true
             }) {
                 Text(AppStrings.Rating.next)
                     .font(.appBodyMedium)
@@ -182,6 +185,13 @@ struct RatingRequestView: View {
             )
             .ignoresSafeArea()
         )
+        .alert("Teşekkürler!", isPresented: $showRewardAlert) {
+            Button(AppStrings.UI.done, role: .cancel) {
+                onComplete()
+            }
+        } message: {
+            Text("3 ek sıkıştırma hakkı hesabınıza tanımlandı.")
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 animateStars = true

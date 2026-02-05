@@ -51,9 +51,9 @@ struct AnalysisResult: Equatable {
     let originalDPI: Int?
 
     enum ImageDensity: String {
-        case low = "Low"
-        case medium = "Medium"
-        case high = "High"
+        case low = "Düşük"
+        case medium = "Orta"
+        case high = "Yüksek"
     }
 }
 
@@ -80,7 +80,7 @@ struct CompressionPreset: Identifiable, Equatable {
         CompressionPreset(
             id: "mail",
             name: "Mail (25 MB)",
-            description: "Perfect for email attachments",
+            description: "E-posta ekleri için ideal",
             icon: "envelope.fill",
             targetSizeMB: 25,
             quality: .low,
@@ -89,7 +89,7 @@ struct CompressionPreset: Identifiable, Equatable {
         CompressionPreset(
             id: "whatsapp",
             name: "WhatsApp",
-            description: "Optimized for quick sharing",
+            description: "Hızlı paylaşım için optimize",
             icon: "message.fill",
             targetSizeMB: nil,
             quality: .medium,
@@ -97,8 +97,8 @@ struct CompressionPreset: Identifiable, Equatable {
         ),
         CompressionPreset(
             id: "quality",
-            name: "Best Quality",
-            description: "Minimal loss, maximum compression",
+            name: "En İyi Kalite",
+            description: "Minimum kayıp, maksimum sıkıştırma",
             icon: "star.fill",
             targetSizeMB: nil,
             quality: .high,
@@ -106,8 +106,8 @@ struct CompressionPreset: Identifiable, Equatable {
         ),
         CompressionPreset(
             id: "custom",
-            name: "Custom Size",
-            description: "Set your target size",
+            name: "Özel Boyut",
+            description: "Hedef boyutu kendin belirle",
             icon: "slider.horizontal.3",
             targetSizeMB: nil,
             quality: .custom,
@@ -206,9 +206,9 @@ enum SubscriptionPlan: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .free: return "Free"
-        case .monthly: return "Monthly"
-        case .yearly: return "Yearly"
+        case .free: return "Ücretsiz"
+        case .monthly: return "Aylık"
+        case .yearly: return "Yıllık"
         }
     }
 }
