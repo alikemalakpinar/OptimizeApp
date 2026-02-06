@@ -258,6 +258,7 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     private let dailyCountKey = "secure.subscription.daily.count"
     private let lastUsageDateKey = "secure.subscription.daily.date"
     private let firstInstallDateKey = "secure.subscription.first.install"
+    private let lastUptimeKey = "secure.subscription.daily.uptime"
 
     // OFFLINE FALLBACK: Cache subscription expiration in Keychain
     // When StoreKit is unreachable (no internet after purchase), we can still
@@ -811,13 +812,20 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     /// Refreshes daily usage count with TIME MANIPULATION PROTECTION
     ///
     /// SECURITY: Detects and handles "time travel" exploits where users
-    /// change their device clock to reset daily limits. If the last usage
-    /// date is in the future, we know the user set their clock back.
+    /// change their device clock to reset daily limits.
     ///
     /// Protection strategies:
     /// 1. If lastDate > now: User manipulated clock backward - DON'T reset limits
     /// 2. If lastDate is today: Normal usage - keep current count
-    /// 3. If lastDate is in the past (yesterday or earlier): Reset count for new day
+    /// 3. If lastDate is in the past (yesterday or earlier): Validate with system
+    ///    uptime before resetting, to catch forward-then-back manipulation
+    ///
+    /// Forward manipulation attack:
+    ///   User sets clock to tomorrow → app sees "new day" → resets limits →
+    ///   user sets clock back to today → gets extra daily credits.
+    /// Defense: Compare wall-clock elapsed time with system uptime. If the clock
+    /// says 20+ hours passed but the device has only been on for <2 hours in the
+    /// same boot session, the clock was likely manipulated.
     private func refreshDailyUsage(lastDate: Date?) {
         guard let lastDate else {
             persistUsage()
@@ -826,18 +834,35 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
         let now = Date()
 
-        // SECURITY: Time manipulation detection
+        // SECURITY: Backward time manipulation detection
         // If last usage date is in the future, user set clock back after using the app
-        // This is a clear sign of manipulation - DO NOT reset the limit
         if lastDate > now {
-            // Time travel detected! User manipulated their clock.
-            // Keep the existing usage count - don't reward cheating
-            // Optionally: Could add analytics tracking here for monitoring
             return
         }
 
         // Normal flow: Reset count if it's a new day
         if !Calendar.current.isDateInToday(lastDate) {
+            // SECURITY: Forward time manipulation detection
+            // Compare wall-clock elapsed time with system uptime to detect
+            // users who set their clock forward to trigger a daily reset
+            let wallClockElapsed = now.timeIntervalSince(lastDate)
+            let currentUptime = ProcessInfo.processInfo.systemUptime
+            let lastUptime = secureStorage.getInt(forKey: lastUptimeKey).map(Double.init) ?? 0
+
+            // Only validate if we have a previous uptime AND the device hasn't rebooted
+            // (currentUptime >= lastUptime means same boot session)
+            if lastUptime > 0 && currentUptime >= lastUptime {
+                let uptimeElapsed = currentUptime - lastUptime
+
+                // If wall clock says 20+ hours passed but device uptime says < 2 hours,
+                // this is strong evidence of forward clock manipulation
+                if wallClockElapsed > 20 * 3600 && uptimeElapsed < 2 * 3600 {
+                    // Clock manipulation detected - don't reset limits
+                    return
+                }
+            }
+
+            // Legitimate new day - reset limits
             status = SubscriptionStatus(
                 plan: status.plan,
                 isActive: status.isActive,
@@ -851,9 +876,11 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
 
     /// SECURITY: Persist usage data to Keychain (not UserDefaults)
     /// Keychain data survives app reinstalls, preventing limit bypass
+    /// Also stores system uptime for forward time manipulation detection
     private func persistUsage() {
         secureStorage.set(status.dailyUsageCount, forKey: dailyCountKey)
         secureStorage.set(Date(), forKey: lastUsageDateKey)
+        secureStorage.set(Int(ProcessInfo.processInfo.systemUptime), forKey: lastUptimeKey)
     }
 }
 

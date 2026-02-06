@@ -167,82 +167,9 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     ///   - file: The file to compress
     ///   - preset: The compression preset to use
     func compress(file: FileInfo, preset: CompressionPreset) async {
-        cancellationRequested = false
-        let operationID = UUID()
-        activeCompressionID = operationID
+        let operationID = beginCompression(file: file, preset: preset)
 
-        lastFile = file
-        lastPreset = preset
-        lastError = nil
-
-        if subscriptionManager.status.isPro {
-            let isEntitled = await subscriptionManager.verifyEntitlementForCriticalOperation()
-            if !isEntitled {
-                NotificationCenter.default.post(
-                    name: .showPaywallForFeature,
-                    object: nil,
-                    userInfo: ["feature": PremiumFeature.unlimitedUsage]
-                )
-                handleError(.accessDenied, preset: preset)
-                return
-            }
-        }
-
-        // Check page count against subscription-based limits
-        // Pro users: No limit
-        // Free users: Limited to freeUserPageLimit (100 pages)
-        if let pageCount = file.pageCount {
-            let pageLimit = subscriptionManager.status.isPro ? proUserPageLimit : freeUserPageLimit
-
-            if pageCount > pageLimit {
-                // For free users, this should trigger paywall, not just error
-                if !subscriptionManager.status.isPro {
-                    // Post notification to trigger paywall with appropriate context
-                    NotificationCenter.default.post(
-                        name: .showPaywallForFeature,
-                        object: nil,
-                        userInfo: [
-                            "feature": PremiumFeature.unlimitedUsage,
-                            "context": PaywallContext(
-                                title: "Büyük PDF Desteği",
-                                subtitle: "\(pageCount) sayfalık PDF, ücretsiz \(freeUserPageLimit) sayfa limitini aşıyor.",
-                                icon: "doc.badge.plus",
-                                highlights: [
-                                    "Sınırsız sayfa desteği",
-                                    "500+ sayfalık PDF işleme",
-                                    "Profesyonel belge optimizasyonu",
-                                    "Öncelikli işlem kuyruğu"
-                                ],
-                                limitDescription: "Ücretsiz: \(freeUserPageLimit) sayfa • Pro: Sınırsız",
-                                ctaText: "Sınırsız PDF İşlemeyi Aç"
-                            )
-                        ]
-                    )
-                }
-                let error = CompressionError.fileTooLarge
-                handleError(error, preset: preset)
-                return
-            }
-        }
-
-        // Reset state
-        status = .preparing
-        progress = 0
-        currentStage = .preparing
-
-        // CRITICAL: Check disk space before starting compression
-        // This prevents crashes and corrupted files when disk is full
-        do {
-            try DiskSpaceGuard.ensureSpaceForCompression(inputFileSize: file.size)
-        } catch let error as DiskSpaceError {
-            #if DEBUG
-            print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
-            #endif
-            handleError(.saveFailed, preset: preset)
-            return
-        } catch {
-            // Non-disk-space error, continue anyway
-        }
+        guard await validatePreCompression(file: file, preset: preset) else { return }
 
         // Track analytics
         analytics.trackPresetSelected(presetId: preset.id, isCustom: preset.quality == .custom)
@@ -265,60 +192,17 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
                 }
             }
 
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
+            guard isOperationValid(operationID) else { return }
 
-            // Get compressed file size
-            let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            let compressedSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
-
-            let result = CompressionResult(
-                originalFile: file,
-                compressedURL: outputURL,
-                compressedSize: compressedSize
-            )
-
-            // Success!
-            retryCount = 0
-            status = .success(result)
-
-            // Track analytics
-            analytics.trackCompressionCompleted(
-                originalSize: file.size,
-                compressedSize: result.compressedSize,
-                savingsPercent: result.savingsPercent,
-                presetId: preset.id,
-                duration: 0
-            )
-
-            // Add to history
-            historyManager.addFromResult(result, presetId: preset.id)
-
-            // Record successful compression for subscription tracking
-            subscriptionManager.recordSuccessfulCompression()
-
-            // Notify coordinator
-            onCompressionCompleted?(result)
+            finalizeSuccess(file: file, outputURL: outputURL, presetId: preset.id, preset: preset)
 
         } catch let error as CompressionError {
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
+            guard isOperationValid(operationID) else { return }
             handleError(error, preset: preset)
 
         } catch {
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
-            let compressionError = CompressionError.unknown(underlying: error)
-            handleError(compressionError, preset: preset)
+            guard isOperationValid(operationID) else { return }
+            handleError(.unknown(underlying: error), preset: preset)
         }
     }
 
@@ -350,6 +234,135 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
         lastFile = nil
         lastPreset = nil
         lastError = nil
+    }
+
+    // MARK: - Shared Compression Helpers (DRY)
+
+    /// Initialize a new compression operation and return its ID.
+    /// Call this at the start of every compress method.
+    private func beginCompression(file: FileInfo, preset: CompressionPreset) -> UUID {
+        cancellationRequested = false
+        let operationID = UUID()
+        activeCompressionID = operationID
+        lastFile = file
+        lastPreset = preset
+        lastError = nil
+        return operationID
+    }
+
+    /// Check if the given operation is still the active one and hasn't been cancelled.
+    private func isOperationValid(_ operationID: UUID) -> Bool {
+        activeCompressionID == operationID
+            && !cancellationRequested
+            && !Task.isCancelled
+    }
+
+    /// Common pre-compression validation: entitlement, page limits, disk space.
+    /// Returns true if compression should proceed, false if blocked (error already handled).
+    private func validatePreCompression(
+        file: FileInfo,
+        preset: CompressionPreset,
+        allowLargeFileOverride: Bool = false
+    ) async -> Bool {
+        // Entitlement verification for Pro users
+        if subscriptionManager.status.isPro {
+            let isEntitled = await subscriptionManager.verifyEntitlementForCriticalOperation()
+            if !isEntitled {
+                NotificationCenter.default.post(
+                    name: .showPaywallForFeature,
+                    object: nil,
+                    userInfo: ["feature": PremiumFeature.unlimitedUsage]
+                )
+                handleError(.accessDenied, preset: preset)
+                return false
+            }
+        }
+
+        // Page count limits
+        if let pageCount = file.pageCount {
+            let isPro = subscriptionManager.status.isPro
+            let pageLimit = isPro ? proUserPageLimit : freeUserPageLimit
+
+            if pageCount > pageLimit && !allowLargeFileOverride {
+                if !isPro {
+                    NotificationCenter.default.post(
+                        name: .showPaywallForFeature,
+                        object: nil,
+                        userInfo: [
+                            "feature": PremiumFeature.unlimitedUsage,
+                            "context": PaywallContext(
+                                title: "Büyük PDF Desteği",
+                                subtitle: "\(pageCount) sayfalık PDF, ücretsiz \(freeUserPageLimit) sayfa limitini aşıyor.",
+                                icon: "doc.badge.plus",
+                                highlights: [
+                                    "Sınırsız sayfa desteği",
+                                    "500+ sayfalık PDF işleme",
+                                    "Profesyonel belge optimizasyonu",
+                                    "Öncelikli işlem kuyruğu"
+                                ],
+                                limitDescription: "Ücretsiz: \(freeUserPageLimit) sayfa • Pro: Sınırsız",
+                                ctaText: "Sınırsız PDF İşlemeyi Aç"
+                            )
+                        ]
+                    )
+                }
+                handleError(.fileTooLarge, preset: preset)
+                return false
+            }
+        }
+
+        // Reset state
+        status = .preparing
+        progress = 0
+        currentStage = .preparing
+
+        // Disk space check
+        do {
+            try DiskSpaceGuard.ensureSpaceForCompression(inputFileSize: file.size)
+        } catch let error as DiskSpaceError {
+            #if DEBUG
+            print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
+            #endif
+            handleError(.saveFailed, preset: preset)
+            return false
+        } catch {
+            // Non-disk-space error, continue anyway
+        }
+
+        return true
+    }
+
+    /// Common post-compression success handling.
+    /// Creates the result, tracks analytics, updates history, and notifies the coordinator.
+    private func finalizeSuccess(
+        file: FileInfo,
+        outputURL: URL,
+        presetId: String,
+        preset: CompressionPreset
+    ) {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: outputURL.path)
+        let compressedSize = attributes?[FileAttributeKey.size] as? Int64 ?? 0
+
+        let result = CompressionResult(
+            originalFile: file,
+            compressedURL: outputURL,
+            compressedSize: compressedSize
+        )
+
+        retryCount = 0
+        status = .success(result)
+
+        analytics.trackCompressionCompleted(
+            originalSize: file.size,
+            compressedSize: result.compressedSize,
+            savingsPercent: result.savingsPercent,
+            presetId: presetId,
+            duration: 0
+        )
+
+        historyManager.addFromResult(result, presetId: presetId)
+        subscriptionManager.recordSuccessfulCompression()
+        onCompressionCompleted?(result)
     }
 
     // MARK: - Private Helpers
@@ -388,86 +401,18 @@ extension CompressionViewModel {
     /// Compress with OptimizationProfile for advanced control
     /// Uses new Preflight → Optimize → Sanitize pipeline
     func compress(file: FileInfo, profile: OptimizationProfile) async {
-        cancellationRequested = false
-        let operationID = UUID()
-        activeCompressionID = operationID
+        let safePreset = CompressionPreset.from(profile: profile)
+        let operationID = beginCompression(file: file, preset: safePreset)
 
-        lastFile = file
-        lastPreset = CompressionPreset.from(profile: profile)
-        lastError = nil
-        let safePreset = lastPreset ?? CompressionPreset.from(profile: profile)
+        // For Pro users with Ultra strategy, allow large files (streaming mode)
+        let isPro = subscriptionManager.status.isPro
+        let allowLargeFile = isPro && profile.strategy == .ultra
 
-        if subscriptionManager.status.isPro {
-            let isEntitled = await subscriptionManager.verifyEntitlementForCriticalOperation()
-            if !isEntitled {
-                NotificationCenter.default.post(
-                    name: .showPaywallForFeature,
-                    object: nil,
-                    userInfo: ["feature": PremiumFeature.unlimitedUsage]
-                )
-                handleError(.accessDenied, preset: safePreset)
-                return
-            }
-        }
-
-        // Check page count against subscription-based limits
-        // Pro users: No limit (Ultra mode for streaming)
-        // Free users: Limited to freeUserPageLimit (100 pages)
-        if let pageCount = file.pageCount {
-            let isPro = subscriptionManager.status.isPro
-            let pageLimit = isPro ? proUserPageLimit : freeUserPageLimit
-
-            // For Pro users with Ultra strategy, always allow (streaming mode)
-            let allowLargeFile = isPro && profile.strategy == .ultra
-
-            if pageCount > pageLimit && !allowLargeFile {
-                // For free users, trigger paywall
-                if !isPro {
-                    NotificationCenter.default.post(
-                        name: .showPaywallForFeature,
-                        object: nil,
-                        userInfo: [
-                            "feature": PremiumFeature.unlimitedUsage,
-                            "context": PaywallContext(
-                                title: "Büyük PDF Desteği",
-                                subtitle: "\(pageCount) sayfalık PDF, ücretsiz \(freeUserPageLimit) sayfa limitini aşıyor.",
-                                icon: "doc.badge.plus",
-                                highlights: [
-                                    "Sınırsız sayfa desteği",
-                                    "500+ sayfalık PDF işleme",
-                                    "Profesyonel belge optimizasyonu",
-                                    "Öncelikli işlem kuyruğu"
-                                ],
-                                limitDescription: "Ücretsiz: \(freeUserPageLimit) sayfa • Pro: Sınırsız",
-                                ctaText: "Sınırsız PDF İşlemeyi Aç"
-                            )
-                        ]
-                    )
-                }
-                let error = CompressionError.fileTooLarge
-                handleError(error, preset: safePreset)
-                return
-            }
-        }
-
-        // Reset state
-        status = .preparing
-        progress = 0
-        currentStage = .preparing
-
-        // CRITICAL: Check disk space before starting compression
-        // This prevents crashes and corrupted files when disk is full
-        do {
-            try DiskSpaceGuard.ensureSpaceForCompression(inputFileSize: file.size)
-        } catch let error as DiskSpaceError {
-            #if DEBUG
-            print("❌ [Compression] Disk space check failed: \(error.localizedDescription)")
-            #endif
-            handleError(.saveFailed, preset: safePreset)
-            return
-        } catch {
-            // Non-disk-space error, continue anyway
-        }
+        guard await validatePreCompression(
+            file: file,
+            preset: safePreset,
+            allowLargeFileOverride: allowLargeFile
+        ) else { return }
 
         // Track analytics with profile info
         analytics.track(.compressionStarted, parameters: [
@@ -510,7 +455,7 @@ extension CompressionViewModel {
                 // For other file types, use preset-based compression
                 outputURL = try await service.compressFile(
                     at: file.url,
-                    preset: CompressionPreset.from(profile: profile)
+                    preset: safePreset
                 ) { stage, prog in
                     Task { @MainActor in
                         selfBox.value?.applyProgress(stage: stage, progress: prog, operationID: operationID)
@@ -518,63 +463,20 @@ extension CompressionViewModel {
                 }
             }
 
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
+            guard isOperationValid(operationID) else { return }
 
-            // Get compressed file size
-            let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
-            let compressedSize = attributes[FileAttributeKey.size] as? Int64 ?? 0
+            finalizeSuccess(file: file, outputURL: outputURL, presetId: profile.strategy.rawValue, preset: safePreset)
 
-            let result = CompressionResult(
-                originalFile: file,
-                compressedURL: outputURL,
-                compressedSize: compressedSize
-            )
-
-            // Success!
-            retryCount = 0
-            status = .success(result)
-
-            // Track analytics with profile info
-            analytics.trackCompressionCompleted(
-                originalSize: file.size,
-                compressedSize: result.compressedSize,
-                savingsPercent: result.savingsPercent,
-                presetId: profile.strategy.rawValue,
-                duration: 0
-            )
-
-            // Haptic feedback
+            // Haptic feedback for profile-based compression
             HapticManager.shared.trigger(.celebration)
 
-            // Add to history
-            historyManager.addFromResult(result, presetId: profile.strategy.rawValue)
-
-            // Record successful compression
-            subscriptionManager.recordSuccessfulCompression()
-
-            // Notify coordinator
-            onCompressionCompleted?(result)
-
         } catch let error as CompressionError {
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
+            guard isOperationValid(operationID) else { return }
             handleError(error, preset: safePreset)
 
         } catch {
-            guard activeCompressionID == operationID,
-                  cancellationRequested == false,
-                  Task.isCancelled == false else {
-                return
-            }
-            let compressionError = CompressionError.unknown(underlying: error)
-            handleError(compressionError, preset: safePreset)
+            guard isOperationValid(operationID) else { return }
+            handleError(.unknown(underlying: error), preset: safePreset)
         }
     }
 

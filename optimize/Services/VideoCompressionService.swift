@@ -186,10 +186,6 @@ enum VideoCompressionError: LocalizedError {
 // MARK: - Video Compression Service
 
 actor VideoCompressionService {
-    private struct UncheckedSendable<T>: @unchecked Sendable {
-        let value: T
-        init(_ value: T) { self.value = value }
-    }
 
     // MARK: - Properties
 
@@ -386,24 +382,24 @@ actor VideoCompressionService {
         // METADATA: Remove all common metadata keys for privacy
         exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
 
-        // Store for cancellation
+        // Store for cancellation and actor-isolated progress monitoring
         currentExportSession = exportSession
 
-        // Progress monitoring task
-        let sessionBox = UncheckedSendable(exportSession)
+        // Actor-isolated progress monitoring via polling
+        // Uses the actor property (currentExportSession) instead of UncheckedSendable,
+        // ensuring all access to AVAssetExportSession is serialized by the actor.
         let progressTask = Task {
-            for await state in sessionBox.value.states(updateInterval: 0.1) {
-                guard !Task.isCancelled && !isCancelled else { break }
-                if case .exporting(let value) = state {
-                    await MainActor.run {
-                        progress(value.fractionCompleted)
-                    }
+            while !Task.isCancelled && !self.isCancelled {
+                let currentProgress = Double(self.currentExportSession?.progress ?? 0)
+                await MainActor.run {
+                    progress(currentProgress)
                 }
+                try? await Task.sleep(for: .milliseconds(100))
             }
         }
 
         do {
-            try await sessionBox.value.export(to: outputURL, as: .mp4)
+            try await exportSession.export(to: outputURL, as: .mp4)
         } catch is CancellationError {
             progressTask.cancel()
             throw VideoCompressionError.cancelled
@@ -452,6 +448,10 @@ actor VideoCompressionService {
             do {
                 try await exportSession.export(to: outputURL, as: .mp4)
             } catch {
+                // Clean up the failed attempt's output file to prevent disk pollution.
+                // Each retry generates a unique filename (UUID), so without explicit
+                // cleanup here, failed attempts would leave orphan files in tmp/.
+                try? FileManager.default.removeItem(at: outputURL)
                 continue
             }
 

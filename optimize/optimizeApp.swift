@@ -23,45 +23,12 @@ import UIKit
 @main
 struct optimizeApp: App {
 
-    // MARK: - Service Container (Composition Root)
+    // MARK: - Coordinator (via Static Dependency Container)
 
-    /// Shared services created at app launch
-    /// These are the ONLY place Singletons should be accessed directly
-    private let compressionService: UltimatePDFCompressionService
-    private let subscriptionManager: SubscriptionManager
-    private let historyManager: HistoryManager
-    private let analyticsService: AnalyticsService
-
-    /// Main coordinator with injected dependencies
-    @StateObject private var coordinator: AppCoordinator
-
-    // MARK: - Initialization
-
-    init() {
-        // Create all services at the composition root
-        // This is the ONLY place we use .shared singletons directly
-        let compression = UltimatePDFCompressionService.shared
-        let subscription = SubscriptionManager.shared
-        let history = HistoryManager.shared
-        let analytics = AnalyticsService.shared
-
-        self.compressionService = compression
-        self.subscriptionManager = subscription
-        self.historyManager = history
-        self.analyticsService = analytics
-
-        // Create coordinator with injected dependencies
-        // This enables testing by allowing mock services to be injected
-        let coordinator = AppCoordinator(
-            compressionService: compression,
-            historyManager: history,
-            analytics: analytics,
-            subscriptionManager: subscription
-        )
-
-        // Use _coordinator to initialize @StateObject
-        _coordinator = StateObject(wrappedValue: coordinator)
-    }
+    /// Coordinator is initialized exactly once via AppDependencies static lazy property.
+    /// This avoids the re-initialization risk from SwiftUI re-creating the App struct,
+    /// which would call init() repeatedly and create new coordinator instances each time.
+    @StateObject private var coordinator = AppDependencies.coordinator
 
     // MARK: - App Body
 
@@ -71,6 +38,27 @@ struct optimizeApp: App {
             RootViewWithCoordinator(coordinator: coordinator)
         }
     }
+}
+
+// MARK: - Dependency Container (Static Lazy Initialization)
+
+/// All dependencies are created exactly once via Swift's static lazy guarantee.
+/// This replaces the previous init()-based approach where the coordinator could be
+/// re-created on every SwiftUI App struct re-render.
+///
+/// Benefits:
+/// - Coordinator is guaranteed to be created exactly once (static let)
+/// - Dependencies are explicitly wired (preserves Composition Root pattern)
+/// - Easy to swap implementations for testing via AppCoordinator's optional init params
+private enum AppDependencies {
+    static let coordinator: AppCoordinator = {
+        AppCoordinator(
+            compressionService: UltimatePDFCompressionService.shared,
+            historyManager: HistoryManager.shared,
+            analytics: AnalyticsService.shared,
+            subscriptionManager: SubscriptionManager.shared
+        )
+    }()
 }
 
 // MARK: - Root View with Injected Coordinator
