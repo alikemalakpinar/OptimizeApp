@@ -50,6 +50,7 @@ struct optimizeApp: App {
 /// - Coordinator is guaranteed to be created exactly once (static let)
 /// - Dependencies are explicitly wired (preserves Composition Root pattern)
 /// - Easy to swap implementations for testing via AppCoordinator's optional init params
+@MainActor
 private enum AppDependencies {
     static let coordinator: AppCoordinator = {
         AppCoordinator(
