@@ -15,7 +15,6 @@ struct ModernPaywallScreen: View {
     @State private var isLoading = false
     @State private var isAnimating = false
     @State private var showCloseButton = false
-    @State private var freeTrialEnabled = true // Default ON - higher conversion
     @Environment(\.colorScheme) private var colorScheme
 
     // Restore State
@@ -52,31 +51,28 @@ struct ModernPaywallScreen: View {
     // MARK: - Localized Strings
 
     private enum LocalizedStrings {
-        static let defaultTitle = String(localized: "paywall.title.free_system", defaultValue: "Sisteminizi Özgürleştirin")
-        static let defaultSubtitle = String(localized: "paywall.subtitle.remove_limits", defaultValue: "OptimizeApp Premium ile sınırları kaldırın.")
-        static let restore = String(localized: "paywall.button.restore", defaultValue: "Geri Yükle")
-        static let yearlyPlan = String(localized: "paywall.plan.yearly", defaultValue: "Yıllık Plan")
-        static let weeklyPlan = String(localized: "paywall.plan.weekly", defaultValue: "Haftalık Plan")
-        static let perYear = String(localized: "paywall.period.year", defaultValue: "/ yıl")
-        static let perWeek = String(localized: "paywall.period.week", defaultValue: "/ hafta")
-        static let weeklyFromYearly = String(localized: "paywall.subtitle.weekly_from_yearly", defaultValue: "Haftalık %@'ye gelir")
-        static let cancelAnytime = String(localized: "paywall.subtitle.cancel_anytime", defaultValue: "İstediğin zaman iptal et")
-        static let mostPopular = String(localized: "paywall.badge.most_popular", defaultValue: "EN POPÜLER")
-        static let startFullPower = String(localized: "paywall.button.start_full_power", defaultValue: "Tam Gücü Başlat")
-        static let startTrial = String(localized: "paywall.button.start_trial", defaultValue: "Denemeye Başla")
-        static let autoRenewal = String(localized: "paywall.legal.auto_renewal", defaultValue: "Abonelik otomatik yenilenir. Ayarlardan iptal edilebilir.")
-        static let privacy = String(localized: "paywall.link.privacy", defaultValue: "Gizlilik")
-        static let terms = String(localized: "paywall.link.terms", defaultValue: "Koşullar")
-
-        // Features
-        static let unlimitedSpeed = String(localized: "paywall.feature.unlimited_speed", defaultValue: "Sınırsız Hız")
-        static let secureVault = String(localized: "paywall.feature.secure_vault", defaultValue: "Güvenli Kasa")
-        static let batchProcessing = String(localized: "paywall.feature.batch_processing", defaultValue: "Toplu İşlem")
-        static let proSupport = String(localized: "paywall.feature.pro_support", defaultValue: "Pro Destek")
+        static let defaultTitle = "iPhone'unu İlk Günkü Hızına Döndür"
+        static let defaultSubtitle = "Fotoğraf, video, rehber ve takvim temizliği. Tek uygulama, sınırsız optimizasyon."
+        static let restore = "Geri Yükle"
+        static let yearlyPlan = "Yıllık Plan"
+        static let weeklyPlan = "Haftalık Plan"
+        static let lifetimePlan = "Ömür Boyu"
+        static let perYear = "/ yıl"
+        static let perWeek = "/ hafta"
+        static let oneTime = "tek seferlik"
+        static let weeklyFromYearly = "Haftalık %@'ye gelir"
+        static let cancelAnytime = "İstediğin zaman iptal et"
+        static let mostPopular = "EN POPÜLER"
+        static let bestValue = "EN AVANTAJLI"
+        static let startTrial = "3 Gün Ücretsiz Dene"
+        static let startNow = "Hemen Başla"
+        static let autoRenewal = "Yıllık plan 3 gün ücretsiz deneme içerir. Deneme bitmeden ücret alınmaz. Abonelik otomatik yenilenir, Ayarlar'dan iptal edilebilir."
+        static let privacy = "Gizlilik"
+        static let terms = "Koşullar"
 
         // Gauge Labels
-        static let maximum = String(localized: "paywall.gauge.maximum", defaultValue: "MAKSİMUM")
-        static let limited = String(localized: "paywall.gauge.limited", defaultValue: "SINIRLI")
+        static let maximum = "MAKSİMUM"
+        static let limited = "SINIRLI"
     }
 
     // MARK: - Computed Properties
@@ -91,10 +87,10 @@ struct ModernPaywallScreen: View {
 
     /// Get formatted price for weekly plan from StoreKit
     private var weeklyPrice: String {
-        if let product = subscriptionManager.products.first(where: { $0.id.contains("monthly") }) {
+        if let product = subscriptionManager.products.first(where: { $0.id.contains("weekly") }) {
             return product.displayPrice
         }
-        return "--"
+        return "₺99,99"
     }
 
     /// Get formatted price for yearly plan from StoreKit
@@ -102,7 +98,15 @@ struct ModernPaywallScreen: View {
         if let product = subscriptionManager.products.first(where: { $0.id.contains("yearly") }) {
             return product.displayPrice
         }
-        return "--"
+        return "₺599,99"
+    }
+
+    /// Get formatted price for lifetime plan from StoreKit
+    private var lifetimePrice: String {
+        if let product = subscriptionManager.products.first(where: { $0.id.contains("lifetime") }) {
+            return product.displayPrice
+        }
+        return "₺999,99"
     }
 
     /// Weekly price calculation from yearly
@@ -111,14 +115,34 @@ struct ModernPaywallScreen: View {
             let weeklyValue = product.price / 52
             return weeklyValue.formatted(.currency(code: product.priceFormatStyle.currencyCode))
         }
-        return "--"
+        return "₺11,54"
+    }
+
+    /// Savings percentage of yearly vs weekly
+    private var yearlySavingsPercent: Int {
+        if let weeklyProduct = subscriptionManager.products.first(where: { $0.id.contains("weekly") }),
+           let yearlyProduct = subscriptionManager.products.first(where: { $0.id.contains("yearly") }) {
+            let weeklyAnnual = weeklyProduct.price * 52
+            let savings = (weeklyAnnual - yearlyProduct.price) / weeklyAnnual * 100
+            return Int(Double(truncating: savings as NSNumber))
+        }
+        return 77
+    }
+
+    /// CTA button text based on selected plan
+    private var ctaText: String {
+        if selectedPlan == .yearly {
+            return LocalizedStrings.startTrial
+        } else {
+            return LocalizedStrings.startNow
+        }
     }
 
     var body: some View {
         GeometryReader { geometry in
             let isCompactHeight = geometry.size.height < 700 // iPhone SE, mini
             let gaugeSize = calculateGaugeSize(for: geometry.size)
-            let verticalSpacing = isCompactHeight ? 20.0 : 32.0
+            let verticalSpacing = isCompactHeight ? 16.0 : 24.0
 
             ZStack {
                 // 1. LAYER: Cinematic Background (Noise + Aurora)
@@ -173,24 +197,22 @@ struct ModernPaywallScreen: View {
                         VStack(spacing: verticalSpacing) {
 
                             // 3. HERO: Tactile Gauge (Responsive)
-                            VStack(spacing: isCompactHeight ? 16 : 24) {
+                            VStack(spacing: isCompactHeight ? 12 : 20) {
                                 TactileGauge(
                                     value: gaugeValue,
-                                    isYearly: selectedPlan == .yearly,
+                                    isYearly: selectedPlan == .yearly || selectedPlan == .lifetime,
                                     maxLabel: LocalizedStrings.maximum,
                                     limitedLabel: LocalizedStrings.limited
                                 )
                                 .frame(width: gaugeSize, height: gaugeSize)
 
-                                VStack(spacing: isCompactHeight ? 8 : 12) {
-                                    // BRAND: Serif for display headlines (editorial feel)
+                                VStack(spacing: isCompactHeight ? 6 : 10) {
                                     Text(displayTitle)
                                         .font(.system(size: isCompactHeight ? DisplayScale.subtitle : DisplayScale.title, weight: .bold, design: .serif))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.center)
                                         .shadow(color: Brand.primary.opacity(0.3), radius: 20, x: 0, y: 0)
 
-                                    // BRAND: Rounded for body text (friendly & modern)
                                     Text(displaySubtitle)
                                         .font(.system(size: isCompactHeight ? DisplayScale.caption : DisplayScale.body, weight: .regular, design: .rounded))
                                         .foregroundColor(.white.opacity(0.7))
@@ -199,32 +221,20 @@ struct ModernPaywallScreen: View {
                                         .lineSpacing(4)
                                 }
                             }
-                            .padding(.top, isCompactHeight ? 10 : 20)
+                            .padding(.top, isCompactHeight ? 8 : 16)
 
-                            // 4. BENTO GRID FEATURES (Compact) - Localized
-                            VStack(spacing: 12) {
-                                HStack(spacing: 12) {
-                                    TechFeatureBox(icon: "bolt.fill", title: LocalizedStrings.unlimitedSpeed, color: .yellow)
-                                    TechFeatureBox(icon: "lock.shield.fill", title: LocalizedStrings.secureVault, color: .premiumBlue)
-                                }
-                                HStack(spacing: 12) {
-                                    TechFeatureBox(icon: "photo.stack", title: LocalizedStrings.batchProcessing, color: .premiumPurple)
-                                    TechFeatureBox(icon: "crown.fill", title: LocalizedStrings.proSupport, color: .appMint)
-                                }
-                            }
-                            .padding(.horizontal)
+                            // 4. FEATURE COMPARISON (Free vs Premium)
+                            FeatureComparisonSection()
+                                .padding(.horizontal)
 
-                            // 4.5. CUSTOM ICON PREVIEW (Desire Trigger)
-                            AppIconPreviewSection()
-
-                            // 5. PLAN SELECTION - Localized
-                            VStack(spacing: isCompactHeight ? 12 : 16) {
-                                // YEARLY
+                            // 5. PLAN SELECTION - 3 Plans
+                            VStack(spacing: isCompactHeight ? 10 : 14) {
+                                // YEARLY (recommended, with 3-day trial)
                                 PremiumPlanCard(
                                     title: LocalizedStrings.yearlyPlan,
                                     price: yearlyPrice,
                                     period: LocalizedStrings.perYear,
-                                    subtitle: String(format: LocalizedStrings.weeklyFromYearly, weeklyFromYearly),
+                                    subtitle: "3 gün ücretsiz dene • " + String(format: LocalizedStrings.weeklyFromYearly, weeklyFromYearly),
                                     badge: LocalizedStrings.mostPopular,
                                     isSelected: selectedPlan == .yearly,
                                     action: {
@@ -243,12 +253,29 @@ struct ModernPaywallScreen: View {
                                     period: LocalizedStrings.perWeek,
                                     subtitle: LocalizedStrings.cancelAnytime,
                                     badge: nil,
-                                    isSelected: selectedPlan == .monthly,
+                                    isSelected: selectedPlan == .weekly,
                                     action: {
                                         Haptics.selection()
                                         withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                                            selectedPlan = .monthly
+                                            selectedPlan = .weekly
                                             gaugeValue = 0.45
+                                        }
+                                    }
+                                )
+
+                                // LIFETIME
+                                PremiumPlanCard(
+                                    title: LocalizedStrings.lifetimePlan,
+                                    price: lifetimePrice,
+                                    period: LocalizedStrings.oneTime,
+                                    subtitle: "Bir kez öde, sonsuza kadar kullan",
+                                    badge: LocalizedStrings.bestValue,
+                                    isSelected: selectedPlan == .lifetime,
+                                    action: {
+                                        Haptics.impact(style: .medium)
+                                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                            selectedPlan = .lifetime
+                                            gaugeValue = 1.0
                                         }
                                     }
                                 )
@@ -265,25 +292,22 @@ struct ModernPaywallScreen: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
-                            // FREE TRIAL TOGGLE
-                            FreeTrialToggle(isEnabled: $freeTrialEnabled)
-                                .padding(.horizontal)
-
-                            // Legal - Localized
+                            // Legal footer
                             Text(LocalizedStrings.autoRenewal)
                                 .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.3))
                                 .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
                                 .padding(.bottom, 100)
                         }
                     }
                 }
 
-                // 6. STICKY CTA (Bottom Bar) - Localized
+                // 6. STICKY CTA (Bottom Bar)
                 VStack {
                     Spacer()
 
-                    VStack(spacing: isCompactHeight ? 12 : 16) {
+                    VStack(spacing: isCompactHeight ? 10 : 14) {
                         Button(action: {
                             Haptics.success()
                             isLoading = true
@@ -295,7 +319,7 @@ struct ModernPaywallScreen: View {
                                         .progressViewStyle(CircularProgressViewStyle(tint: .black))
                                         .scaleEffect(0.8)
                                 } else {
-                                    Text(freeTrialEnabled ? LocalizedStrings.startTrial : LocalizedStrings.startFullPower)
+                                    Text(ctaText)
                                         .font(.system(size: isCompactHeight ? 15 : 17, weight: .bold, design: .rounded))
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: isCompactHeight ? 13 : 15, weight: .bold))
@@ -307,7 +331,6 @@ struct ModernPaywallScreen: View {
                             .background(
                                 ZStack {
                                     Color.appMint
-                                    // Inner highlight gradient
                                     LinearGradient(
                                         colors: [.white.opacity(0.4), .clear],
                                         startPoint: .top,
@@ -321,7 +344,7 @@ struct ModernPaywallScreen: View {
                         }
                         .disabled(isLoading)
 
-                        // Footer Links - Localized
+                        // Footer Links
                         HStack(spacing: 20) {
                             Button(action: onPrivacy) {
                                 Text(LocalizedStrings.privacy)
@@ -688,6 +711,87 @@ private struct PremiumPlanCard: View {
     }
 }
 
+// MARK: - Feature Comparison Section
+
+/// Free vs Premium feature comparison with checkmarks
+private struct FeatureComparisonSection: View {
+    private let features: [(name: String, freeValue: String?, proValue: String)] = [
+        ("Analiz & Tarama", "Sınırsız", "Sınırsız"),
+        ("Fotoğraf Sıkıştırma", "3/gün", "Sınırsız"),
+        ("Video Sıkıştırma", nil, "Sınırsız"),
+        ("Toplu İşlem", nil, "Sınırsız"),
+        ("Tek Tıkla Temizle", nil, "Tümü"),
+        ("Akıllı Seçim (AI)", nil, "Aktif"),
+        ("Özel Uygulama İkonları", nil, "6 İkon"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Özellikler")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.6))
+                Spacer()
+                Text("Ücretsiz")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.4))
+                    .frame(width: 60)
+                Text("Premium")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.appMint)
+                    .frame(width: 70)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            Divider().background(Color.white.opacity(0.1))
+
+            // Feature rows
+            ForEach(features, id: \.name) { feature in
+                HStack {
+                    Text(feature.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+
+                    // Free column
+                    Group {
+                        if let freeVal = feature.freeValue {
+                            Text(freeVal)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.5))
+                        } else {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white.opacity(0.2))
+                        }
+                    }
+                    .frame(width: 60)
+
+                    // Pro column
+                    Text(feature.proValue)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.appMint)
+                        .frame(width: 70)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+
+                if feature.name != features.last?.name {
+                    Divider().background(Color.white.opacity(0.05)).padding(.horizontal, 14)
+                }
+            }
+        }
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - App Icon Preview Section
 
 /// Shows locked custom app icons to create desire for Premium
@@ -848,62 +952,7 @@ private struct AnchorPricingBanner: View {
     }
 }
 
-// MARK: - Free Trial Toggle
-
-/// Toggle to opt in/out of free trial period
-/// Default is ON to maximize conversion (lower perceived risk)
-private struct FreeTrialToggle: View {
-    @Binding var isEnabled: Bool
-
-    var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3)) {
-                isEnabled.toggle()
-            }
-            Haptics.selection()
-        }) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(isEnabled ? Color.appMint : Color.white.opacity(0.1))
-                        .frame(width: 44, height: 26)
-
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 22, height: 22)
-                        .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-                        .offset(x: isEnabled ? 9 : -9)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "7 Gün Ücretsiz Dene", comment: "Paywall: Free trial toggle"))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Text(String(localized: "Deneme bitmeden ücret alınmaz", comment: "Paywall: No charge before trial ends"))
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-
-                Spacer()
-
-                if isEnabled {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.appMint)
-                }
-            }
-            .padding(12)
-            .background(Color.white.opacity(isEnabled ? 0.08 : 0.03))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isEnabled ? Color.appMint.opacity(0.3) : Color.white.opacity(0.08), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
+// MARK: - Free Trial Toggle (Removed - trial is built into yearly plan)
 
 // MARK: - Preview
 

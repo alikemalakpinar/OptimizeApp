@@ -139,6 +139,51 @@ struct PaywallContext: Equatable {
         ctaText: "Arka Planı Aç"
     )
 
+    /// Video compression - Premium only
+    static let videoCompression = PaywallContext(
+        title: "Video Sıkıştırma",
+        subtitle: "Videoları kaliteden ödün vermeden küçült. HEVC/H.265 desteği.",
+        icon: "video.fill",
+        highlights: [
+            "4K Video Sıkıştırma",
+            "HEVC/H.265 Kodlama",
+            "HDR → SDR Dönüşüm",
+            "Toplu Video İşleme"
+        ],
+        limitDescription: "Video sıkıştırma Premium özelliğidir.",
+        ctaText: "Video Sıkıştırmayı Aç"
+    )
+
+    /// One-tap cleanup - Premium only
+    static let oneTapClean = PaywallContext(
+        title: "Tek Tıkla Temizle",
+        subtitle: "Tüm gereksiz kişileri, etkinlikleri ve dosyaları tek tuşla temizle.",
+        icon: "sparkles",
+        highlights: [
+            "Toplu Kişi Temizleme",
+            "Takvim Spam Silme",
+            "Bulanık Fotoğraf Temizleme",
+            "Akıllı Otomatik Seçim"
+        ],
+        limitDescription: "Analiz ücretsiz, toplu temizleme Premium.",
+        ctaText: "Tek Tıkla Temizle'yi Aç"
+    )
+
+    /// Smart select - Premium only
+    static let smartSelect = PaywallContext(
+        title: "Akıllı Seçim",
+        subtitle: "Yapay zeka ile en iyi fotoğrafı otomatik seç, geri kalanını temizle.",
+        icon: "brain.head.profile",
+        highlights: [
+            "AI Destekli Fotoğraf Seçimi",
+            "Benzer Fotoğraf Gruplama",
+            "En İyi Kareyi Koruma",
+            "Toplu Silme Önerisi"
+        ],
+        limitDescription: "Manuel seçim ücretsiz, akıllı seçim Premium.",
+        ctaText: "Akıllı Seçimi Aç"
+    )
+
     /// Daily limit reached
     static func dailyLimitReached(used: Int, limit: Int) -> PaywallContext {
         PaywallContext(
@@ -198,10 +243,11 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchaseError: String?
 
-    // StoreKit Product IDs - Update these with your App Store Connect IDs
+    // StoreKit Product IDs - App Store Connect
     private let productIds = [
-        "com.optimize.pro.monthly",
-        "com.optimize.pro.yearly"
+        "com.optimize.weekly",
+        "com.optimize.yearly",
+        "com.optimize.lifetime"
     ]
 
     // Storage keys
@@ -220,19 +266,11 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     private let cachedPlanKey = "secure.subscription.plan"
 
     // Free-plan limits
-    // PRODUCT OPTIMIZATION: Reduced from 3 to 2 daily compressions
-    // 2 uses is enough to:
-    // - Test the core value proposition with a real file
-    // - Try a second file or retry with different settings
-    // While creating a tighter funnel to Pro conversion.
-    // Data shows 3 free uses delays the conversion moment without improving retention.
-    //
-    // PRODUCT FIX: Increased file size limit from 50MB to 100MB
-    // Modern iPhone photos create PDFs that easily exceed 50MB
-    // Users couldn't even "test" the app before hitting the wall
-    // 100MB covers most real-world use cases while still incentivizing Pro
+    // Photo compression: 3 free per day - enough to demonstrate value
+    // Video compression: Premium only
+    // Batch processing: Premium only
     private let freeMaxFileSizeMB: Double = 100
-    private let freeDailyLimit: Int = 2
+    private let freeDailyLimit: Int = 3
 
     // SECURITY: Secure storage for critical counters
     private let secureStorage: SecureStorageProtocol
@@ -366,9 +404,15 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         }
     }
 
-    /// Purchase a subscription
+    /// Purchase a subscription or lifetime
     func purchase(plan: SubscriptionPlan) async throws {
-        let productId = plan == .yearly ? "com.optimize.pro.yearly" : "com.optimize.pro.monthly"
+        let productId: String
+        switch plan {
+        case .weekly: productId = "com.optimize.weekly"
+        case .yearly: productId = "com.optimize.yearly"
+        case .lifetime: productId = "com.optimize.lifetime"
+        case .free: throw SubscriptionError.productNotFound
+        }
 
         guard let product = products.first(where: { $0.id == productId }) else {
             // Fallback: Try to fetch product directly
@@ -451,10 +495,12 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
                         expirationDate = transaction.expirationDate
 
                         // Determine plan type
-                        if transaction.productID.contains("yearly") {
+                        if transaction.productID.contains("lifetime") {
+                            activePlan = .lifetime
+                        } else if transaction.productID.contains("yearly") {
                             activePlan = .yearly
                         } else {
-                            activePlan = .monthly
+                            activePlan = .weekly
                         }
                     }
                 }
@@ -654,6 +700,40 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
             dailyUsageLimit: freeDailyLimit
         )
         persistUsage()
+    }
+
+    // MARK: - Feature Gating (Monetization v2)
+
+    /// Can compress a photo? Free users get 3/day, Premium unlimited
+    func canCompressPhoto() -> Bool {
+        if status.isPro { return true }
+        refreshDailyUsage(lastDate: secureStorage.getDate(forKey: lastUsageDateKey))
+        return status.dailyUsageCount < freeDailyLimit
+    }
+
+    /// Increment daily compression counter after successful photo compression
+    func incrementDailyCompressionCount() {
+        recordSuccessfulCompression()
+    }
+
+    /// Can compress video? Premium only
+    var canCompressVideo: Bool {
+        status.isPro
+    }
+
+    /// Can use batch processing? Premium only
+    var canBatchProcess: Bool {
+        status.isPro
+    }
+
+    /// Can use one-tap cleanup (contacts, calendar, photos)? Premium only
+    var canOneTapClean: Bool {
+        status.isPro
+    }
+
+    /// Can use smart select for similar photos? Premium only
+    var canSmartSelect: Bool {
+        status.isPro
     }
 
     // MARK: - Real-time Entitlement Verification (Security Critical)
@@ -883,6 +963,12 @@ extension SubscriptionManager {
             hasAccess = canProcessInBackground
         case .unlimitedUsage:
             hasAccess = status.isPro
+        case .videoCompression:
+            hasAccess = canCompressVideo
+        case .oneTapClean:
+            hasAccess = canOneTapClean
+        case .smartSelect:
+            hasAccess = canSmartSelect
         }
 
         if !hasAccess && triggerPaywall {
@@ -908,6 +994,9 @@ enum PremiumFeature: String, CaseIterable {
     case customAppIcon = "custom_app_icon"
     case backgroundProcessing = "background_processing"
     case unlimitedUsage = "unlimited_usage"
+    case videoCompression = "video_compression"
+    case oneTapClean = "one_tap_clean"
+    case smartSelect = "smart_select"
 
     /// Paywall context for this feature
     var paywallContext: PaywallContext {
@@ -924,6 +1013,12 @@ enum PremiumFeature: String, CaseIterable {
             return .backgroundProcessing
         case .unlimitedUsage:
             return .proRequired
+        case .videoCompression:
+            return .videoCompression
+        case .oneTapClean:
+            return .oneTapClean
+        case .smartSelect:
+            return .smartSelect
         }
     }
 
@@ -942,6 +1037,12 @@ enum PremiumFeature: String, CaseIterable {
             return String(localized: "Arka Plan İşleme", comment: "Background processing feature")
         case .unlimitedUsage:
             return String(localized: "Sınırsız Kullanım", comment: "Unlimited usage feature")
+        case .videoCompression:
+            return String(localized: "Video Sıkıştırma", comment: "Video compression feature")
+        case .oneTapClean:
+            return String(localized: "Tek Tıkla Temizle", comment: "One-tap cleanup feature")
+        case .smartSelect:
+            return String(localized: "Akıllı Seçim", comment: "Smart select feature")
         }
     }
 }

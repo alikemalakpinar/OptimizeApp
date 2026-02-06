@@ -604,8 +604,17 @@ private struct CategoryCard: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Delete button
+                    // Delete button (Premium: one-tap clean for batch)
                     Button(action: {
+                        guard SubscriptionManager.shared.canOneTapClean else {
+                            Haptics.warning()
+                            NotificationCenter.default.post(
+                                name: .showPaywallForFeature,
+                                object: nil,
+                                userInfo: ["feature": PremiumFeature.oneTapClean]
+                            )
+                            return
+                        }
                         Task {
                             isDeleting = true
                             Haptics.impact()
@@ -623,6 +632,10 @@ private struct CategoryCard: View {
                                 ProgressView()
                                     .tint(.white)
                             } else {
+                                if !SubscriptionManager.shared.canOneTapClean {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 12, weight: .bold))
+                                }
                                 Image(systemName: "trash")
                                     .font(.system(size: 14, weight: .semibold))
                             }
@@ -847,8 +860,17 @@ private struct ContactCleanupCard: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Delete all button
+                    // Delete all button (Premium: one-tap clean)
                     Button(action: {
+                        guard SubscriptionManager.shared.canOneTapClean else {
+                            Haptics.warning()
+                            NotificationCenter.default.post(
+                                name: .showPaywallForFeature,
+                                object: nil,
+                                userInfo: ["feature": PremiumFeature.oneTapClean]
+                            )
+                            return
+                        }
                         isDeleting = true
                         Haptics.impact()
                         var count = 0
@@ -868,6 +890,10 @@ private struct ContactCleanupCard: View {
                             if isDeleting {
                                 ProgressView().tint(.white)
                             } else {
+                                if !SubscriptionManager.shared.canOneTapClean {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 12, weight: .bold))
+                                }
                                 Image(systemName: "trash")
                                     .font(.system(size: 14, weight: .semibold))
                             }
@@ -999,6 +1025,15 @@ private struct CalendarCleanupCard: View {
                             }
 
                             Button(action: {
+                                guard SubscriptionManager.shared.canOneTapClean else {
+                                    Haptics.warning()
+                                    NotificationCenter.default.post(
+                                        name: .showPaywallForFeature,
+                                        object: nil,
+                                        userInfo: ["feature": PremiumFeature.oneTapClean]
+                                    )
+                                    return
+                                }
                                 isDeleting = true
                                 Haptics.impact()
                                 let count = analyzer.deleteEvents(result.oldEvents)
@@ -1012,6 +1047,10 @@ private struct CalendarCleanupCard: View {
                                     if isDeleting {
                                         ProgressView().tint(.white)
                                     } else {
+                                        if !SubscriptionManager.shared.canOneTapClean {
+                                            Image(systemName: "lock.fill")
+                                                .font(.system(size: 12, weight: .bold))
+                                        }
                                         Image(systemName: "trash")
                                             .font(.system(size: 14, weight: .semibold))
                                     }
@@ -1052,13 +1091,28 @@ private struct CalendarCleanupCard: View {
                                         .lineLimit(1)
                                     Spacer()
                                     Button(action: {
+                                        guard SubscriptionManager.shared.canOneTapClean else {
+                                            Haptics.warning()
+                                            NotificationCenter.default.post(
+                                                name: .showPaywallForFeature,
+                                                object: nil,
+                                                userInfo: ["feature": PremiumFeature.oneTapClean]
+                                            )
+                                            return
+                                        }
                                         Haptics.impact()
                                         if analyzer.removeCalendar(item) {
                                             Haptics.success()
                                             Task { await analyzer.analyze() }
                                         }
                                     }) {
-                                        Text("Kaldır")
+                                        HStack(spacing: 4) {
+                                            if !SubscriptionManager.shared.canOneTapClean {
+                                                Image(systemName: "lock.fill")
+                                                    .font(.system(size: 9, weight: .bold))
+                                            }
+                                            Text("Kaldır")
+                                        }
                                             .font(.system(size: 12, weight: .bold, design: .rounded))
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, Spacing.sm)

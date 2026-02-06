@@ -71,11 +71,20 @@ struct BatchProcessingScreen: View {
                         .padding(.horizontal, Spacing.md)
                     }
 
-                    // Start Button
+                    // Start Button (Premium only - batch processing)
                     if !batchService.queue.isEmpty && !batchService.isProcessing {
                         StartProcessingButton {
-                            Haptics.impact(style: .medium)
-                            batchService.startProcessing()
+                            if SubscriptionManager.shared.canBatchProcess {
+                                Haptics.impact(style: .medium)
+                                batchService.startProcessing()
+                            } else {
+                                Haptics.warning()
+                                NotificationCenter.default.post(
+                                    name: .showPaywallForFeature,
+                                    object: nil,
+                                    userInfo: ["feature": PremiumFeature.batchProcessing]
+                                )
+                            }
                         }
                         .padding(.horizontal, Spacing.md)
                     }

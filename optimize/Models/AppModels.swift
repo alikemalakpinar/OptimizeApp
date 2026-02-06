@@ -201,14 +201,16 @@ struct HistoryItem: Identifiable, Equatable {
 // MARK: - Subscription
 enum SubscriptionPlan: String, CaseIterable {
     case free = "free"
-    case monthly = "monthly"
+    case weekly = "weekly"
     case yearly = "yearly"
+    case lifetime = "lifetime"
 
     var displayName: String {
         switch self {
         case .free: return "Ücretsiz"
-        case .monthly: return "Aylık"
+        case .weekly: return "Haftalık"
         case .yearly: return "Yıllık"
+        case .lifetime: return "Ömür Boyu"
         }
     }
 }

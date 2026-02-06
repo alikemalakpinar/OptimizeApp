@@ -128,10 +128,9 @@ struct RootViewWithCoordinator: View {
                 }
             }
         }
-        // REMOVED: Legacy PaywallScreen sheet binding
-        // All paywall presentations now use ModernPaywallScreen exclusively
+        // Paywall is always fullScreenCover for maximum conversion
         // See: AppCoordinator.presentPaywall() which sets showModernPaywall = true
-        .sheet(isPresented: $coordinator.showModernPaywall) {
+        .fullScreenCover(isPresented: $coordinator.showModernPaywall) {
             ModernPaywallScreen(
                 subscriptionManager: coordinator.subscriptionManager,
                 context: coordinator.paywallContext,  // MASTER: Pass feature-specific context
