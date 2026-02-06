@@ -42,6 +42,10 @@
     <key>NSFaceIDUsageDescription</key>
     <string>Premium özelliklerinizi korumak için Face ID kullanılabilir.</string>
 
+    <!-- Contacts Access (for duplicate and cleanup analysis) -->
+    <key>NSContactsUsageDescription</key>
+    <string>OptimizeApp, rehberinizdeki yinelenen, isimsiz veya eksik bilgili kişileri tespit edip temizlemenize yardımcı olmak için kişilerinize erişim gerektirir.</string>
+
     <!-- ============================== -->
     <!-- FILE SHARING & DOCUMENTS -->
     <!-- ============================== -->
