@@ -452,10 +452,7 @@ struct OnboardingScreen: View {
     /// Uses only PHAsset metadata (no image loading) for sub-second speed.
     private func performQuickScan() {
         Task {
-            let library = PHPhotoLibrary.shared()
             var screenshots = 0
-            var similars = 0
-            var bigVideos = 0
             var totalWasteBytes: Int64 = 0
 
             // 1. Count screenshots

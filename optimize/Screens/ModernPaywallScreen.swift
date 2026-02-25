@@ -128,7 +128,7 @@ struct ModernPaywallScreen: View {
                             ReviewMarquee()
                                 .padding(.vertical, 4)
 
-                            TrustBadgeRow()
+                            PaywallTrustRow()
                                 .padding(.horizontal)
 
                             // FEATURE COMPARISON
@@ -589,9 +589,9 @@ private struct ReviewMarquee: View {
     }
 }
 
-// MARK: - Trust Badge Row
+// MARK: - Paywall Trust Badge Row
 
-private struct TrustBadgeRow: View {
+private struct PaywallTrustRow: View {
     var body: some View {
         HStack(spacing: 16) {
             trustBadge(icon: "checkmark.shield.fill", text: "Apple Onaylı")
@@ -676,19 +676,21 @@ private struct GlassmorphicPlanCard: View {
                 }
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        isSelected
-                            ? Color.appMint.opacity(0.1)
-                            : Color.white.opacity(0.03)
-                    )
-                    .background(
-                        isHero && isSelected
-                            ? RoundedRectangle(cornerRadius: 20).fill(.ultraThinMaterial).opacity(0.3)
-                            : nil
-                    )
-            )
+            .background {
+                ZStack {
+                    if isHero && isSelected {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(.ultraThinMaterial)
+                            .opacity(0.3)
+                    }
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            isSelected
+                                ? Color.appMint.opacity(0.1)
+                                : Color.white.opacity(0.03)
+                        )
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(
