@@ -485,6 +485,7 @@ struct AppStrings {
         static var timeout: String { String(localized: "İşlem zaman aşımına uğradı. Lütfen daha küçük bir dosya deneyin.", comment: "Error: Timeout") }
         static var exportFailed: String { String(localized: "Video dışa aktarma başarısız. Lütfen daha düşük kalite deneyin.", comment: "Error: Export Failed") }
         static var unsupportedType: String { String(localized: "Bu dosya türü henüz desteklenmiyor.", comment: "Error: Unsupported Type") }
+        static var alreadyOptimized: String { String(localized: "Bu dosya zaten optimize durumda. Daha fazla küçültülemez.", comment: "Error: Already Optimized") }
     }
 
     // MARK: - Compression Outcome Messages (v4.1)

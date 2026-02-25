@@ -26,6 +26,7 @@ enum CompressionError: LocalizedError, Equatable {
     case timeout
     case exportFailed
     case unsupportedType
+    case alreadyOptimized
     case unknown(underlying: Error?)
     
     // Custom Equatable implementation
@@ -43,7 +44,8 @@ enum CompressionError: LocalizedError, Equatable {
              (.fileTooLarge, .fileTooLarge),
              (.timeout, .timeout),
              (.exportFailed, .exportFailed),
-             (.unsupportedType, .unsupportedType):
+             (.unsupportedType, .unsupportedType),
+             (.alreadyOptimized, .alreadyOptimized):
             return true
         case (.pageProcessingFailed(let lhsPage), .pageProcessingFailed(let rhsPage)):
             return lhsPage == rhsPage
@@ -86,6 +88,8 @@ enum CompressionError: LocalizedError, Equatable {
             return AppStrings.ErrorMessage.exportFailed
         case .unsupportedType:
             return AppStrings.ErrorMessage.unsupportedType
+        case .alreadyOptimized:
+            return AppStrings.ErrorMessage.alreadyOptimized
         case .unknown:
             return AppStrings.ErrorMessage.generic
         }
@@ -118,6 +122,8 @@ enum CompressionError: LocalizedError, Equatable {
             return String(localized: "Daha düşük kalite ayarı ile tekrar deneyin.", comment: "Recovery: Export failed")
         case .unsupportedType:
             return String(localized: "PDF, görüntü veya video dosyası seçin.", comment: "Recovery: Unsupported type")
+        case .alreadyOptimized:
+            return String(localized: "Bu dosya zaten en iyi boyutta. Daha fazla küçültülemez.", comment: "Recovery: Already optimized")
         case .unknown:
             return String(localized: "Uygulamayı kapatıp tekrar açmayı deneyin.", comment: "Recovery: Unknown error")
         }
@@ -128,7 +134,7 @@ enum CompressionError: LocalizedError, Equatable {
         switch self {
         case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .exportFailed:
             return true
-        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType, .cancelled:
+        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType, .cancelled, .alreadyOptimized:
             return false
         }
     }
