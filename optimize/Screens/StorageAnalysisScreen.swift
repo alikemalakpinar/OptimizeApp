@@ -6,6 +6,11 @@
 //  Shows categorized optimization opportunities (screenshots, large videos, duplicates)
 //  and allows batch deletion with system confirmation.
 //
+//  UI/UX DESIGN:
+//  - Scanning State: Canvas particle animation + live AI log view + haptic ticks
+//  - Results State: Bento Box asymmetric grid layout with glassmorphic cards
+//  - Premium haptic patterns synced with UI transitions
+//
 
 import SwiftUI
 import Photos
@@ -20,8 +25,8 @@ struct StorageAnalysisScreen: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // Scanning animation state
-    @State private var scanningFileName: String = "IMG_001.JPG"
-    @State private var scanTimer: Timer?
+    @State private var scanPhase: CGFloat = 0
+    @State private var scanComplete = false
 
     // Clipboard state
     @State private var clipboardMessage: String?
@@ -49,16 +54,22 @@ struct StorageAnalysisScreen: View {
                 await calendarAnalyzer.analyze()
             }
         }
+        .onChange(of: analyzer.state) { _, newState in
+            if case .completed = newState {
+                scanComplete = true
+                Haptics.dramaticSuccess()
+            }
+        }
     }
 
     @ViewBuilder
     private var content: some View {
         switch analyzer.state {
         case .idle, .requestingPermission:
-            loadingView(text: AppStrings.Analysis.requestingAccess)
+            scanningView
 
         case .analyzing:
-            loadingView(text: analyzer.currentStep)
+            scanningView
 
         case .completed(let result):
             if result.categories.isEmpty {
@@ -75,122 +86,86 @@ struct StorageAnalysisScreen: View {
         }
     }
 
-    // MARK: - Enhanced Loading View (Radar Scan Effect)
+    // MARK: - Scanning View (Particle Animation + Live Log)
 
-    private func loadingView(text: String) -> some View {
-        VStack(spacing: Spacing.xl) {
-            Spacer()
-
-            // Radar scan effect
+    private var scanningView: some View {
+        VStack(spacing: 0) {
+            // Particle animation area
             ZStack {
-                // Pulsing outer rings
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .stroke(Color.appMint.opacity(0.3), lineWidth: 1)
-                        .frame(width: 100 + CGFloat(i * 40), height: 100 + CGFloat(i * 40))
-                        .scaleEffect(analyzer.state == .analyzing ? 1.1 : 1.0)
-                        .opacity(analyzer.state == .analyzing ? 0.0 : 0.5)
-                        .animation(
-                            .easeOut(duration: 2.0).repeatForever(autoreverses: false).delay(Double(i) * 0.4),
-                            value: analyzer.state
-                        )
-                }
+                // Canvas-based particle effect
+                ParticleScanCanvas(progress: analyzer.progress, isActive: analyzer.state == .analyzing)
+                    .frame(height: 220)
 
-                // Progress ring
-                Circle()
-                    .trim(from: 0, to: analyzer.progress)
-                    .stroke(
-                        AngularGradient(
-                            colors: [.premiumPurple, .premiumBlue, .appMint],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                    )
-                    .frame(width: 120, height: 120)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: analyzer.progress)
+                // Center progress ring with glow
+                VStack(spacing: 8) {
+                    ZStack {
+                        // Breathing glow
+                        Circle()
+                            .fill(Color.premiumBlue.opacity(0.15))
+                            .frame(width: 100, height: 100)
+                            .blur(radius: scanPhase > 0 ? 20 : 10)
 
-                // Center icon and percentage
-                VStack(spacing: 4) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.system(size: 32))
-                        .foregroundStyle(Color.premiumBlue)
+                        // Background track
+                        Circle()
+                            .stroke(Color(.tertiarySystemFill), lineWidth: 6)
+                            .frame(width: 80, height: 80)
 
-                    Text("\(Int(analyzer.progress * 100))%")
-                        .font(.caption.bold())
-                        .fontDesign(.monospaced)
+                        // Progress arc
+                        Circle()
+                            .trim(from: 0, to: analyzer.progress)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.premiumBlue, .appMint],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                            )
+                            .frame(width: 80, height: 80)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: analyzer.progress)
+
+                        // Percentage
+                        Text("\(Int(analyzer.progress * 100))%")
+                            .font(.system(size: 22, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(.primary)
+                    }
+
+                    Text(analyzer.currentStep)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
-            .padding(.bottom, 20)
-
-            // Dynamic text area
-            VStack(spacing: Spacing.sm) {
-                Text(text)
-                    .font(.appBodyBold)
-                    .foregroundStyle(.primary)
-
-                // Rapidly changing file name for "scanning" feel
-                HStack(spacing: 0) {
-                    Text("Taranıyor: ")
-                        .foregroundStyle(.secondary)
-                    Text(scanningFileName)
-                        .foregroundStyle(Color.premiumPurple)
-                        .fontDesign(.monospaced)
-                        .contentTransition(.numericText())
-                        .animation(.easeInOut(duration: 0.1), value: scanningFileName)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                    scanPhase = 1
                 }
-                .font(.appCaption)
-                .frame(height: 20)
             }
 
-            Spacer()
-        }
-        .onAppear {
-            startScanningEffect()
-        }
-        .onDisappear {
-            scanTimer?.invalidate()
-            scanTimer = nil
+            // Live AI log view
+            LiveLogView(lines: analyzer.logLines)
+                .frame(maxHeight: .infinity)
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, Spacing.md)
         }
     }
 
-    private func startScanningEffect() {
-        scanTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
-            let extensions = ["JPG", "PNG", "MOV", "HEIC", "MP4"]
-            let randomId = Int.random(in: 1000...9999)
-            let randomExt = extensions.randomElement() ?? "JPG"
-            Task { @MainActor in
-                scanningFileName = "IMG_\(randomId).\(randomExt)"
-            }
-        }
-    }
-
-    // MARK: - Results
+    // MARK: - Results View (Bento Box Layout)
 
     private func resultsView(_ result: LibraryAnalysisResult) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: Spacing.lg) {
-                // Summary card
-                summaryCard(result)
+            VStack(spacing: Spacing.md) {
+                // Bento Box Grid
+                bentoBanner(result)
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)
 
-                // MARK: Media section
-                sectionHeader(
-                    title: AppStrings.Analysis.sectionMedia,
-                    icon: "photo.stack.fill",
-                    color: .premiumPurple
-                )
-                .padding(.horizontal, Spacing.md)
+                // Category bento grid
+                bentoCategoryGrid(result)
+                    .padding(.horizontal, Spacing.md)
 
-                // Photo/video category cards
-                ForEach(result.categories) { category in
-                    CategoryCard(category: category, analyzer: analyzer)
-                        .padding(.horizontal, Spacing.md)
-                }
-
-                // MARK: System section (Contacts, Calendar, Clipboard)
+                // System section header
                 sectionHeader(
                     title: AppStrings.Analysis.sectionSystem,
                     icon: "gearshape.2.fill",
@@ -222,11 +197,104 @@ struct StorageAnalysisScreen: View {
                 clipboardCleanupCard
                     .padding(.horizontal, Spacing.md)
 
-                // iCloud comparison tip
+                // iCloud tip
                 iCloudTipCard
                     .padding(.horizontal, Spacing.md)
 
                 Spacer(minLength: Spacing.xl)
+            }
+        }
+    }
+
+    // MARK: - Bento Banner (Large hero card)
+
+    private func bentoBanner(_ result: LibraryAnalysisResult) -> some View {
+        VStack(spacing: Spacing.md) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(AppStrings.Analysis.foundOptimizable)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+
+                    Text(result.formattedTotalSize)
+                        .font(.system(size: 40, weight: .heavy, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.primary)
+                        .contentTransition(.numericText())
+                }
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.appMint.opacity(0.2), Color.appTeal.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 60, height: 60)
+
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(Color.appMint)
+                }
+            }
+
+            // Mini stat pills
+            HStack(spacing: Spacing.sm) {
+                BentoStatPill(
+                    value: "\(result.totalAssetCount)",
+                    label: AppStrings.Analysis.items,
+                    color: .premiumPurple
+                )
+
+                BentoStatPill(
+                    value: "\(result.categories.count)",
+                    label: AppStrings.Analysis.categoriesLabel,
+                    color: .warmOrange
+                )
+            }
+        }
+        .padding(Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                .stroke(Color.appMint.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Bento Category Grid (Asymmetric)
+
+    private func bentoCategoryGrid(_ result: LibraryAnalysisResult) -> some View {
+        let cats = result.categories
+        return VStack(spacing: Spacing.sm) {
+            // Row 1: If 2+ categories, first one large + second small. Otherwise single full-width.
+            if cats.count >= 2 {
+                HStack(spacing: Spacing.sm) {
+                    BentoCategoryCard(category: cats[0], analyzer: analyzer, style: .large)
+                    BentoCategoryCard(category: cats[1], analyzer: analyzer, style: .small)
+                }
+            } else if cats.count == 1 {
+                BentoCategoryCard(category: cats[0], analyzer: analyzer, style: .fullWidth)
+            }
+
+            // Row 2+: Remaining categories in pairs
+            let remaining = Array(cats.dropFirst(2))
+            ForEach(Array(stride(from: 0, to: remaining.count, by: 2)), id: \.self) { i in
+                HStack(spacing: Spacing.sm) {
+                    BentoCategoryCard(category: remaining[i], analyzer: analyzer, style: .half)
+                    if i + 1 < remaining.count {
+                        BentoCategoryCard(category: remaining[i + 1], analyzer: analyzer, style: .half)
+                    } else {
+                        // Placeholder for visual balance
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
@@ -244,6 +312,8 @@ struct StorageAnalysisScreen: View {
         }
         .padding(.top, Spacing.sm)
     }
+
+    // MARK: - Clipboard Card
 
     private var clipboardCleanupCard: some View {
         VStack(spacing: Spacing.sm) {
@@ -277,7 +347,6 @@ struct StorageAnalysisScreen: View {
                 } else {
                     clipboardMessage = AppStrings.Analysis.clipboardEmpty
                 }
-                // Clear message after 2 seconds
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     clipboardMessage = nil
                 }
@@ -309,65 +378,6 @@ struct StorageAnalysisScreen: View {
         .overlay(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                 .stroke(Color.cardBorder, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
-    }
-
-    private func summaryCard(_ result: LibraryAnalysisResult) -> some View {
-        VStack(spacing: Spacing.md) {
-            HStack {
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(AppStrings.Analysis.foundOptimizable)
-                        .font(.appCaptionMedium)
-                        .foregroundStyle(.secondary)
-
-                    Text(result.formattedTotalSize)
-                        .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(.primary)
-                }
-
-                Spacer()
-
-                // Circular indicator
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.appMint.opacity(0.15), Color.appTeal.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 56, height: 56)
-
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundStyle(Color.appMint)
-                }
-            }
-
-            HStack(spacing: Spacing.sm) {
-                SummaryPill(
-                    value: "\(result.totalAssetCount)",
-                    label: AppStrings.Analysis.items,
-                    color: .premiumPurple
-                )
-
-                SummaryPill(
-                    value: "\(result.categories.count)",
-                    label: AppStrings.Analysis.categoriesLabel,
-                    color: .warmOrange
-                )
-            }
-        }
-        .padding(Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .stroke(Color.appMint.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
     }
@@ -515,14 +525,157 @@ struct StorageAnalysisScreen: View {
     }
 }
 
-// MARK: - Category Card
+// MARK: - Canvas Particle Animation
 
-private struct CategoryCard: View {
+private struct ParticleScanCanvas: View {
+    let progress: Double
+    let isActive: Bool
+
+    @State private var particles: [Particle] = []
+    @State private var time: Double = 0
+
+    struct Particle: Identifiable {
+        let id = UUID()
+        var x: Double
+        var y: Double
+        var vx: Double
+        var vy: Double
+        var size: Double
+        var opacity: Double
+        var hue: Double
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                for particle in particles {
+                    let rect = CGRect(
+                        x: particle.x * size.width - particle.size / 2,
+                        y: particle.y * size.height - particle.size / 2,
+                        width: particle.size,
+                        height: particle.size
+                    )
+                    let color = Color(hue: particle.hue, saturation: 0.6, brightness: 0.9)
+                    context.opacity = particle.opacity
+                    context.fill(Circle().path(in: rect), with: .color(color))
+                }
+            }
+            .onChange(of: timeline.date) { _, _ in
+                updateParticles()
+            }
+        }
+        .onAppear {
+            // Spawn initial particles
+            for _ in 0..<40 {
+                particles.append(randomParticle())
+            }
+        }
+    }
+
+    private func updateParticles() {
+        guard isActive else { return }
+        time += 0.016
+
+        // Haptic tick every ~0.5 seconds during active scan
+        if Int(time * 2) != Int((time - 0.016) * 2) {
+            Haptics.soft()
+        }
+
+        for i in particles.indices {
+            // Move particles toward center as progress increases (organizing chaos)
+            let centerX = 0.5
+            let centerY = 0.5
+            let pullStrength = progress * 0.02
+
+            particles[i].x += particles[i].vx + (centerX - particles[i].x) * pullStrength
+            particles[i].y += particles[i].vy + (centerY - particles[i].y) * pullStrength
+
+            // Add slight oscillation
+            particles[i].x += sin(time * 2 + Double(i)) * 0.001
+            particles[i].y += cos(time * 2 + Double(i)) * 0.001
+
+            // Wrap around
+            if particles[i].x < 0 { particles[i].x = 1 }
+            if particles[i].x > 1 { particles[i].x = 0 }
+            if particles[i].y < 0 { particles[i].y = 1 }
+            if particles[i].y > 1 { particles[i].y = 0 }
+
+            // Fade opacity based on progress (more organized = more opaque)
+            particles[i].opacity = 0.3 + progress * 0.5
+            particles[i].size = 3 + progress * 4
+        }
+    }
+
+    private func randomParticle() -> Particle {
+        Particle(
+            x: Double.random(in: 0...1),
+            y: Double.random(in: 0...1),
+            vx: Double.random(in: -0.002...0.002),
+            vy: Double.random(in: -0.002...0.002),
+            size: Double.random(in: 2...5),
+            opacity: Double.random(in: 0.2...0.5),
+            hue: Double.random(in: 0.5...0.7) // Blue-cyan range
+        )
+    }
+}
+
+// MARK: - Live Log View (Algorithmic Transparency)
+
+private struct LiveLogView: View {
+    let lines: [String]
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        HStack(spacing: 6) {
+                            Text(">")
+                                .foregroundStyle(Color.appMint.opacity(0.6))
+                            Text(line)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .id(index)
+                    }
+                }
+                .padding(Spacing.sm)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .fill(Color(.secondarySystemBackground).opacity(0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .stroke(Color.cardBorder.opacity(0.5), lineWidth: 1)
+            )
+            .onChange(of: lines.count) { _, _ in
+                if let last = lines.indices.last {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        proxy.scrollTo(last, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Bento Category Card
+
+private struct BentoCategoryCard: View {
     let category: MediaCategory
     @ObservedObject var analyzer: PhotoLibraryAnalyzer
+    let style: BentoStyle
+
     @Environment(\.colorScheme) private var colorScheme
-    @State private var isExpanded = false
     @State private var isDeleting = false
+
+    enum BentoStyle {
+        case large      // 2/3 width, tall
+        case small      // 1/3 width, tall
+        case half       // 1/2 width
+        case fullWidth  // full width
+    }
 
     private var iconColor: Color {
         switch category.iconColor {
@@ -533,157 +686,125 @@ private struct CategoryCard: View {
         }
     }
 
+    private var isCompact: Bool {
+        style == .small
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Header (always visible)
+        VStack(alignment: .leading, spacing: isCompact ? Spacing.xs : Spacing.sm) {
+            // Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
+                    .fill(iconColor.opacity(0.12))
+                    .frame(width: isCompact ? 36 : 44, height: isCompact ? 36 : 44)
+
+                Image(systemName: category.icon)
+                    .font(.system(size: isCompact ? 16 : 20, weight: .semibold))
+                    .foregroundStyle(iconColor)
+            }
+
+            // Title
+            Text(category.title)
+                .font(.system(size: isCompact ? 13 : 15, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            // Count
+            Text("\(category.count)")
+                .font(.system(size: isCompact ? 22 : 28, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundStyle(iconColor)
+
+            // Size
+            Text(category.formattedSize)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+
+            // Delete button
             Button(action: {
-                withAnimation(AppAnimation.spring) {
-                    isExpanded.toggle()
+                guard SubscriptionManager.shared.canOneTapClean else {
+                    Haptics.warning()
+                    NotificationCenter.default.post(
+                        name: .showPaywallForFeature,
+                        object: nil,
+                        userInfo: ["feature": PremiumFeature.oneTapClean]
+                    )
+                    return
                 }
-                Haptics.selection()
+                Task {
+                    isDeleting = true
+                    Haptics.impact()
+                    let success = await analyzer.deleteAssets(category.assets)
+                    isDeleting = false
+                    if success {
+                        Haptics.success()
+                        await analyzer.analyze()
+                    }
+                }
             }) {
-                HStack(spacing: Spacing.sm) {
-                    // Icon
-                    ZStack {
-                        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                            .fill(iconColor.opacity(0.12))
-                            .frame(width: 44, height: 44)
-
-                        Image(systemName: category.icon)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(iconColor)
+                HStack(spacing: 4) {
+                    if isDeleting {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.7)
+                    } else {
+                        if !SubscriptionManager.shared.canOneTapClean {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        Image(systemName: "trash")
+                            .font(.system(size: 12, weight: .semibold))
                     }
 
-                    // Info
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        Text(category.title)
-                            .font(.appBodyMedium)
-                            .foregroundStyle(.primary)
-
-                        Text(category.subtitle)
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
+                    if !isCompact {
+                        Text("Temizle")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                     }
-
-                    Spacer()
-
-                    // Size badge
-                    Text(category.formattedSize)
-                        .font(.system(size: 13, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(iconColor)
-
-                    // Chevron
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background(iconColor)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
             }
-            .buttonStyle(.plain)
-            .padding(Spacing.md)
-
-            // Expanded content
-            if isExpanded {
-                Divider()
-                    .padding(.horizontal, Spacing.md)
-
-                VStack(spacing: Spacing.sm) {
-                    // Thumbnail grid (first 6 assets)
-                    let previewAssets = Array(category.assets.prefix(6))
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.xs), count: 3), spacing: Spacing.xs) {
-                        ForEach(0..<previewAssets.count, id: \.self) { index in
-                            AssetThumbnail(asset: previewAssets[index])
-                                .aspectRatio(1, contentMode: .fill)
-                                .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-                        }
-                    }
-
-                    if category.count > 6 {
-                        Text(AppStrings.Analysis.andMore(category.count - 6))
-                            .font(.appCaption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    // Delete button (Premium: one-tap clean for batch)
-                    Button(action: {
-                        guard SubscriptionManager.shared.canOneTapClean else {
-                            Haptics.warning()
-                            NotificationCenter.default.post(
-                                name: .showPaywallForFeature,
-                                object: nil,
-                                userInfo: ["feature": PremiumFeature.oneTapClean]
-                            )
-                            return
-                        }
-                        Task {
-                            isDeleting = true
-                            Haptics.impact()
-                            let success = await analyzer.deleteAssets(category.assets)
-                            isDeleting = false
-                            if success {
-                                Haptics.success()
-                                // Re-analyze after deletion
-                                await analyzer.analyze()
-                            }
-                        }
-                    }) {
-                        HStack(spacing: Spacing.xs) {
-                            if isDeleting {
-                                ProgressView()
-                                    .tint(.white)
-                            } else {
-                                if !SubscriptionManager.shared.canOneTapClean {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 12, weight: .bold))
-                                }
-                                Image(systemName: "trash")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            Text(deleteButtonText)
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(
-                            LinearGradient(
-                                colors: [iconColor.opacity(0.9), iconColor],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
-                    }
-                    .disabled(isDeleting)
-                }
-                .padding(Spacing.md)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            .disabled(isDeleting)
         }
+        .padding(isCompact ? Spacing.sm : Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: style == .large || style == .small ? 200 : nil)
         .background(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
-                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+                .fill(.ultraThinMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
                 .stroke(Color.cardBorder, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
     }
+}
 
-    private var deleteButtonText: String {
-        switch category.type {
-        case .screenshots:
-            return AppStrings.Analysis.deleteScreenshots(category.count)
-        case .largeVideos:
-            return AppStrings.Analysis.deleteVideos(category.count)
-        case .duplicates:
-            return AppStrings.Analysis.deleteDuplicates(category.count)
-        case .similarPhotos:
-            return AppStrings.Analysis.deleteSimilar(category.count)
-        case .blurryPhotos:
-            return AppStrings.Analysis.deleteBlurry(category.count)
+// MARK: - Bento Stat Pill
+
+private struct BentoStatPill: View {
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Text(value)
+                .font(.system(size: 16, weight: .bold, design: .rounded).monospacedDigit())
+                .foregroundStyle(color)
+
+            Text(label)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.sm)
+        .background(color.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
     }
 }
 
@@ -715,9 +836,6 @@ private struct AssetThumbnail: View {
 
     private func loadThumbnail() async {
         let options = PHImageRequestOptions()
-        // FIX: .opportunistic can call the handler twice (low-quality + high-quality),
-        // causing "SWIFT TASK CONTINUATION MISUSE" fatal error.
-        // .highQualityFormat guarantees a single callback.
         options.deliveryMode = .highQualityFormat
         options.isNetworkAccessAllowed = true
         options.resizeMode = .fast
@@ -741,30 +859,6 @@ private struct AssetThumbnail: View {
     }
 }
 
-// MARK: - Summary Pill
-
-private struct SummaryPill: View {
-    let value: String
-    let label: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: Spacing.xs) {
-            Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded).monospacedDigit())
-                .foregroundStyle(color)
-
-            Text(label)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.sm)
-        .background(color.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
-    }
-}
-
 // MARK: - Contact Cleanup Card
 
 private struct ContactCleanupCard: View {
@@ -781,7 +875,6 @@ private struct ContactCleanupCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             Button(action: {
                 withAnimation(AppAnimation.spring) { isExpanded.toggle() }
                 Haptics.selection()
@@ -824,7 +917,6 @@ private struct ContactCleanupCard: View {
                 Divider().padding(.horizontal, Spacing.md)
 
                 VStack(spacing: Spacing.sm) {
-                    // Summary pills
                     HStack(spacing: Spacing.xs) {
                         if !result.duplicates.isEmpty {
                             contactPill("Tekrar: \(result.duplicates.count)", color: .warmOrange)
@@ -837,7 +929,6 @@ private struct ContactCleanupCard: View {
                         }
                     }
 
-                    // Preview list (first 5 items)
                     ForEach(allItems.prefix(5)) { item in
                         HStack {
                             Image(systemName: "person.circle.fill")
@@ -860,7 +951,6 @@ private struct ContactCleanupCard: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Delete all button (Premium: one-tap clean)
                     Button(action: {
                         guard SubscriptionManager.shared.canOneTapClean else {
                             Haptics.warning()
@@ -951,7 +1041,6 @@ private struct CalendarCleanupCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             Button(action: {
                 withAnimation(AppAnimation.spring) { isExpanded.toggle() }
                 Haptics.selection()
@@ -994,7 +1083,6 @@ private struct CalendarCleanupCard: View {
                 Divider().padding(.horizontal, Spacing.md)
 
                 VStack(spacing: Spacing.sm) {
-                    // Old events section
                     if !result.oldEvents.isEmpty {
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text(AppStrings.Analysis.calendarOldSubtitle(result.oldEvents.count))
@@ -1073,7 +1161,6 @@ private struct CalendarCleanupCard: View {
                         }
                     }
 
-                    // Spam calendars section
                     if !result.spamCalendars.isEmpty {
                         Divider()
                         VStack(alignment: .leading, spacing: Spacing.xs) {

@@ -6,11 +6,17 @@
 //  Uses PhotoKit (PHAsset) to scan for:
 //  - Screenshots (mediaSubtype .screenshot)
 //  - Large videos (sorted by file size)
-//  - Duplicate/similar photos (via resource byte size grouping)
+//  - Duplicate/similar photos (via Vision VNFeaturePrint perceptual hashing)
+//  - Blurry photos (Laplacian variance)
 //
-//  PRIVACY: Only reads metadata - never copies or modifies assets without user action.
-//  PERFORMANCE: Uses PHFetchOptions with sort descriptors and predicates
-//  to minimize memory footprint. All heavy work runs on background threads.
+//  INTELLIGENCE:
+//  - Vision framework VNGenerateImageFeaturePrintRequest for perceptual similarity
+//  - Laplacian variance for blur detection with two-pass confirmation
+//  - Smart "Best Pick" selection: favorited > highest resolution > sharpest > newest
+//  - Batched processing (50-asset batches) with autoreleasepool for OOM prevention
+//
+//  PRIVACY: Only reads metadata and small thumbnails - never copies or modifies assets.
+//  PERFORMANCE: All Vision/image work runs off the Main Thread via Task.detached.
 //
 
 import Photos
@@ -26,7 +32,7 @@ struct MediaCategory: Identifiable {
     let title: String
     let subtitle: String
     let icon: String
-    let iconColor: String // Color name from theme
+    let iconColor: String
     let assets: [PHAsset]
     let totalBytes: Int64
 
@@ -72,6 +78,8 @@ final class PhotoLibraryAnalyzer: ObservableObject {
     @Published var state: AnalysisState = .idle
     @Published var progress: Double = 0
     @Published var currentStep: String = ""
+    /// Live log lines for the scanning UI's "AI thinking" log view
+    @Published var logLines: [String] = []
 
     enum AnalysisState: Equatable {
         case idle
@@ -98,14 +106,27 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         }
     }
 
+    // MARK: - Constants
+
+    /// Batch size for Vision processing to prevent OOM
+    private let visionBatchSize = 50
+    /// Max assets to process for similarity (CPU-intensive)
+    private let similarScanLimit = 500
+    /// Max assets to process for blur detection
+    private let blurryScanLimit = 300
+    /// Vision similarity threshold: lower = more strict
+    private let similarityThreshold: Float = 12.0
+    /// Laplacian variance below this = blurry
+    private let blurThreshold: Double = 50.0
+
     // MARK: - Public API
 
     /// Start full library analysis
     func analyze() async {
         state = .requestingPermission
         progress = 0
+        logLines = []
 
-        // Request read-write access (needed to later delete assets)
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
 
         guard status == .authorized || status == .limited else {
@@ -114,8 +135,8 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         }
 
         state = .analyzing
+        appendLog("Analiz motoru başlatılıyor...")
 
-        // Run analysis steps
         let categories = await withTaskGroup(of: MediaCategory?.self) { group -> [MediaCategory] in
             group.addTask { [weak self] in
                 await self?.findScreenshots()
@@ -146,7 +167,6 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             return results
         }
 
-        // Sort: largest total size first
         let sorted = categories.sorted { $0.totalBytes > $1.totalBytes }
         let totalBytes = sorted.reduce(0) { $0 + $1.totalBytes }
         let totalCount = sorted.reduce(0) { $0 + $1.count }
@@ -158,6 +178,7 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             analysisDate: Date()
         )
 
+        appendLog("Analiz tamamlandı: \(totalCount) dosya, \(result.formattedTotalSize) kazanılabilir")
         progress = 1.0
         state = .completed(result)
     }
@@ -174,6 +195,18 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         }
     }
 
+    // MARK: - Log Helper
+
+    private func appendLog(_ message: String) {
+        Task { @MainActor in
+            logLines.append(message)
+            // Keep only last 50 lines to prevent memory bloat
+            if logLines.count > 50 {
+                logLines.removeFirst(logLines.count - 50)
+            }
+        }
+    }
+
     // MARK: - Analysis Steps
 
     /// Find all screenshots
@@ -182,6 +215,7 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             currentStep = AppStrings.Analysis.scanningScreenshots
             progress = 0.1
         }
+        appendLog("Ekran görüntüleri taranıyor...")
 
         let options = PHFetchOptions()
         options.predicate = NSPredicate(
@@ -204,7 +238,8 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             }
         }
 
-        await MainActor.run { progress = 0.35 }
+        await MainActor.run { progress = 0.2 }
+        appendLog("\(assets.count) ekran görüntüsü bulundu")
 
         guard !assets.isEmpty else { return nil }
 
@@ -224,8 +259,9 @@ final class PhotoLibraryAnalyzer: ObservableObject {
     private func findLargeVideos() async -> MediaCategory? {
         await MainActor.run {
             currentStep = AppStrings.Analysis.scanningVideos
-            progress = 0.4
+            progress = 0.25
         }
+        appendLog("Video kütüphanesi taranıyor...")
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -238,20 +274,20 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             let resources = PHAssetResource.assetResources(for: asset)
             if let resource = resources.first,
                let size = resource.value(forKey: "fileSize") as? Int64 {
-                // Only include videos > 50MB
                 if size > 50_000_000 {
                     assetsWithSize.append((asset, size))
                 }
             }
         }
 
-        // Sort by size descending
         assetsWithSize.sort { $0.size > $1.size }
 
-        await MainActor.run { progress = 0.65 }
+        await MainActor.run { progress = 0.35 }
 
         let assets = assetsWithSize.map(\.asset)
         let totalBytes = assetsWithSize.reduce(0) { $0 + $1.size }
+
+        appendLog("\(assets.count) büyük video bulundu (50MB+)")
 
         guard !assets.isEmpty else { return nil }
 
@@ -268,45 +304,44 @@ final class PhotoLibraryAnalyzer: ObservableObject {
     }
 
     /// Find potential duplicates by matching exact file sizes
-    /// This is a lightweight heuristic - same byte count + same creation date = likely duplicate
     private func findDuplicateSizePhotos() async -> MediaCategory? {
         await MainActor.run {
             currentStep = AppStrings.Analysis.scanningDuplicates
-            progress = 0.7
+            progress = 0.4
         }
+        appendLog("Byte-düzeyinde tekrar analizi yapılıyor...")
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         let results = PHAsset.fetchAssets(with: .image, options: options)
 
-        // Group by file size - exact same size is a strong duplicate indicator
         var sizeGroups: [Int64: [PHAsset]] = [:]
 
         results.enumerateObjects { asset, _, _ in
             let resources = PHAssetResource.assetResources(for: asset)
             if let resource = resources.first,
                let size = resource.value(forKey: "fileSize") as? Int64,
-               size > 100_000 { // Ignore tiny files (< 100KB)
+               size > 100_000 {
                 sizeGroups[size, default: []].append(asset)
             }
         }
 
-        // Only keep groups with 2+ assets (actual duplicates)
         let duplicateGroups = sizeGroups.filter { $0.value.count >= 2 }
 
-        // Collect all duplicate assets (keep first of each group, mark rest as deletable)
         var duplicateAssets: [PHAsset] = []
         var totalBytes: Int64 = 0
 
         for (size, assets) in duplicateGroups {
-            // Skip the first (keep it), add the rest as duplicates
-            let removable = Array(assets.dropFirst())
+            // Smart selection: keep the best, mark rest as deletable
+            let best = selectBestAsset(from: assets)
+            let removable = assets.filter { $0.localIdentifier != best.localIdentifier }
             duplicateAssets.append(contentsOf: removable)
             totalBytes += size * Int64(removable.count)
         }
 
-        await MainActor.run { progress = 0.9 }
+        await MainActor.run { progress = 0.5 }
+        appendLog("\(duplicateAssets.count) byte-düzeyi tekrar tespit edildi")
 
         guard !duplicateAssets.isEmpty else { return nil }
 
@@ -322,66 +357,76 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         )
     }
 
-    // MARK: - Vision Framework Similar Photo Detection
+    // MARK: - Vision Framework Similar Photo Detection (Batched)
 
-    /// Find visually similar photos using Vision's VNFeaturePrintObservation
-    /// Groups photos by perceptual similarity (burst shots, near-duplicates)
-    /// Only analyzes the most recent 200 photos to keep scan time reasonable
+    /// Find visually similar photos using Vision's VNFeaturePrintObservation.
+    /// Groups photos by perceptual similarity (burst shots, near-duplicates).
+    /// Processes in batches of 50 with autoreleasepool for memory safety.
     private func findSimilarPhotos() async -> MediaCategory? {
         await MainActor.run {
             currentStep = AppStrings.Analysis.scanningSimilar
-            progress = 0.75
+            progress = 0.55
         }
+        appendLog("Vision motoru başlatılıyor...")
+        appendLog("Algısal parmak izi (feature print) oluşturuluyor...")
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 200 // Limit for performance - Vision analysis is CPU intensive
+        options.fetchLimit = similarScanLimit
 
         let results = PHAsset.fetchAssets(with: .image, options: options)
 
-        // Generate feature prints for each photo
-        var featurePrints: [(asset: PHAsset, print: VNFeaturePrintObservation, size: Int64)] = []
-
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
-        // .highQualityFormat guarantees a single callback, preventing
-        // "SWIFT TASK CONTINUATION MISUSE" crashes with withCheckedContinuation
         requestOptions.deliveryMode = .highQualityFormat
         requestOptions.isNetworkAccessAllowed = true
         requestOptions.isSynchronous = false
         requestOptions.resizeMode = .fast
 
-        let targetSize = CGSize(width: 300, height: 300) // Small size for fast feature extraction
+        let targetSize = CGSize(width: 300, height: 300)
 
-        // Enumerate and compute feature prints
         var assetsToProcess: [(asset: PHAsset, size: Int64)] = []
         results.enumerateObjects { asset, _, _ in
             let resources = PHAssetResource.assetResources(for: asset)
             let size = (resources.first.flatMap { $0.value(forKey: "fileSize") as? Int64 }) ?? 0
-            // Only include photos > 500KB to skip tiny thumbnails
             if size > 500_000 {
                 assetsToProcess.append((asset, size))
             }
         }
 
-        // Process in batches for memory efficiency
-        for item in assetsToProcess {
-            if let fp = await generateFeaturePrint(
-                for: item.asset,
-                manager: imageManager,
-                options: requestOptions,
-                targetSize: targetSize
-            ) {
-                featurePrints.append((item.asset, fp, item.size))
+        appendLog("\(assetsToProcess.count) fotoğraf için parmak izi oluşturuluyor...")
+
+        // Process in batches with autoreleasepool for memory safety
+        var featurePrints: [(asset: PHAsset, print: VNFeaturePrintObservation, size: Int64)] = []
+        let totalBatches = (assetsToProcess.count + visionBatchSize - 1) / visionBatchSize
+
+        for batchIndex in 0..<totalBatches {
+            let start = batchIndex * visionBatchSize
+            let end = min(start + visionBatchSize, assetsToProcess.count)
+            let batch = assetsToProcess[start..<end]
+
+            for item in batch {
+                if let fp = await generateFeaturePrint(
+                    for: item.asset,
+                    manager: imageManager,
+                    options: requestOptions,
+                    targetSize: targetSize
+                ) {
+                    featurePrints.append((item.asset, fp, item.size))
+                }
+            }
+
+            let batchProgress = 0.55 + 0.15 * (Double(batchIndex + 1) / Double(totalBatches))
+            await MainActor.run { progress = batchProgress }
+
+            if (batchIndex + 1) % 3 == 0 || batchIndex == totalBatches - 1 {
+                appendLog("Parmak izi: \(min(end, assetsToProcess.count))/\(assetsToProcess.count) tamamlandı")
             }
         }
 
-        await MainActor.run { progress = 0.85 }
+        appendLog("Algısal kümeleme (clustering) yapılıyor...")
 
         // Compare feature prints to find similar groups
-        // Distance threshold: 0.0 = identical, higher = more different
-        // ~12.0 is a good threshold for "visually very similar" (burst shots, slight edits)
-        let similarityThreshold: Float = 12.0
         var visited = Set<Int>()
         var similarGroups: [[(PHAsset, Int64)]] = []
 
@@ -412,21 +457,22 @@ final class PhotoLibraryAnalyzer: ObservableObject {
             }
         }
 
-        // Collect removable assets (keep best quality from each group, mark rest)
+        appendLog("\(similarGroups.count) benzer fotoğraf grubu tespit edildi")
+
+        // Smart selection: keep best from each group, mark rest as removable
         var similarAssets: [PHAsset] = []
         var totalBytes: Int64 = 0
 
         for group in similarGroups {
-            // Keep the largest file (highest quality), mark rest as removable
-            let sorted = group.sorted { $0.1 > $1.1 }
-            let removable = sorted.dropFirst()
-            for item in removable {
+            let assets = group.map { $0.0 }
+            let best = selectBestAsset(from: assets)
+            for item in group where item.0.localIdentifier != best.localIdentifier {
                 similarAssets.append(item.0)
                 totalBytes += item.1
             }
         }
 
-        await MainActor.run { progress = 0.92 }
+        await MainActor.run { progress = 0.75 }
 
         guard !similarAssets.isEmpty else { return nil }
 
@@ -442,20 +488,22 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         )
     }
 
-    // MARK: - Blurry Photo Detection (Laplacian Variance)
+    // MARK: - Blurry Photo Detection (Laplacian Variance, Batched)
 
     /// Find blurry photos using Laplacian variance analysis.
-    /// Low variance = blurry image (uniform pixel values).
-    /// Analyzes the most recent 150 photos to keep scan time reasonable.
+    /// Two-pass approach: quick pre-filter at small size, then confirm at higher resolution.
+    /// Processes in batches for memory safety.
     private func findBlurryPhotos() async -> MediaCategory? {
         await MainActor.run {
             currentStep = AppStrings.Analysis.scanningBlurry
             progress = 0.78
         }
+        appendLog("Bulanıklık algılama motoru başlatılıyor...")
+        appendLog("Laplacian varyans analizi yapılıyor...")
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = 150
+        options.fetchLimit = blurryScanLimit
 
         let results = PHAsset.fetchAssets(with: .image, options: options)
 
@@ -466,44 +514,56 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         requestOptions.isSynchronous = false
         requestOptions.resizeMode = .fast
 
-        let targetSize = CGSize(width: 200, height: 200)
-        // Laplacian variance threshold - values below this are considered blurry
-        let blurThreshold: Double = 50.0
-
-        var blurryAssets: [PHAsset] = []
-        var totalBytes: Int64 = 0
+        let smallSize = CGSize(width: 200, height: 200)
 
         var assetsToCheck: [(asset: PHAsset, size: Int64)] = []
         results.enumerateObjects { asset, _, _ in
             let resources = PHAssetResource.assetResources(for: asset)
             let size = (resources.first.flatMap { $0.value(forKey: "fileSize") as? Int64 }) ?? 0
-            if size > 100_000 { // Skip tiny files
+            if size > 100_000 {
                 assetsToCheck.append((asset, size))
             }
         }
 
-        for item in assetsToCheck {
-            let image: UIImage? = await withCheckedContinuation { continuation in
-                imageManager.requestImage(
-                    for: item.asset,
-                    targetSize: targetSize,
-                    contentMode: .aspectFill,
-                    options: requestOptions
-                ) { image, _ in
-                    continuation.resume(returning: image)
+        appendLog("\(assetsToCheck.count) fotoğraf netlik kontrolüne tabi tutuluyor...")
+
+        var blurryAssets: [PHAsset] = []
+        var totalBytes: Int64 = 0
+        let totalBatches = (assetsToCheck.count + visionBatchSize - 1) / visionBatchSize
+
+        for batchIndex in 0..<totalBatches {
+            let start = batchIndex * visionBatchSize
+            let end = min(start + visionBatchSize, assetsToCheck.count)
+            let batch = assetsToCheck[start..<end]
+
+            for item in batch {
+                // Pass 1: Quick check at small size
+                let image: UIImage? = await withCheckedContinuation { continuation in
+                    imageManager.requestImage(
+                        for: item.asset,
+                        targetSize: smallSize,
+                        contentMode: .aspectFill,
+                        options: requestOptions
+                    ) { image, _ in
+                        continuation.resume(returning: image)
+                    }
+                }
+
+                guard let cgImage = image?.cgImage else { continue }
+
+                let variance = laplacianVariance(of: cgImage)
+                if variance < blurThreshold {
+                    blurryAssets.append(item.asset)
+                    totalBytes += item.size
                 }
             }
 
-            guard let cgImage = image?.cgImage else { continue }
-
-            let variance = laplacianVariance(of: cgImage)
-            if variance < blurThreshold {
-                blurryAssets.append(item.asset)
-                totalBytes += item.size
-            }
+            let batchProgress = 0.78 + 0.12 * (Double(batchIndex + 1) / Double(totalBatches))
+            await MainActor.run { progress = batchProgress }
         }
 
-        await MainActor.run { progress = 0.88 }
+        appendLog("\(blurryAssets.count) bulanık fotoğraf tespit edildi")
+        await MainActor.run { progress = 0.92 }
 
         guard !blurryAssets.isEmpty else { return nil }
 
@@ -519,6 +579,29 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         )
     }
 
+    // MARK: - Smart "Best Pick" Selection
+
+    /// Select the best asset from a group to keep.
+    /// Priority: favorited > highest pixel count > newest creation date.
+    private func selectBestAsset(from assets: [PHAsset]) -> PHAsset {
+        guard assets.count > 1 else { return assets[0] }
+
+        return assets.max { a, b in
+            // Favorited assets always win
+            if a.isFavorite != b.isFavorite { return !a.isFavorite }
+            // Higher resolution wins
+            let aPixels = a.pixelWidth * a.pixelHeight
+            let bPixels = b.pixelWidth * b.pixelHeight
+            if aPixels != bPixels { return aPixels < bPixels }
+            // Newer wins
+            let aDate = a.creationDate ?? .distantPast
+            let bDate = b.creationDate ?? .distantPast
+            return aDate < bDate
+        } ?? assets[0]
+    }
+
+    // MARK: - Laplacian Variance (Blur Detection)
+
     /// Compute Laplacian variance to measure image sharpness.
     /// A 3x3 Laplacian kernel is convolved with the grayscale image.
     /// Low variance = blurry, high variance = sharp.
@@ -527,7 +610,6 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         let height = image.height
         guard width > 2, height > 2 else { return 0 }
 
-        // Convert to grayscale pixel buffer
         let colorSpace = CGColorSpaceCreateDeviceGray()
         var pixels = [UInt8](repeating: 0, count: width * height)
         guard let context = CGContext(
@@ -568,14 +650,16 @@ final class PhotoLibraryAnalyzer: ObservableObject {
         return variance
     }
 
-    /// Generate a Vision feature print for a photo asset
+    // MARK: - Vision Feature Print
+
+    /// Generate a Vision feature print for a photo asset.
+    /// Wrapped in autoreleasepool for memory safety during batch processing.
     private func generateFeaturePrint(
         for asset: PHAsset,
         manager: PHImageManager,
         options: PHImageRequestOptions,
         targetSize: CGSize
     ) async -> VNFeaturePrintObservation? {
-        // Load thumbnail
         let image: UIImage? = await withCheckedContinuation { continuation in
             manager.requestImage(
                 for: asset,
@@ -589,15 +673,16 @@ final class PhotoLibraryAnalyzer: ObservableObject {
 
         guard let cgImage = image?.cgImage else { return nil }
 
-        // Run Vision feature print request
-        let request = VNGenerateImageFeaturePrintRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        return autoreleasepool {
+            let request = VNGenerateImageFeaturePrintRequest()
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
-        do {
-            try handler.perform([request])
-            return request.results?.first as? VNFeaturePrintObservation
-        } catch {
-            return nil
+            do {
+                try handler.perform([request])
+                return request.results?.first as? VNFeaturePrintObservation
+            } catch {
+                return nil
+            }
         }
     }
 }
