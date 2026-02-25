@@ -2,13 +2,18 @@
 //  ResultScreen.swift
 //  optimize
 //
-//  Compression result screen with confetti, victory stamp and visual comparison
+//  Premium compression result screen (Apple Intelligence aesthetic).
+//
+//  UI/UX DESIGN:
+//  - Hero Typography: Saved size as the absolute hero (96pt heavy rounded with gradient)
+//  - Fluid Background: Dark → bright success wipe transition ("weight being lifted")
+//  - "GÜM" Effect: Scale bounce + heavy haptic on percentage reveal
+//  - Floating translucent action buttons at bottom
 //
 
 import SwiftUI
 import StoreKit
 import UIKit
-import StoreKit
 
 struct ResultScreen: View {
     let result: CompressionResult
@@ -17,34 +22,35 @@ struct ResultScreen: View {
     let onSave: () -> Void
     let onNewFile: () -> Void
 
-    @State private var showConfetti = false
     @State private var animateResults = false
+    @State private var showPercentage = false
+    @State private var showButtons = false
+    @State private var backgroundRevealed = false
+    @State private var heroScale: CGFloat = 0.5
+    @State private var heroOpacity: Double = 0
+    @State private var percentScale: CGFloat = 2.0
     @State private var shareButtonPulse = false
-    @State private var showVictoryStamp = false
-    @State private var screenShakeOffset: CGFloat = 0  // ENHANCED: Screen shake effect
 
     var body: some View {
         ZStack {
+            // Fluid background transition (dark → success color)
+            FluidSuccessBackground(revealed: backgroundRevealed)
+                .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.xl) {
-                        // Animated Success header with Victory Stamp
-                        ZStack {
-                            EnhancedSuccessHeader(savingsPercent: result.savingsPercent)
+                        Spacer(minLength: Spacing.xxl)
 
-                            // Victory Stamp overlay - appears for high savings
-                            // ENHANCED: Now triggers screen shake on impact
-                            if showVictoryStamp && result.savingsPercent >= 40 {
-                                VictoryStampView(
-                                    savingsPercent: result.savingsPercent,
-                                    onStampImpact: triggerScreenShake
-                                )
-                                .offset(x: 80, y: -20)
-                            }
-                        }
-                        .padding(.top, Spacing.xl)
+                        // Hero saved size (the absolute hero element)
+                        heroSavedSize
+                            .padding(.top, Spacing.xl)
 
-                        // Visual comparison bar
+                        // Percentage with "GÜM" effect
+                        percentageView
+                            .padding(.top, Spacing.xs)
+
+                        // Before/After comparison bar
                         VisualComparisonCard(
                             originalSize: result.originalFile.sizeMB,
                             compressedSize: result.compressedSizeMB,
@@ -53,112 +59,236 @@ struct ResultScreen: View {
                         )
                         .padding(.horizontal, Spacing.md)
 
-                        // ENHANCED: Quality assurance badge - addresses "is my file corrupted?" concern
+                        // Quality assurance badge
                         QualityAssuranceBadge()
                             .padding(.horizontal, Spacing.md)
 
-                        // Before/After visual comparison slider
-                        BeforeAfterSlider(
-                            originalURL: result.originalFile.url,
-                            compressedURL: result.compressedURL
-                        )
-                        .padding(.horizontal, Spacing.md)
-
-                        // Result numbers
-                        EnhancedResultNumbers(
-                            fromSizeMB: result.originalFile.sizeMB,
-                            toSizeMB: result.compressedSizeMB,
-                            percentSaved: result.savingsPercent,
-                            animate: animateResults
-                        )
-                        .padding(.horizontal, Spacing.md)
-
-                        // Output file info
-                        OutputFileInfo(fileName: compressedFileName)
-                            .padding(.horizontal, Spacing.md)
-
-                        // Privacy reminder
-                        PrivacyBadge()
+                        // Photo equivalent
+                        photoEquivalentBadge
                             .padding(.horizontal, Spacing.md)
 
                         Spacer(minLength: Spacing.xl)
                     }
                 }
 
-                // Action buttons
-                VStack(spacing: Spacing.sm) {
-                    // Pulsing share button
-                    PulsingPrimaryButton(
-                        title: AppStrings.ResultScreen.share,
-                        icon: "square.and.arrow.up",
-                        isPulsing: shareButtonPulse
-                    ) {
-                        Haptics.impact()
-                        onShare()
-                    }
-
-                    SecondaryButton(title: AppStrings.ResultScreen.saveFiles, icon: "square.and.arrow.down") {
-                        onSave()
-                    }
-
-                    TextButton(title: AppStrings.ResultScreen.newFile, icon: "arrow.counterclockwise") {
-                        onNewFile()
-                    }
-                    .padding(.top, Spacing.xs)
-                }
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.md)
-                .background(Color.appBackground)
-            }
-
-            // Confetti overlay
-            if showConfetti {
-                ConfettiView()
-                    .allowsHitTesting(false)
+                // Floating translucent action buttons
+                floatingButtons
             }
         }
-        // ENHANCED: Screen shake effect for dramatic stamp impact
-        .offset(x: screenShakeOffset)
-        .appBackgroundLayered()
         .onAppear {
             triggerCelebration()
         }
     }
 
-    /// ENHANCED: Screen shake effect when victory stamp impacts
-    /// Creates a "GÜM" effect with heavy haptic and visual shake
-    private func triggerScreenShake() {
-        // Heavy haptic feedback - the "GÜM" effect
-        Haptics.impact(style: .heavy)
+    // MARK: - Hero Saved Size
 
-        // Screen shake animation sequence
-        withAnimation(.linear(duration: 0.05)) {
-            screenShakeOffset = 8
+    private var heroSavedSize: some View {
+        VStack(spacing: Spacing.xs) {
+            // Tiny label above
+            Text(AppStrings.ResultScreen.saved)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .opacity(heroOpacity)
+
+            // Massive saved size - THE hero
+            Text(formattedSavedSize)
+                .font(.system(size: 96, weight: .heavy, design: .rounded))
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.appMint, .appTeal, .premiumBlue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .scaleEffect(heroScale)
+                .opacity(heroOpacity)
+                .padding(.horizontal, Spacing.md)
+
+            // Subtitle
+            Text(AppStrings.ResultScreen.featherText)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .opacity(heroOpacity)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            withAnimation(.linear(duration: 0.05)) {
-                screenShakeOffset = -6
+    }
+
+    // MARK: - Percentage with "GÜM" Effect
+
+    private var percentageView: some View {
+        HStack(spacing: Spacing.xs) {
+            if showPercentage {
+                Text("−\(result.savingsPercent)%")
+                    .font(.system(size: 34, weight: .black, design: .rounded).monospacedDigit())
+                    .foregroundStyle(percentColor)
+                    .scaleEffect(percentScale)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.linear(duration: 0.05)) {
-                screenShakeOffset = 4
+        .frame(height: 50)
+        .animation(.spring(duration: 0.4, bounce: 0.5), value: percentScale)
+    }
+
+    // MARK: - Photo Equivalent Badge
+
+    private var photoEquivalentBadge: some View {
+        Group {
+            let savedMB = max(0, result.originalFile.sizeMB - result.compressedSizeMB)
+            if savedMB >= 1.0 {
+                let photoCount = max(1, Int(savedMB / 3.0))
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(AppStrings.ResultScreen.photoEquivalent(photoCount))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(Color.appMint)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.appMint.opacity(0.1))
+                .clipShape(Capsule())
+                .opacity(animateResults ? 1 : 0)
+                .animation(.easeIn(duration: 0.3).delay(1.2), value: animateResults)
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.linear(duration: 0.05)) {
-                screenShakeOffset = -2
+    }
+
+    // MARK: - Floating Translucent Buttons
+
+    private var floatingButtons: some View {
+        VStack(spacing: Spacing.sm) {
+            // Primary share button (pulsing)
+            PulsingPrimaryButton(
+                title: AppStrings.ResultScreen.share,
+                icon: "square.and.arrow.up",
+                isPulsing: shareButtonPulse
+            ) {
+                Haptics.impact()
+                onShare()
+            }
+
+            // Secondary buttons in translucent row
+            HStack(spacing: Spacing.sm) {
+                Button(action: {
+                    Haptics.selection()
+                    onSave()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(AppStrings.ResultScreen.saveFiles)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                }
+
+                Button(action: {
+                    Haptics.selection()
+                    onNewFile()
+                }) {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(AppStrings.ResultScreen.newFile)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                }
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.linear(duration: 0.05)) {
-                screenShakeOffset = 0
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.md)
+        .opacity(showButtons ? 1 : 0)
+        .offset(y: showButtons ? 0 : 20)
+        .animation(.spring(duration: 0.5, bounce: 0.3).delay(1.5), value: showButtons)
+    }
+
+    // MARK: - Celebration Sequence
+
+    private func triggerCelebration() {
+        // Play success sound
+        SoundManager.shared.playSuccessSound()
+        Haptics.success()
+
+        // Step 1: Background wipe from dark → success
+        withAnimation(.easeOut(duration: 0.8)) {
+            backgroundRevealed = true
+        }
+
+        // Step 2: Hero size flies in with spring
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(duration: 0.7, bounce: 0.4)) {
+                heroScale = 1.0
+                heroOpacity = 1.0
             }
         }
 
-        // Second heavy haptic after shake for extra impact
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // Step 3: Animate comparison bar
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animateResults = true
+            }
+        }
+
+        // Step 4: "GÜM" percentage reveal
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.spring(duration: 0.35, bounce: 0.6)) {
+                showPercentage = true
+                percentScale = 1.0
+            }
+            // Heavy haptic — the "GÜM" effect
             Haptics.impact(style: .heavy)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                Haptics.impact(style: .heavy)
+            }
+        }
+
+        // Step 5: Show buttons
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+            showButtons = true
+            shareButtonPulse = true
+        }
+
+        // Step 6: Request App Store review for high savings
+        if result.savingsPercent > 40 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                requestAppStoreReview()
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// Format saved bytes as "1.4 GB" or "256 MB" — picks the largest appropriate unit
+    private var formattedSavedSize: String {
+        let savedBytes = result.originalFile.size - result.compressedSize
+        guard savedBytes > 0 else { return "0 MB" }
+
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowedUnits = savedBytes >= 1_000_000_000 ? [.useGB] : [.useMB]
+        formatter.includesUnit = true
+        formatter.zeroPadsFractionDigits = false
+        return formatter.string(fromByteCount: savedBytes)
+    }
+
+    private var percentColor: Color {
+        if result.savingsPercent >= 60 {
+            return .appMint
+        } else if result.savingsPercent >= 30 {
+            return .premiumBlue
+        } else {
+            return .secondary
         }
     }
 
@@ -167,49 +297,6 @@ struct ResultScreen: View {
         let ext = (name as NSString).pathExtension
         let baseName = (name as NSString).deletingPathExtension
         return "\(baseName)_optimized.\(ext)"
-    }
-
-    private func triggerCelebration() {
-        // Play success sound
-        SoundManager.shared.playSuccessSound()
-        Haptics.success()
-
-        // Show confetti
-        withAnimation {
-            showConfetti = true
-        }
-
-        // Animate results after short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-                animateResults = true
-            }
-        }
-
-        // Show Victory Stamp for high savings (40%+) with dramatic "stamp" effect
-        if result.savingsPercent >= 40 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-                    showVictoryStamp = true
-                }
-                // Heavy haptic feedback - the "GÜM" effect
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    Haptics.impact(style: .heavy)
-                }
-            }
-        }
-
-        // Start share button pulsing after results animate
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            shareButtonPulse = true
-        }
-
-        // Request App Store review if savings are significant (>40%)
-        if result.savingsPercent > 40 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                requestAppStoreReview()
-            }
-        }
     }
 
     private func requestAppStoreReview() {
@@ -224,60 +311,41 @@ struct ResultScreen: View {
     }
 }
 
-// MARK: - Enhanced Success Header
-struct EnhancedSuccessHeader: View {
-    let savingsPercent: Int
+// MARK: - Fluid Success Background
 
-    @State private var checkScale: CGFloat = 0
-    @State private var titleOpacity: Double = 0
+/// Background that wipes from dark to bright success color, simulating "weight being lifted"
+private struct FluidSuccessBackground: View {
+    let revealed: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(spacing: Spacing.md) {
-            // Animated checkmark
-            ZStack {
-                // Glow
-                Circle()
-                    .fill(Color.appMint.opacity(0.3))
-                    .frame(width: 100, height: 100)
-                    .blur(radius: 20)
+        ZStack {
+            // Base dark layer
+            Color.appBackground
 
-                // Circle background
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.appMint, .appTeal],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 80, height: 80)
+            // Success gradient that reveals upward
+            LinearGradient(
+                colors: [
+                    Color.appMint.opacity(colorScheme == .dark ? 0.15 : 0.08),
+                    Color.appTeal.opacity(colorScheme == .dark ? 0.08 : 0.04),
+                    Color.appBackground
+                ],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+            .opacity(revealed ? 1 : 0)
 
-                // Checkmark
-                Image(systemName: "checkmark")
-                    .font(.system(size: 40, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-            .scaleEffect(checkScale)
-
-            // Title
-            VStack(spacing: Spacing.xs) {
-                Text(AppStrings.ResultScreen.greatJob)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                Text(AppStrings.ResultScreen.featherText)
-                    .font(.appBody)
-                    .foregroundStyle(.secondary)
-            }
-            .opacity(titleOpacity)
-        }
-        .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.2)) {
-                checkScale = 1.0
-            }
-            withAnimation(.easeIn(duration: 0.3).delay(0.5)) {
-                titleOpacity = 1.0
-            }
+            // Subtle radial glow at top-center
+            RadialGradient(
+                colors: [
+                    Color.appMint.opacity(colorScheme == .dark ? 0.12 : 0.06),
+                    .clear
+                ],
+                center: .top,
+                startRadius: 50,
+                endRadius: 400
+            )
+            .opacity(revealed ? 1 : 0)
         }
     }
 }
@@ -349,80 +417,6 @@ struct VisualComparisonCard: View {
     }
 }
 
-// MARK: - Enhanced Result Numbers
-struct EnhancedResultNumbers: View {
-    let fromSizeMB: Double
-    let toSizeMB: Double
-    let percentSaved: Int
-    let animate: Bool
-
-    @State private var displayedPercent: Int = 0
-
-    /// Convert saved MB to approximate photo count (avg iPhone photo ~3MB)
-    private var savedPhotoEquivalent: Int {
-        let savedMB = max(0, fromSizeMB - toSizeMB)
-        return max(1, Int(savedMB / 3.0))
-    }
-
-    var body: some View {
-        VStack(spacing: Spacing.lg) {
-            // Giant percentage
-            Text("\(displayedPercent)%")
-                .font(.system(size: 72, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.appMint, .appTeal],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-
-            Text(AppStrings.ResultScreen.saved)
-                .font(.appTitle)
-                .foregroundStyle(.secondary)
-
-            // Photo equivalent - makes savings tangible
-            if fromSizeMB - toSizeMB >= 1.0 {
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "photo.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(AppStrings.ResultScreen.photoEquivalent(savedPhotoEquivalent))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                }
-                .foregroundStyle(Color.appMint)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.xs)
-                .background(Color.appMint.opacity(0.1))
-                .clipShape(Capsule())
-            }
-        }
-        .onChange(of: animate) { _, newValue in
-            if newValue {
-                animatePercentage()
-            }
-        }
-    }
-
-    private func animatePercentage() {
-        guard percentSaved > 0 else {
-            displayedPercent = 0
-            return
-        }
-
-        let duration: Double = 1.0
-        let steps = min(max(percentSaved, 1), 50) // Cap at 50 steps for performance
-        let stepValue = Double(percentSaved) / Double(steps)
-
-        for step in 0...steps {
-            DispatchQueue.main.asyncAfter(deadline: .now() + (duration / Double(steps)) * Double(step)) {
-                let value = Int(round(stepValue * Double(step)))
-                displayedPercent = min(value, percentSaved)
-            }
-        }
-    }
-}
-
 // MARK: - Pulsing Primary Button
 struct PulsingPrimaryButton: View {
     let title: String
@@ -475,106 +469,8 @@ struct PulsingPrimaryButton: View {
     }
 }
 
-// MARK: - Victory Stamp View
-/// Premium "OPTIMIZED" stamp animation that appears for high savings (40%+)
-/// Creates a "dopamine hit" moment with spring animation, screen shake and haptic feedback
-/// ENHANCED: Added screen shake effect and stronger visual impact
-struct VictoryStampView: View {
-    let savingsPercent: Int
-    var onStampImpact: (() -> Void)? = nil
-
-    @State private var scale: CGFloat = 2.5
-    @State private var opacity: Double = 0.0
-    @State private var rotation: Double = -25
-    @State private var showImpactRing = false
-
-    /// Dynamic stamp text based on savings level - Localized
-    private var stampText: String {
-        if savingsPercent >= 80 {
-            return AppStrings.VictoryStamp.legendary
-        } else if savingsPercent >= 60 {
-            return AppStrings.VictoryStamp.amazing
-        } else {
-            return AppStrings.VictoryStamp.optimized
-        }
-    }
-
-    /// Dynamic color based on savings level
-    private var stampColor: Color {
-        if savingsPercent >= 80 {
-            return Color.warmOrange
-        } else if savingsPercent >= 60 {
-            return Color.premiumPurple
-        } else {
-            return Color.appMint
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            // Impact ring animation - expands outward on stamp
-            if showImpactRing {
-                Circle()
-                    .stroke(stampColor.opacity(0.5), lineWidth: 3)
-                    .frame(width: 150, height: 150)
-                    .scaleEffect(showImpactRing ? 1.5 : 0.5)
-                    .opacity(showImpactRing ? 0 : 1)
-            }
-
-            // Outer stamp circle with serrated edge effect
-            Circle()
-                .strokeBorder(stampColor, lineWidth: 3)
-                .frame(width: 100, height: 100)
-                .overlay(
-                    // Inner dashed circle for authentic stamp look
-                    Circle()
-                        .strokeBorder(stampColor.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                        .frame(width: 88, height: 88)
-                )
-
-            // Stamp text with serif font for official/premium feel
-            VStack(spacing: 2) {
-                Text(stampText)
-                    .font(.system(size: savingsPercent >= 80 ? 11 : 13, weight: .black, design: .serif))
-                    .tracking(1.5)
-                    .foregroundStyle(stampColor)
-
-                // Savings percentage badge
-                Text("\(savingsPercent)%")
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .foregroundStyle(stampColor)
-
-                // Small decorative line
-                Rectangle()
-                    .fill(stampColor.opacity(0.5))
-                    .frame(width: 40, height: 1)
-            }
-        }
-        .rotationEffect(.degrees(rotation))
-        .scaleEffect(scale)
-        .opacity(opacity)
-        .onAppear {
-            // ENHANCED: "GÜM" stamp effect - dramatic spring animation with impact ring
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.4, blendDuration: 0)) {
-                scale = 1.0
-                opacity = 1.0
-                rotation = -15
-            }
-
-            // Show impact ring expanding outward
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeOut(duration: 0.5)) {
-                    showImpactRing = true
-                }
-                // Trigger screen shake callback
-                onStampImpact?()
-            }
-        }
-    }
-}
-
 // MARK: - Quality Assurance Badge
-/// Shows user that quality is preserved - addresses "my file is corrupted?" concern
+
 struct QualityAssuranceBadge: View {
     @State private var showCheck = false
 

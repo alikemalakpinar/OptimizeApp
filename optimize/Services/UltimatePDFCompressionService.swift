@@ -561,14 +561,16 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                 autoreleasepool {
                     guard let page = document.page(at: pageIndex) else { return }
 
-                    // Use multi-signal vector detection
-                    let hasVectorContent = self?.isVectorPage(
+                    // AGGRESSIVE MODE BYPASS: When aggressiveMode is active,
+                    // skip vector detection entirely and rasterize everything
+                    // for maximum compression. Otherwise use multi-signal detection.
+                    let hasVectorContent = config.aggressiveMode ? false : (self?.isVectorPage(
                         page,
                         pageIndex: pageIndex,
                         vectorHeavyPages: [],  // No pre-scan for digital PDFs
                         isDigitalDocument: true,
                         config: config
-                    ) ?? true  // Default to preserving if detection fails
+                    ) ?? true)  // Default to preserving if detection fails
 
                     if hasVectorContent {
                         // Preserve vector content - copy page directly
@@ -774,13 +776,15 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                         guard pageRect.width > 0 && pageRect.height > 0 else { return }
 
                         // VECTOR PROTECTION: Use multi-signal detection
-                        let shouldPreserveVector = self?.isVectorPage(
+                        // AGGRESSIVE MODE BYPASS: Skip vector protection when
+                        // aggressiveMode is active — rasterize and compress everything
+                        let shouldPreserveVector = config.aggressiveMode ? false : (self?.isVectorPage(
                             page,
                             pageIndex: pageIndex,
                             vectorHeavyPages: vectorHeavyPages,
                             isDigitalDocument: isDigitalDocument,
                             config: config
-                        ) ?? false
+                        ) ?? false)
 
                         if shouldPreserveVector && config.preserveVectors {
                             // PRESERVE VECTOR: Copy page as-is (no rasterization)

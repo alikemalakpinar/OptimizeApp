@@ -334,16 +334,24 @@ actor VideoCompressionService {
         let finalWidth = targetWidth % 2 == 0 ? targetWidth : targetWidth - 1
         let finalHeight = targetHeight % 2 == 0 ? targetHeight : targetHeight - 1
 
-        // Use AVAssetExportSession for reliable compression
-        // The presets handle codec selection automatically
+        // PRESET-AWARE EXPORT SELECTION
+        // Maps user intent directly to the optimal AVAssetExportPreset.
+        // Previous approach mapped by resolution, which caused WhatsApp preset
+        // to use 640x480 (decent quality) instead of truly aggressive compression.
         let exportPreset: String
-        if finalWidth <= 480 || finalHeight <= 480 {
-            exportPreset = AVAssetExportPreset640x480
-        } else if finalWidth <= 720 || finalHeight <= 720 {
+        switch preset {
+        case .whatsapp:
+            // Apple's most aggressive built-in preset - massive size reduction
+            // Handles resolution downscaling AND bitrate reduction automatically
+            exportPreset = AVAssetExportPresetLowQuality
+        case .social:
+            // 720p H.264 - optimal for Instagram, TikTok, social sharing
             exportPreset = AVAssetExportPreset1280x720
-        } else if finalWidth <= 1080 || finalHeight <= 1080 {
-            exportPreset = AVAssetExportPreset1920x1080
-        } else {
+        case .hd:
+            // HEVC 1080p - modern codec, excellent quality-to-size ratio
+            exportPreset = AVAssetExportPresetHEVC1920x1080
+        case .original:
+            // HEVC highest quality - minimal quality loss, modern compression
             exportPreset = AVAssetExportPresetHEVCHighestQuality
         }
 
