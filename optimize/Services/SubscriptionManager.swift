@@ -243,6 +243,10 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchaseError: String?
 
+    /// Convenience: instant reactive boolean for UI binding
+    /// Updates automatically whenever `status` changes
+    var isPremium: Bool { status.isPro }
+
     // StoreKit Product IDs - App Store Connect
     private let productIds = [
         "com.optimize.weekly",
@@ -451,13 +455,24 @@ final class SubscriptionManager: ObservableObject, SubscriptionManagerProtocol {
         }
     }
 
-    /// Restore purchases
-    /// Note: In StoreKit 2, checking Transaction.currentEntitlements is sufficient
-    /// AppStore.sync() forces password entry which creates poor UX
+    /// Restore purchases using a two-phase approach:
+    /// 1. First try Transaction.currentEntitlements (fast, no password prompt)
+    /// 2. If nothing found, fallback to AppStore.sync() (forces server refresh, may prompt password)
     func restore() async {
-        // Simply check current entitlements - no need for AppStore.sync()
-        // which forces password entry and creates poor user experience
+        // Phase 1: Check current entitlements (fast path)
         await updateSubscriptionStatus()
+
+        // If found, we're done
+        if status.isPro { return }
+
+        // Phase 2: Force server sync for edge cases (device transfer, family sharing changes)
+        // This may prompt for Apple ID password but ensures we don't miss valid subscriptions
+        do {
+            try await AppStore.sync()
+            await updateSubscriptionStatus()
+        } catch {
+            // AppStore.sync() can throw if user cancels password prompt — that's OK
+        }
 
         // If still no subscription found, show appropriate message
         if !status.isPro {
