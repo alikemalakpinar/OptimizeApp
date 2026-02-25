@@ -423,14 +423,10 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         let compressedSize = try FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64 ?? 0
 
         if compressedSize >= originalSize && originalSize > 0 {
-            // Compressed file is larger or equal - return a copy of the original instead
-            // Delete the failed compressed file
+            // Compressed file is larger or equal - file is already optimized
+            // Delete the failed compressed file and throw instead of silently copying
             try? FileManager.default.removeItem(at: outputURL)
-
-            // Copy original to output location with "_optimized" suffix
-            try FileManager.default.copyItem(at: sourceURL, to: outputURL)
-
-            await updateUIState(stage: nil, message: AppStrings.Process.alreadyOptimized)
+            throw CompressionError.alreadyOptimized
         }
 
         return outputURL
@@ -1673,10 +1669,21 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
                 do {
                     try await fallbackSession.export(to: outputURL, as: .mp4)
+
+                    // Check if fallback also failed to reduce size
+                    let fallbackSize = try FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64 ?? 0
+                    if fallbackSize >= originalSize {
+                        try? FileManager.default.removeItem(at: outputURL)
+                        throw CompressionError.alreadyOptimized
+                    }
+                } catch let error as CompressionError {
+                    throw error
                 } catch {
-                    // Orijinal dosyayı kopyala
-                    try? FileManager.default.copyItem(at: sourceURL, to: outputURL)
+                    // Fallback export itself failed - file is already optimized
+                    throw CompressionError.alreadyOptimized
                 }
+            } else {
+                throw CompressionError.alreadyOptimized
             }
         }
 
@@ -1763,7 +1770,7 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
         }
         defer { sourceURL.stopAccessingSecurityScopedResource() }
 
-        let data = try Data(contentsOf: sourceURL)
+        let data = try Data(contentsOf: sourceURL, options: .mappedIfSafe)
         onProgress(.preparing, 1.0)
         try Task.checkCancellation()
 
@@ -1788,19 +1795,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
                                            "pdf"] // PDF zaten optimize edilmiş olabilir
 
         if alreadyCompressedExtensions.contains(fileExtension) {
-            // Zaten sıkıştırılmış - sadece kopyala
-            let fileName = sourceURL.lastPathComponent
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let outputURL = documentsPath.appendingPathComponent("\(fileName)_optimized")
-
-            try? FileManager.default.removeItem(at: outputURL)
-            try data.write(to: outputURL, options: .atomic)
-
-            Task { @MainActor in
-                currentStage = .downloading
-            }
-            onProgress(.downloading, 1.0)
-            return outputURL
+            // Zaten sıkıştırılmış format - daha fazla küçültülemez
+            throw CompressionError.alreadyOptimized
         }
 
         onProgress(.optimizing, 0.5)
@@ -1843,19 +1839,8 @@ final class UltimatePDFCompressionService: ObservableObject, CompressionServiceP
 
         // Sıkıştırma başarılı mı kontrol et
         guard finalData.count < data.count else {
-            // Sıkıştırma işe yaramadı - orijinali döndür
-            let fileName = sourceURL.lastPathComponent
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let outputURL = documentsPath.appendingPathComponent("\(fileName)_optimized")
-
-            try? FileManager.default.removeItem(at: outputURL)
-            try data.write(to: outputURL, options: .atomic)
-
-            Task { @MainActor in
-                currentStage = .downloading
-            }
-            onProgress(.downloading, 1.0)
-            return outputURL
+            // Sıkıştırma işe yaramadı - dosya zaten optimize
+            throw CompressionError.alreadyOptimized
         }
 
         // En iyi sonucu kaydet

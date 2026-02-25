@@ -369,6 +369,21 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
 
     private func handleError(_ error: CompressionError, preset: CompressionPreset) {
         lastError = error
+
+        // Treat 'alreadyOptimized' as a unique UX flow, not a hard failure.
+        // Show a success result with 0% savings so the UI can display
+        // "Already Optimized" messaging instead of an error screen.
+        if case .alreadyOptimized = error, let file = lastFile {
+            let result = CompressionResult(
+                originalFile: file,
+                compressedURL: file.url,
+                compressedSize: file.size
+            )
+            status = .success(result)
+            onCompressionCompleted?(result)
+            return
+        }
+
         status = .failed(error)
 
         analytics.trackCompressionFailed(error: error, presetId: preset.id)
@@ -384,7 +399,7 @@ final class CompressionViewModel: ObservableObject, CompressionViewModelProtocol
     /// Determines if retry should be allowed for specific error types
     private func isRetryableError(_ error: CompressionError) -> Bool {
         switch error {
-        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType:
+        case .accessDenied, .invalidPDF, .invalidFile, .emptyPDF, .encryptedPDF, .fileTooLarge, .unsupportedType, .alreadyOptimized:
             // These errors won't be fixed by retry
             return false
         case .contextCreationFailed, .saveFailed, .memoryPressure, .timeout, .pageProcessingFailed, .unknown, .cancelled, .exportFailed:
