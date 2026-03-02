@@ -533,6 +533,9 @@ final class FileConverterService: ObservableObject {
 
     // MARK: - Video to GIF
 
+    /// Memory-safe streaming GIF conversion.
+    /// Frames are written directly to the CGImageDestination one at a time
+    /// instead of accumulating UIImages in an array, preventing OOM on large videos.
     private func convertVideoToGIF(
         url: URL,
         options: ConversionOptions,
@@ -549,33 +552,20 @@ final class FileConverterService: ObservableObject {
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: options.gifSize, height: options.gifSize)
 
-        var images: [UIImage] = []
-
-        for i in 0..<frameCount {
-            let time = CMTime(seconds: duration * Double(i) / Double(frameCount), preferredTimescale: 600)
-
-            if let cgImage = await generateCGImage(generator, at: time) {
-                images.append(UIImage(cgImage: cgImage))
-            }
-
-            let prog = Double(i + 1) / Double(frameCount) * 0.8
-            progress = prog
-            progressHandler?(prog)
-        }
-
-        // Create GIF (Crash-Safe)
+        // Create destination FIRST so frames can be streamed directly
         let baseName = url.deletingPathExtension().lastPathComponent
         let outputURL = generateOutputURL(baseName: baseName, extension: "gif")
 
         guard let destination = CGImageDestinationCreateWithURL(
             outputURL as CFURL,
             UTType.gif.identifier as CFString,
-            images.count,
+            frameCount,
             nil
         ) else {
             throw ConversionError.exportFailed
         }
 
+        // Configure GIF properties before the loop
         let frameDelay = 1.0 / Double(options.gifFrameRate)
         let frameProperties: [CFString: Any] = [
             kCGImagePropertyGIFDictionary: [
@@ -591,10 +581,18 @@ final class FileConverterService: ObservableObject {
 
         CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
 
-        for image in images {
-            if let cgImage = image.cgImage {
+        // Stream frames directly to destination — no array storage
+        for i in 0..<frameCount {
+            let time = CMTime(seconds: duration * Double(i) / Double(frameCount), preferredTimescale: 600)
+
+            if let cgImage = await generateCGImage(generator, at: time) {
                 CGImageDestinationAddImage(destination, cgImage, frameProperties as CFDictionary)
             }
+            // cgImage is released here — only one frame in memory at a time
+
+            let prog = Double(i + 1) / Double(frameCount) * 0.8
+            progress = prog
+            progressHandler?(prog)
         }
 
         guard CGImageDestinationFinalize(destination) else {
