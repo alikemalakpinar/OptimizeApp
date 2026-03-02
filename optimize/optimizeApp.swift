@@ -196,6 +196,19 @@ struct RootViewWithCoordinator: View {
                 coordinator.ratingRequestComplete()
             }
         }
+        .fullScreenCover(isPresented: $coordinator.showFileViewer) {
+            if let url = coordinator.fileViewerURL {
+                UniversalFileViewer(
+                    fileURL: url,
+                    fileName: coordinator.fileViewerName,
+                    fileSize: coordinator.fileViewerSize,
+                    fileType: coordinator.fileViewerType,
+                    onShare: { coordinator.shareFileViewerFile() },
+                    onSave: { coordinator.saveFileViewerFile() },
+                    onDismiss: { coordinator.dismissFileViewer() }
+                )
+            }
+        }
     }
 
     // MARK: - Navigation Stack Content (iOS 16+ Native Navigation)

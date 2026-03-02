@@ -184,6 +184,13 @@ class AppCoordinator: ObservableObject {
     @Published var showCommitmentSheet = false
     @Published var showRatingSheet = false
 
+    // MARK: - File Viewer State
+    @Published var showFileViewer = false
+    @Published var fileViewerURL: URL?
+    @Published var fileViewerName: String = ""
+    @Published var fileViewerSize: Int64 = 0
+    @Published var fileViewerType: String = ""
+
     // MARK: - Processing State (Forwarded from ViewModels)
 
     @Published var currentFile: FileInfo?
@@ -715,6 +722,34 @@ class AppCoordinator: ObservableObject {
         showPaywall = false
         showModernPaywall = false
         paywallContext = nil
+    }
+
+    // MARK: - File Viewer
+
+    func presentFileViewer(url: URL, name: String, size: Int64, type: String) {
+        fileViewerURL = url
+        fileViewerName = name
+        fileViewerSize = size
+        fileViewerType = type
+        showFileViewer = true
+    }
+
+    func dismissFileViewer() {
+        showFileViewer = false
+        fileViewerURL = nil
+        fileViewerName = ""
+        fileViewerSize = 0
+        fileViewerType = ""
+    }
+
+    func shareFileViewerFile() {
+        guard fileViewerURL != nil else { return }
+        // Share is handled by UniversalFileViewer's internal sheet
+    }
+
+    func saveFileViewerFile() {
+        guard fileViewerURL != nil else { return }
+        // Save is handled by UniversalFileViewer's internal sheet
     }
 
     // MARK: - Error Handling

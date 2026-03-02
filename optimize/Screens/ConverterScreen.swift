@@ -3,12 +3,63 @@
 //  optimize
 //
 //  File format converter UI
-//  Supports comprehensive format conversion with preview
+//  Features: Visual flow header, horizontal snap carousel for format selection,
+//  PremiumCardStyle for selected format, comprehensive format conversion with preview
 //
 
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+
+// MARK: - ConversionFileType UI Extensions
+
+private extension ConversionFileType {
+    var icon: String {
+        switch self {
+        case .pdf: return "doc.fill"
+        case .image: return "photo.fill"
+        case .video: return "film.fill"
+        case .presentation: return "rectangle.stack.fill"
+        case .spreadsheet: return "tablecells.fill"
+        case .document: return "doc.text.fill"
+        case .unknown: return "doc.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .pdf: return .red
+        case .image: return .blue
+        case .video: return .purple
+        case .presentation: return .orange
+        case .spreadsheet: return .green
+        case .document: return .indigo
+        case .unknown: return .gray
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .pdf: return "PDF"
+        case .image: return "Resim"
+        case .video: return "Video"
+        case .presentation: return "Sunum"
+        case .spreadsheet: return "Tablo"
+        case .document: return "Belge"
+        case .unknown: return "Dosya"
+        }
+    }
+}
+
+private extension FormatCategory {
+    var label: String {
+        switch self {
+        case .image: return "Resim"
+        case .document: return "Belge"
+        case .video: return "Video"
+        }
+    }
+}
 
 struct ConverterScreen: View {
     @StateObject private var converter = FileConverterService.shared
@@ -27,6 +78,11 @@ struct ConverterScreen: View {
     private var availableFormats: [ConversionFormat] {
         guard let firstFile = selectedFiles.first else { return [] }
         return converter.availableFormats(for: firstFile)
+    }
+
+    private var sourceFileType: ConversionFileType? {
+        guard let firstFile = selectedFiles.first else { return nil }
+        return ConversionFileType.detect(from: firstFile)
     }
 
     var body: some View {
@@ -48,6 +104,16 @@ struct ConverterScreen: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, Spacing.md)
 
+                    // Visual Flow Header
+                    if let fileType = sourceFileType {
+                        ConversionFlowHeader(
+                            sourceType: fileType,
+                            targetFormat: selectedFormat
+                        )
+                        .padding(.horizontal, Spacing.md)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // File Selection
                     FileSelectionCard(
                         files: selectedFiles,
@@ -59,13 +125,12 @@ struct ConverterScreen: View {
                     )
                     .padding(.horizontal, Spacing.md)
 
-                    // Format Selection
+                    // Format Selection (horizontal carousel)
                     if !selectedFiles.isEmpty {
                         FormatSelectionCard(
                             formats: availableFormats,
                             selected: $selectedFormat
                         )
-                        .padding(.horizontal, Spacing.md)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
@@ -197,6 +262,89 @@ struct ConverterScreen: View {
     }
 }
 
+// MARK: - Conversion Flow Header
+
+private struct ConversionFlowHeader: View {
+    let sourceType: ConversionFileType
+    let targetFormat: ConversionFormat?
+
+    @State private var arrowOffset: CGFloat = 0
+
+    var body: some View {
+        HStack(spacing: Spacing.lg) {
+            Spacer()
+
+            // Source icon
+            VStack(spacing: Spacing.xs) {
+                ZStack {
+                    Circle()
+                        .fill(sourceType.color.opacity(0.15))
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: sourceType.icon)
+                        .font(.system(size: 24))
+                        .foregroundStyle(sourceType.color)
+                }
+
+                Text(sourceType.label)
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Animated arrow
+            Image(systemName: "arrow.right")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(Color.appAccent)
+                .offset(x: arrowOffset)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                        arrowOffset = 6
+                    }
+                }
+
+            // Target icon
+            if let format = targetFormat {
+                VStack(spacing: Spacing.xs) {
+                    ZStack {
+                        Circle()
+                            .fill(format.color.opacity(0.15))
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: format.icon)
+                            .font(.system(size: 24))
+                            .foregroundStyle(format.color)
+                    }
+
+                    Text(format.rawValue.uppercased())
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(.secondary)
+                }
+                .transition(.scale.combined(with: .opacity))
+            } else {
+                VStack(spacing: Spacing.xs) {
+                    ZStack {
+                        Circle()
+                            .strokeBorder(Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                            .frame(width: 56, height: 56)
+
+                        Image(systemName: "questionmark")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.secondary.opacity(0.4))
+                    }
+
+                    Text("?")
+                        .font(.appCaptionMedium)
+                        .foregroundStyle(.secondary.opacity(0.4))
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, Spacing.md)
+        .animation(.spring(response: 0.4), value: targetFormat)
+    }
+}
+
 // MARK: - File Selection Card
 
 private struct FileSelectionCard: View {
@@ -280,9 +428,9 @@ private struct SelectedFileRow: View {
     var body: some View {
         HStack(spacing: Spacing.sm) {
             // File Icon
-            Image(systemName: iconForType)
+            Image(systemName: fileType.icon)
                 .font(.system(size: 20))
-                .foregroundStyle(colorForType)
+                .foregroundStyle(fileType.color)
                 .frame(width: 32)
 
             // File Name
@@ -304,54 +452,25 @@ private struct SelectedFileRow: View {
         .background(Color.appSurface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
     }
-
-    private var iconForType: String {
-        switch fileType {
-        case .pdf: return "doc.fill"
-        case .image: return "photo.fill"
-        case .video: return "film.fill"
-        case .presentation: return "rectangle.stack.fill"
-        case .spreadsheet: return "tablecells.fill"
-        case .document: return "doc.text.fill"
-        case .unknown: return "doc.fill"
-        }
-    }
-
-    private var colorForType: Color {
-        switch fileType {
-        case .pdf: return .red
-        case .image: return .blue
-        case .video: return .purple
-        case .presentation: return .orange
-        case .spreadsheet: return .green
-        case .document: return .indigo
-        case .unknown: return .gray
-        }
-    }
 }
 
-// MARK: - Format Selection Card
+// MARK: - Format Selection Card (Horizontal Carousel)
 
 private struct FormatSelectionCard: View {
     let formats: [ConversionFormat]
     @Binding var selected: ConversionFormat?
 
-    private let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
-
     var body: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Label("Çıkış Formatı", systemImage: "arrow.triangle.branch")
-                    .font(.appBodyMedium)
-                    .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Label("Çıkış Formatı", systemImage: "arrow.triangle.branch")
+                .font(.appBodyMedium)
+                .foregroundStyle(.primary)
+                .padding(.horizontal, Spacing.md)
 
-                LazyVGrid(columns: columns, spacing: Spacing.sm) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: Spacing.md) {
                     ForEach(formats) { format in
-                        FormatButton(
+                        FormatCard(
                             format: format,
                             isSelected: selected == format
                         ) {
@@ -362,36 +481,45 @@ private struct FormatSelectionCard: View {
                         }
                     }
                 }
+                .scrollTargetLayout()
+                .padding(.horizontal, Spacing.md)
             }
+            .scrollTargetBehavior(.viewAligned)
         }
     }
 }
 
-private struct FormatButton: View {
+private struct FormatCard: View {
     let format: ConversionFormat
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: Spacing.xxs) {
+            VStack(spacing: Spacing.sm) {
                 Image(systemName: format.icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 32))
 
-                Text(format.rawValue)
-                    .font(.appCaptionMedium)
+                Text(format.rawValue.uppercased())
+                    .font(.appBodyMedium)
+
+                Text(format.category.label)
+                    .font(.appCaption)
+                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.sm)
-            .background(isSelected ? format.color.opacity(0.2) : Color.appSurface)
+            .frame(width: 100, height: 120)
             .foregroundStyle(isSelected ? format.color : .secondary)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.sm)
-                    .stroke(isSelected ? format.color : Color.clear, lineWidth: 2)
-            )
+            .modifier(PremiumCardStyle(
+                isPremium: isSelected,
+                cornerRadius: Radius.lg
+            ))
         }
         .buttonStyle(.plain)
+        .scrollTransition { content, phase in
+            content
+                .scaleEffect(phase.isIdentity ? 1 : 0.9)
+                .opacity(phase.isIdentity ? 1 : 0.7)
+        }
     }
 }
 

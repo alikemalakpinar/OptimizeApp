@@ -3,7 +3,8 @@
 //  optimize
 //
 //  Batch file compression UI with queue management
-//  Features: Multiple file processing, progress tracking, queue control
+//  Features: DragDrop zone, CompressionEngineVisual, matchedGeometry transitions,
+//  celebration bursts, progress tracking, queue control
 //
 
 import SwiftUI
@@ -18,7 +19,20 @@ struct BatchProcessingScreen: View {
     @State private var showFileSaver = false
     @State private var selectedItemForShare: BatchItem?
 
+    // Phase 2 additions
+    @Namespace private var batchNamespace
+    @State private var celebratingItemId: UUID?
+    @State private var previousCompletedCount: Int = 0
+
     let onBack: () -> Void
+
+    /// Map batch progress to ProcessingStage for CompressionEngineVisual
+    private var currentStage: ProcessingStage {
+        let pct = batchService.currentProgress.percentComplete
+        if pct < 0.1 { return .preparing }
+        if pct < 0.9 { return .optimizing }
+        return .downloading
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,15 +58,46 @@ struct BatchProcessingScreen: View {
                         .foregroundStyle(.primary)
                         .padding(.horizontal, Spacing.md)
 
-                    // Progress Summary
+                    // Progress: CompressionEngineVisual when processing, stats card otherwise
                     if !batchService.currentProgress.isIdle {
-                        BatchProgressCard(progress: batchService.currentProgress)
+                        if batchService.isProcessing {
+                            VStack(spacing: Spacing.md) {
+                                CompressionEngineVisual(
+                                    progress: batchService.currentProgress.percentComplete,
+                                    stage: currentStage,
+                                    size: 160
+                                )
+
+                                // Inline stats row
+                                BatchProgressStatsRow(progress: batchService.currentProgress)
+                            }
                             .padding(.horizontal, Spacing.md)
+                            .transition(.scale.combined(with: .opacity))
+                        } else {
+                            BatchProgressCard(progress: batchService.currentProgress)
+                                .padding(.horizontal, Spacing.md)
+                                .transition(.opacity)
+                        }
                     }
 
-                    // Add Files Button
-                    AddFilesCard(onTap: { showFilePicker = true })
+                    // Empty state: DragDropZone + Add Files
+                    if batchService.queue.isEmpty && batchService.completedItems.isEmpty {
+                        CompactDropZone(supportedTypes: .all) { urls in
+                            Task {
+                                let validURLs = await validateBatchFiles(urls)
+                                batchService.addFiles(validURLs, preset: selectedPreset)
+                            }
+                        }
+                        .frame(minHeight: 180)
                         .padding(.horizontal, Spacing.md)
+
+                        AddFilesCard(onTap: { showFilePicker = true })
+                            .padding(.horizontal, Spacing.md)
+                    } else {
+                        // Non-empty state: compact add button
+                        AddFilesCard(onTap: { showFilePicker = true })
+                            .padding(.horizontal, Spacing.md)
+                    }
 
                     // Preset Selection
                     if !batchService.queue.isEmpty {
@@ -64,6 +109,7 @@ struct BatchProcessingScreen: View {
                     if !batchService.queue.isEmpty {
                         QueueSection(
                             items: batchService.queue,
+                            namespace: batchNamespace,
                             onRemove: { item in
                                 batchService.removeItem(item)
                             }
@@ -93,6 +139,8 @@ struct BatchProcessingScreen: View {
                     if !batchService.completedItems.isEmpty {
                         CompletedSection(
                             items: batchService.completedItems,
+                            namespace: batchNamespace,
+                            celebratingItemId: celebratingItemId,
                             onClear: {
                                 batchService.clearCompleted()
                             },
@@ -112,6 +160,7 @@ struct BatchProcessingScreen: View {
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.xxl)
             }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: batchService.isProcessing)
         }
         .background(Color(.systemGroupedBackground))
         .sheet(isPresented: $showFilePicker) {
@@ -133,6 +182,20 @@ struct BatchProcessingScreen: View {
                     showFileSaver = false
                     if success {
                         Haptics.success()
+                    }
+                }
+            }
+        }
+        // Detect item completion for CelebrationBurstView
+        .onChange(of: batchService.completedItems.count) { oldCount, newCount in
+            if newCount > oldCount, let lastItem = batchService.completedItems.last,
+               lastItem.status == .completed {
+                withAnimation(.spring(response: 0.3)) {
+                    celebratingItemId = lastItem.id
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    if celebratingItemId == lastItem.id {
+                        celebratingItemId = nil
                     }
                 }
             }
@@ -173,7 +236,79 @@ struct BatchProcessingScreen: View {
     }
 }
 
-// MARK: - Batch Progress Card
+// MARK: - Batch Progress Stats Row (compact inline stats below engine visual)
+
+private struct BatchProgressStatsRow: View {
+    let progress: BatchProgress
+
+    var body: some View {
+        GlassCard {
+            VStack(spacing: Spacing.sm) {
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.appSurface)
+
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.appAccent, Color.appMint],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geo.size.width * progress.percentComplete)
+                    }
+                }
+                .frame(height: 6)
+
+                // Stats Row
+                HStack(spacing: Spacing.lg) {
+                    ProgressStat(
+                        value: "\(progress.processing)",
+                        label: "İşleniyor",
+                        color: .blue
+                    )
+
+                    ProgressStat(
+                        value: "\(progress.pending)",
+                        label: "Bekliyor",
+                        color: .secondary
+                    )
+
+                    ProgressStat(
+                        value: "\(progress.completed)",
+                        label: "Tamamlandı",
+                        color: .green
+                    )
+
+                    if progress.failed > 0 {
+                        ProgressStat(
+                            value: "\(progress.failed)",
+                            label: "Başarısız",
+                            color: .red
+                        )
+                    }
+                }
+
+                // Saved Space
+                if progress.totalBytesSaved > 0 {
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundStyle(Color.appMint)
+
+                        Text("Toplam Tasarruf: \(progress.formattedSaved)")
+                            .font(.appCaptionMedium)
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Batch Progress Card (non-processing summary)
 
 private struct BatchProgressCard: View {
     let progress: BatchProgress
@@ -365,6 +500,7 @@ private struct PresetChip: View {
 
 private struct QueueSection: View {
     let items: [BatchItem]
+    var namespace: Namespace.ID
     let onRemove: (BatchItem) -> Void
 
     var body: some View {
@@ -383,7 +519,7 @@ private struct QueueSection: View {
 
             VStack(spacing: Spacing.xs) {
                 ForEach(items) { item in
-                    QueueItemRow(item: item, onRemove: { onRemove(item) })
+                    QueueItemRow(item: item, namespace: namespace, onRemove: { onRemove(item) })
                 }
             }
         }
@@ -392,6 +528,7 @@ private struct QueueSection: View {
 
 private struct QueueItemRow: View {
     let item: BatchItem
+    var namespace: Namespace.ID
     let onRemove: () -> Void
 
     var body: some View {
@@ -448,6 +585,7 @@ private struct QueueItemRow: View {
                 }
             }
         }
+        .matchedGeometryEffect(id: item.id, in: namespace)
     }
 }
 
@@ -483,6 +621,8 @@ private struct StartProcessingButton: View {
 
 private struct CompletedSection: View {
     let items: [BatchItem]
+    var namespace: Namespace.ID
+    let celebratingItemId: UUID?
     let onClear: () -> Void
     let onRetryFailed: () -> Void
     let onShare: (BatchItem) -> Void
@@ -551,6 +691,8 @@ private struct CompletedSection: View {
                 ForEach(items) { item in
                     CompletedItemRow(
                         item: item,
+                        namespace: namespace,
+                        isCelebrating: celebratingItemId == item.id,
                         onShare: { onShare(item) },
                         onSave: { onSave(item) }
                     )
@@ -562,6 +704,8 @@ private struct CompletedSection: View {
 
 private struct CompletedItemRow: View {
     let item: BatchItem
+    var namespace: Namespace.ID
+    let isCelebrating: Bool
     let onShare: () -> Void
     let onSave: () -> Void
 
@@ -670,6 +814,10 @@ private struct CompletedItemRow: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
+        }
+        .matchedGeometryEffect(id: item.id, in: namespace)
+        .overlay {
+            CelebrationBurstView(trigger: isCelebrating)
         }
     }
 }
