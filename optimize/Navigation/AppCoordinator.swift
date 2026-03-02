@@ -184,6 +184,13 @@ class AppCoordinator: ObservableObject {
     @Published var showCommitmentSheet = false
     @Published var showRatingSheet = false
 
+    // MARK: - File Viewer State (fullScreenCover, like native QuickLook)
+    @Published var showFileViewer = false
+    @Published var fileViewerURL: URL?
+    @Published var fileViewerName: String = ""
+    @Published var fileViewerSize: Int64?
+    @Published var fileViewerType: FileType = .unknown
+
     // MARK: - Processing State (Forwarded from ViewModels)
 
     @Published var currentFile: FileInfo?
@@ -715,6 +722,50 @@ class AppCoordinator: ObservableObject {
         showPaywall = false
         showModernPaywall = false
         paywallContext = nil
+    }
+
+    // MARK: - File Viewer
+
+    /// Present the universal file viewer as a fullScreenCover (native QuickLook pattern)
+    func openFileViewer(url: URL, name: String, size: Int64?, type: FileType) {
+        fileViewerURL = url
+        fileViewerName = name
+        fileViewerSize = size
+        fileViewerType = type
+        showFileViewer = true
+    }
+
+    /// Share the file currently displayed in the viewer
+    func shareFileViewerFile() {
+        guard let url = fileViewerURL else { return }
+        // Temporarily store for the share sheet
+        let tempResult = CompressionResult(
+            originalFile: FileInfo(name: fileViewerName, url: url, size: fileViewerSize ?? 0),
+            compressedURL: url,
+            compressedSize: fileViewerSize ?? 0
+        )
+        currentResult = tempResult
+        showShareSheet = true
+    }
+
+    /// Save the file currently displayed in the viewer
+    func saveFileViewerFile() {
+        guard let url = fileViewerURL else { return }
+        let tempResult = CompressionResult(
+            originalFile: FileInfo(name: fileViewerName, url: url, size: fileViewerSize ?? 0),
+            compressedURL: url,
+            compressedSize: fileViewerSize ?? 0
+        )
+        currentResult = tempResult
+        showFileSaver = true
+    }
+
+    func dismissFileViewer() {
+        showFileViewer = false
+        fileViewerURL = nil
+        fileViewerName = ""
+        fileViewerSize = nil
+        fileViewerType = .unknown
     }
 
     // MARK: - Error Handling

@@ -19,6 +19,7 @@ struct BatchProcessingScreen: View {
     @State private var selectedItemForShare: BatchItem?
 
     let onBack: () -> Void
+    var onPreviewFile: ((URL, String, Int64, FileType) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,6 +105,9 @@ struct BatchProcessingScreen: View {
                             },
                             onSave: { item in
                                 saveItem(item)
+                            },
+                            onPreview: { item in
+                                previewItem(item)
                             }
                         )
                         .padding(.horizontal, Spacing.md)
@@ -147,6 +151,12 @@ struct BatchProcessingScreen: View {
     private func saveItem(_ item: BatchItem) {
         selectedItemForShare = item
         showFileSaver = true
+    }
+
+    private func previewItem(_ item: BatchItem) {
+        guard let result = item.result else { return }
+        let fileType = FileType.from(extension: (item.fileName as NSString).pathExtension)
+        onPreviewFile?(result.compressedURL, item.fileName, result.compressedSize, fileType)
     }
 
     private func validateBatchFiles(_ urls: [URL]) async -> [URL] {
@@ -487,6 +497,7 @@ private struct CompletedSection: View {
     let onRetryFailed: () -> Void
     let onShare: (BatchItem) -> Void
     let onSave: (BatchItem) -> Void
+    var onPreview: ((BatchItem) -> Void)? = nil
 
     private var hasFailedItems: Bool {
         items.contains { $0.status == .failed }
@@ -552,7 +563,8 @@ private struct CompletedSection: View {
                     CompletedItemRow(
                         item: item,
                         onShare: { onShare(item) },
-                        onSave: { onSave(item) }
+                        onSave: { onSave(item) },
+                        onPreview: onPreview != nil ? { onPreview?(item) } : nil
                     )
                 }
             }
@@ -564,6 +576,7 @@ private struct CompletedItemRow: View {
     let item: BatchItem
     let onShare: () -> Void
     let onSave: () -> Void
+    var onPreview: (() -> Void)? = nil
 
     @State private var showActions = false
 
@@ -623,47 +636,69 @@ private struct CompletedItemRow: View {
 
                 // Expandable action buttons
                 if showActions && item.status == .completed {
-                    HStack(spacing: Spacing.sm) {
-                        // Share Button
-                        Button(action: {
-                            Haptics.impact()
-                            onShare()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 14, weight: .medium))
-                                Text(AppStrings.UI.share)
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    VStack(spacing: Spacing.xs) {
+                        // Preview Button
+                        if let onPreview = onPreview {
+                            Button(action: {
+                                Haptics.selection()
+                                onPreview()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "eye.fill")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text(AppStrings.FileViewer.preview)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundStyle(Color.appAccent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.sm)
+                                .background(Color.appAccent.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                             }
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.sm)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.appMint, Color.appTeal],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                         }
 
-                        // Save Button
-                        Button(action: {
-                            Haptics.impact()
-                            onSave()
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 14, weight: .medium))
-                                Text(AppStrings.UI.save)
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        HStack(spacing: Spacing.sm) {
+                            // Share Button
+                            Button(action: {
+                                Haptics.impact()
+                                onShare()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text(AppStrings.UI.share)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.sm)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.appMint, Color.appTeal],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                             }
-                            .foregroundStyle(Color.appAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.sm)
-                            .background(Color.appAccent.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+
+                            // Save Button
+                            Button(action: {
+                                Haptics.impact()
+                                onSave()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.and.arrow.down")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text(AppStrings.UI.save)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .foregroundStyle(Color.appAccent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.sm)
+                                .background(Color.appAccent.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            }
                         }
                     }
                     .padding(.top, Spacing.sm)
