@@ -126,7 +126,8 @@ class HistoryManager: ObservableObject, HistoryManagerProtocol {
             compressedSize: result.compressedSize,
             savingsPercent: result.savingsPercent,
             processedAt: result.processedAt,
-            presetUsed: presetId
+            presetUsed: presetId,
+            compressedFileURL: result.compressedURL
         )
         addItem(item)
     }
@@ -269,6 +270,7 @@ private struct StoredHistoryItem: Codable {
     let savingsPercent: Int
     let processedAt: Date
     let presetUsed: String
+    var compressedFilePath: String?
 
     init(from item: HistoryItem) {
         self.id = item.id.uuidString
@@ -278,6 +280,7 @@ private struct StoredHistoryItem: Codable {
         self.savingsPercent = item.savingsPercent
         self.processedAt = item.processedAt
         self.presetUsed = item.presetUsed
+        self.compressedFilePath = item.compressedFileURL?.path
     }
 
     func toHistoryItem() -> HistoryItem {
@@ -288,7 +291,8 @@ private struct StoredHistoryItem: Codable {
             compressedSize: compressedSize,
             savingsPercent: savingsPercent,
             processedAt: processedAt,
-            presetUsed: presetUsed
+            presetUsed: presetUsed,
+            compressedFileURL: compressedFilePath.map { URL(fileURLWithPath: $0) }
         )
     }
 }

@@ -182,6 +182,14 @@ struct HistoryItem: Identifiable, Equatable {
     let savingsPercent: Int
     let processedAt: Date
     let presetUsed: String
+    /// URL of the compressed file (if still available on disk)
+    var compressedFileURL: URL?
+
+    /// Whether the compressed file is still accessible on disk
+    var hasCompressedFile: Bool {
+        guard let url = compressedFileURL else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
 
     var originalSizeFormatted: String {
         ByteCountFormatter.string(fromByteCount: originalSize, countStyle: .file)

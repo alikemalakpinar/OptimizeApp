@@ -21,6 +21,7 @@ struct ResultScreen: View {
     let onShare: () -> Void
     let onSave: () -> Void
     let onNewFile: () -> Void
+    var onPreview: (() -> Void)? = nil
 
     @State private var animateResults = false
     @State private var showPercentage = false
@@ -62,6 +63,40 @@ struct ResultScreen: View {
                         // Quality assurance badge
                         QualityAssuranceBadge()
                             .padding(.horizontal, Spacing.md)
+
+                        // Preview file button
+                        if onPreview != nil {
+                            Button(action: {
+                                Haptics.selection()
+                                onPreview?()
+                            }) {
+                                HStack(spacing: Spacing.sm) {
+                                    Image(systemName: "eye.fill")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(Color.appAccent)
+
+                                    Text(AppStrings.FileViewer.preview)
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.primary)
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, Spacing.md)
+                                .padding(.vertical, Spacing.sm)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                                        .fill(Color(.secondarySystemBackground))
+                                )
+                            }
+                            .buttonStyle(.pressable)
+                            .padding(.horizontal, Spacing.md)
+                            .opacity(animateResults ? 1 : 0)
+                            .animation(.easeIn(duration: 0.3).delay(1.0), value: animateResults)
+                        }
 
                         // Photo equivalent
                         photoEquivalentBadge
@@ -529,6 +564,7 @@ struct QualityAssuranceBadge: View {
         ),
         onShare: {},
         onSave: {},
-        onNewFile: {}
+        onNewFile: {},
+        onPreview: {}
     )
 }
