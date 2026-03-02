@@ -10,16 +10,25 @@ import SwiftUI
 struct GlassCard<Content: View>: View {
     let content: Content
     var padding: CGFloat = Spacing.md
+    var tint: Color? = nil
+    var prominent: Bool = false
 
-    init(padding: CGFloat = Spacing.md, @ViewBuilder content: () -> Content) {
+    init(
+        padding: CGFloat = Spacing.md,
+        tint: Color? = nil,
+        prominent: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) {
         self.padding = padding
+        self.tint = tint
+        self.prominent = prominent
         self.content = content()
     }
 
     var body: some View {
         content
             .padding(padding)
-            .glassMaterial()
+            .liquidGlass(tint: tint, prominent: prominent)
     }
 }
 

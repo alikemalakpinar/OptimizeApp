@@ -27,39 +27,23 @@ struct PremiumCardStyle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(
+            .liquidGlass(
+                cornerRadius: cornerRadius,
+                tint: isPremium && !isLocked ? Color.premiumPurple : nil,
+                prominent: isPremium && !isLocked
+            )
+            .overlay(
                 ZStack {
-                    // Base glass material
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .opacity(isLocked ? 0.7 : 1)
-
                     // Locked pattern overlay
                     if isLocked {
                         StripedPattern()
                             .stroke(Color.white.opacity(0.03), lineWidth: 1)
                             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     }
-
-                    // Premium gradient tint
-                    if isPremium && !isLocked {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.premiumPurple.opacity(0.05),
-                                        Color.premiumBlue.opacity(0.03),
-                                        Color.clear
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
                 }
             )
             .overlay(
-                // Edge lighting border
+                // Premium edge lighting border (stronger than default liquid glass)
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
                         LinearGradient(
@@ -67,7 +51,7 @@ struct PremiumCardStyle: ViewModifier {
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: isPremium ? 1.5 : 1
+                        lineWidth: isPremium ? 1.5 : 0 // Only show extra border for premium
                     )
             )
             .shadow(
@@ -162,10 +146,11 @@ struct LockedFeatureOverlay: View {
 
     var body: some View {
         ZStack {
-            // Blur background
+            // Blur background — tinted liquid glass
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .opacity(0.6)
+                .overlay(Color(red: 0.12, green: 0.12, blue: 0.18).opacity(0.15))
 
             // Lock indicator
             VStack(spacing: Spacing.sm) {

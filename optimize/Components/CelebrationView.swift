@@ -73,10 +73,7 @@ struct CelebrationView: View {
                 .opacity(animateStats ? 1.0 : 0.0)
             }
             .padding(32)
-            .background(
-                RoundedRectangle(cornerRadius: 32)
-                    .fill(.ultraThinMaterial)
-            )
+            .liquidGlass(cornerRadius: 32, prominent: true)
             .padding(24)
             .scaleEffect(animateContent ? 1.0 : 0.9)
 
@@ -362,14 +359,7 @@ struct QuickCelebrationBanner: View {
                 Spacer()
             }
             .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                    )
-            )
+            .liquidGlass(cornerRadius: 16, tint: Color.green)
             .transition(.asymmetric(
                 insertion: .move(edge: .top).combined(with: .opacity),
                 removal: .move(edge: .top).combined(with: .opacity)

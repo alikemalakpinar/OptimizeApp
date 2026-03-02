@@ -138,10 +138,27 @@ extension Color {
     static let warmOrange = Color(red: 1.0, green: 0.58, blue: 0.0) // #FF9500
     static let warmCoral = Color(red: 1.0, green: 0.38, blue: 0.42) // #FF616B
 
-    // Semantic colors (auto Dark Mode)
-    static let appBackground = Color(.systemBackground)
-    static let appSurface = Color(.secondarySystemBackground)
-    static let appGroupedBackground = Color(.systemGroupedBackground)
+    // Warm palette - Liquid Glass era
+    static let warmWhite = Color(red: 0.973, green: 0.965, blue: 0.953) // #F8F6F3
+    static let warmSurface = Color(red: 0.965, green: 0.957, blue: 0.945) // Slightly deeper warm
+    static let mutedSapphire = Color(red: 0.25, green: 0.42, blue: 0.72) // Trust, tech feel
+
+    // Semantic colors (auto Dark Mode) — Warm-tinted
+    static let appBackground = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor.systemBackground
+            : UIColor(red: 0.973, green: 0.965, blue: 0.953, alpha: 1.0)
+    })
+    static let appSurface = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor.secondarySystemBackground
+            : UIColor(red: 0.961, green: 0.953, blue: 0.941, alpha: 1.0)
+    })
+    static let appGroupedBackground = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor.systemGroupedBackground
+            : UIColor(red: 0.949, green: 0.941, blue: 0.929, alpha: 1.0)
+    })
 
     // Bento Grid Design System
     static let bentoBackground = Color(.secondarySystemBackground)
@@ -163,14 +180,29 @@ extension Color {
     static let textSecondary = Color.secondary
     static let textTertiary = Color(.tertiaryLabel)
 
-    // Status colors
+    // Status colors (Semantic)
     static let statusSuccess = Color(red: 0.2, green: 0.78, blue: 0.65) // Mint green
     static let statusWarning = Color.orange
     static let statusError = Color.red
 
+    // Semantic aliases — use these for new code
+    static let colorSuccess = statusSuccess
+    static let colorWarning = statusWarning
+    static let colorError = statusError
+    static let colorPremium = premiumPurple
+    static let colorAccent = appMint
+
     // Glass effect colors - System-aware for better visibility
     static let glassBackground = Color(.systemBackground).opacity(0.7)
     static let glassBorder = Color.primary.opacity(0.1) // Works in both light and dark mode
+
+    // Liquid Glass specular highlight
+    static let glassSpecular = Color.white.opacity(0.25)
+    static let glassTint = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.15, green: 0.15, blue: 0.2, alpha: 0.3) // Tinted dark glass
+            : UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.5) // Warm light glass
+    })
 
     // Holographic HUD Paywall colors
     static let glassSurface = Color.white.opacity(0.1)
@@ -295,11 +327,103 @@ enum AppAnimation {
     static let spring = Animation.spring(response: 0.3, dampingFraction: 0.75)
     static let bouncy = Animation.spring(response: 0.4, dampingFraction: 0.6)
 
+    // MARK: - Premium Easing Curves (Custom Springs)
+
+    /// Premium ease-out: fast start, gentle stop — feels snappy & expensive
+    /// Use for: card reveals, bottom sheet open, navigation push
+    static let premiumEaseOut = Animation.spring(response: 0.35, dampingFraction: 0.85)
+
+    /// Dramatic reveal: slow start, explosive finish — builds anticipation
+    /// Use for: result screen reveal, savings counter final value, achievement unlock
+    static let dramaticReveal = Animation.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0.1)
+
+    /// Gentle bounce: soft spring for paywall, modals — inviting, not aggressive
+    static let gentleBounce = Animation.spring(response: 0.55, dampingFraction: 0.72)
+
+    /// Micro interaction: ultra-fast for toggles, checkmarks, small state changes
+    static let micro = Animation.spring(response: 0.2, dampingFraction: 0.9)
+
+    /// Celebration: bouncy spring for confetti, badges, achievement popups
+    static let celebration = Animation.spring(response: 0.45, dampingFraction: 0.55)
+
+    // MARK: - Motion Narrative Presets
+    // Each screen transition tells a visual "story"
+
+    /// "File entering" — Home → Analyze: content slides in with slight scale
+    static let fileEntering = Animation.spring(response: 0.4, dampingFraction: 0.8)
+
+    /// "Options opening" — Analyze → Preset: elements fan out from center
+    static let optionsOpening = Animation.spring(response: 0.35, dampingFraction: 0.75)
+
+    /// "Processing" — Preset → Progress: pulsing momentum
+    static let processing = Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+
+    /// "Victory" — Progress → Result: explosive celebration
+    static let victory = Animation.spring(response: 0.5, dampingFraction: 0.6, blendDuration: 0.2)
+
     // Pressed scale
     static let pressedScale: CGFloat = 0.98
 
     // Stagger delay for list items
     static let staggerDelay: Double = 0.05
+}
+
+// MARK: - Motion Narrative View Modifiers
+
+/// Slide-in from bottom with scale — "file entering" feel
+struct FileEnteringTransition: ViewModifier {
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: isActive ? 0 : 40)
+            .scaleEffect(isActive ? 1.0 : 0.95)
+            .opacity(isActive ? 1.0 : 0.0)
+    }
+}
+
+/// Fan-out from center — "options opening" feel
+struct OptionsRevealTransition: ViewModifier {
+    let isActive: Bool
+    let index: Int
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: isActive ? 0 : 20)
+            .scaleEffect(isActive ? 1.0 : 0.9)
+            .opacity(isActive ? 1.0 : 0.0)
+            .animation(
+                AppAnimation.optionsOpening.delay(Double(index) * 0.06),
+                value: isActive
+            )
+    }
+}
+
+/// Explosive scale-up — "victory" feel
+struct VictoryRevealTransition: ViewModifier {
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isActive ? 1.0 : 0.5)
+            .opacity(isActive ? 1.0 : 0.0)
+    }
+}
+
+extension View {
+    func fileEntering(_ isActive: Bool) -> some View {
+        modifier(FileEnteringTransition(isActive: isActive))
+            .animation(AppAnimation.fileEntering, value: isActive)
+    }
+
+    func optionsReveal(_ isActive: Bool, index: Int = 0) -> some View {
+        modifier(OptionsRevealTransition(isActive: isActive, index: index))
+    }
+
+    func victoryReveal(_ isActive: Bool) -> some View {
+        modifier(VictoryRevealTransition(isActive: isActive))
+            .animation(AppAnimation.victory, value: isActive)
+    }
 }
 
 // MARK: - Shadow System
@@ -356,7 +480,7 @@ extension ButtonStyle where Self == PressableButtonStyle {
     }
 }
 
-// MARK: - Glass Material Modifier
+// MARK: - Glass Material Modifier (Legacy — use liquidGlass for new code)
 struct GlassMaterialModifier: ViewModifier {
     var cornerRadius: CGFloat = Radius.lg
 
@@ -371,9 +495,153 @@ struct GlassMaterialModifier: ViewModifier {
     }
 }
 
+// MARK: - Liquid Glass Modifier (iOS 26-ready Design Language)
+
+/// Enhanced glass effect with specular highlights, tinted blur, and edge lighting.
+/// Uses native `.glassEffect()` on iOS 26+; approximates on iOS 18.
+struct LiquidGlassModifier: ViewModifier {
+    var cornerRadius: CGFloat = Radius.lg
+    var tint: Color? = nil
+    var prominent: Bool = false
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .padding(0) // ensure view identity
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(glassBackground)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay(specularHighlight)
+                .overlay(edgeBorder)
+        }
+    }
+
+    // Tinted glass blur material
+    @ViewBuilder
+    private var glassBackground: some View {
+        ZStack {
+            // Base blur
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+
+            // Color tint overlay
+            if let tint = tint {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(tint.opacity(colorScheme == .dark ? 0.15 : 0.08))
+            } else if colorScheme == .dark {
+                // Default tinted dark glass
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(red: 0.12, green: 0.12, blue: 0.18).opacity(0.3))
+            }
+        }
+    }
+
+    // Top-left specular highlight (light refraction effect)
+    private var specularHighlight: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    stops: [
+                        .init(color: Color.white.opacity(prominent ? 0.25 : 0.15), location: 0),
+                        .init(color: Color.white.opacity(0.05), location: 0.35),
+                        .init(color: Color.clear, location: 0.5)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .allowsHitTesting(false)
+    }
+
+    // Edge lighting border
+    private var edgeBorder: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .stroke(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.2 : 0.5),
+                        Color.white.opacity(colorScheme == .dark ? 0.05 : 0.15),
+                        Color.white.opacity(colorScheme == .dark ? 0.08 : 0.2)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 0.5
+            )
+            .allowsHitTesting(false)
+    }
+}
+
+/// Capsule variant of Liquid Glass (for tab bars, pills, chips)
+struct LiquidGlassCapsuleModifier: ViewModifier {
+    var tint: Color? = nil
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .padding(0)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.12), radius: 20, x: 0, y: 10)
+        } else {
+            content
+                .background(
+                    ZStack {
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                        if colorScheme == .dark {
+                            Capsule()
+                                .fill(Color(red: 0.12, green: 0.12, blue: 0.18).opacity(0.3))
+                        }
+                    }
+                )
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(colorScheme == .dark ? 0.2 : 0.5),
+                                    Color.white.opacity(colorScheme == .dark ? 0.05 : 0.12)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.12), radius: 20, x: 0, y: 10)
+        }
+    }
+}
+
 extension View {
     func glassMaterial(cornerRadius: CGFloat = Radius.lg) -> some View {
         modifier(GlassMaterialModifier(cornerRadius: cornerRadius))
+    }
+
+    /// Liquid Glass effect — the primary glass modifier for all new UI.
+    /// Uses tinted blur + specular highlight + edge lighting.
+    func liquidGlass(
+        cornerRadius: CGFloat = Radius.lg,
+        tint: Color? = nil,
+        prominent: Bool = false
+    ) -> some View {
+        modifier(LiquidGlassModifier(
+            cornerRadius: cornerRadius,
+            tint: tint,
+            prominent: prominent
+        ))
+    }
+
+    /// Liquid Glass capsule variant for tab bars, pills, etc.
+    func liquidGlassCapsule(tint: Color? = nil) -> some View {
+        modifier(LiquidGlassCapsuleModifier(tint: tint))
     }
 
     // Layered gradient background used across main screens
@@ -446,9 +714,10 @@ struct AppBackground: View {
             ]
         }
 
+        // Warm-tinted light mode gradient
         return [
-            Color.appAccent.opacity(0.16),
-            Color.appBackground
+            Color.appAccent.opacity(0.12),
+            Color.warmWhite
         ]
     }
 
@@ -537,14 +806,19 @@ extension View {
 struct StaggeredAppearance: ViewModifier {
     let index: Int
     @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .opacity(isVisible ? 1 : 0)
-            .offset(y: isVisible ? 0 : 20)
+            .offset(y: isVisible || reduceMotion ? 0 : 20)
             .onAppear {
-                withAnimation(AppAnimation.standard.delay(Double(index) * AppAnimation.staggerDelay)) {
+                if reduceMotion {
                     isVisible = true
+                } else {
+                    withAnimation(AppAnimation.standard.delay(Double(index) * AppAnimation.staggerDelay)) {
+                        isVisible = true
+                    }
                 }
             }
     }
@@ -789,10 +1063,10 @@ class SoundManager {
     static let shared = SoundManager()
     private var audioPlayer: AVAudioPlayer?
 
-    /// User preference for sounds (respects system settings)
+    /// User preference for sounds — stored in UserDefaults
     var isSoundEnabled: Bool {
-        // Check if system sounds are enabled
-        return true // Could be tied to UserDefaults
+        get { UserDefaults.standard.object(forKey: "app.sounds.enabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "app.sounds.enabled") }
     }
 
     private init() {}
@@ -1093,6 +1367,41 @@ extension Haptics {
     static func secondaryAction() {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred(intensity: 0.6)
+    }
+
+    // MARK: - Compression Flow Haptics
+
+    /// Compression progress milestone — fires at 25%, 50%, 75%, 100%
+    /// Creates momentum feeling during long operations
+    static func compressionProgress(percent: Int) {
+        let intensity = CGFloat(percent) / 100.0
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = percent >= 75 ? .medium : .light
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred(intensity: max(0.4, intensity))
+    }
+
+    /// Warning alert — double tap for attention
+    static func warningAlert() {
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.warning)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            let impact = UIImpactFeedbackGenerator(style: .rigid)
+            impact.impactOccurred(intensity: 0.8)
+        }
+    }
+
+    /// File selection — satisfying pick sound
+    static func fileSelected() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred(intensity: 0.6)
+        SoundManager.shared.playFileAddedSound()
+    }
+
+    /// Tab switch — minimal
+    static func tabSwitch() {
+        let generator = UIImpactFeedbackGenerator(style: .soft)
+        generator.impactOccurred(intensity: 0.3)
     }
 }
 

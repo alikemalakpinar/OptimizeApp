@@ -185,8 +185,7 @@ struct TrustIndicatorStrip: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
-            .cornerRadius(100)
+            .liquidGlassCapsule()
             .animation(.easeInOut, value: currentIndex)
 
             // Dot indicators
@@ -276,8 +275,7 @@ struct ProcessingSecurityIndicator: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(.ultraThinMaterial)
-        .cornerRadius(100)
+        .liquidGlassCapsule()
     }
 }
 

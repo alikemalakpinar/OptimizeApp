@@ -27,6 +27,13 @@ struct ModernPaywallScreen: View {
     @State private var restoreAlertTitle = ""
     @State private var restoreAlertMessage = ""
 
+    // Post-Purchase Celebration
+    @State private var showPurchaseCelebration = false
+
+    // Countdown Timer
+    @State private var trialCountdownText: String = ""
+    @State private var countdownTimer: Timer?
+
     // StoreKit prices
     @ObservedObject var subscriptionManager: SubscriptionManager
 
@@ -131,6 +138,13 @@ struct ModernPaywallScreen: View {
                             PaywallTrustRow()
                                 .padding(.horizontal)
 
+                            // TRIAL COUNTDOWN (urgency driver)
+                            if !trialCountdownText.isEmpty && !subscriptionManager.status.isPro {
+                                TrialCountdownBanner(countdownText: trialCountdownText)
+                                    .padding(.horizontal)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            }
+
                             // FEATURE COMPARISON
                             FeatureComparisonSection()
                                 .padding(.horizontal)
@@ -159,6 +173,16 @@ struct ModernPaywallScreen: View {
 
                 // STICKY CTA
                 stickyCTA(isCompact: isCompact)
+
+                // POST-PURCHASE CELEBRATION OVERLAY
+                if showPurchaseCelebration {
+                    PurchaseCelebrationOverlay {
+                        withAnimation { showPurchaseCelebration = false }
+                        onDismiss()
+                    }
+                    .transition(.opacity)
+                    .zIndex(100)
+                }
             }
         }
         .onAppear {
@@ -167,6 +191,11 @@ struct ModernPaywallScreen: View {
                 withAnimation { showCloseButton = true }
             }
             startBreathing()
+            startCountdownTimer()
+        }
+        .onDisappear {
+            countdownTimer?.invalidate()
+            countdownTimer = nil
         }
     }
 
@@ -260,7 +289,7 @@ struct ModernPaywallScreen: View {
 
     private func pricingCards(isCompact: Bool) -> some View {
         VStack(spacing: isCompact ? 10 : 14) {
-            // YEARLY (Hero card - highlighted)
+            // YEARLY (Hero card - highlighted with shimmer + glow)
             GlassmorphicPlanCard(
                 title: L.yearlyPlan,
                 price: yearlyPrice,
@@ -274,6 +303,8 @@ struct ModernPaywallScreen: View {
                 Haptics.impact(style: .medium)
                 withAnimation(.spring(duration: 0.4, bounce: 0.3)) { selectedPlan = .yearly }
             }
+            .shimmer(isActive: selectedPlan == .yearly)
+            .shadow(color: selectedPlan == .yearly ? Color.appMint.opacity(0.3) : .clear, radius: 12, x: 0, y: 4)
 
             // WEEKLY
             GlassmorphicPlanCard(
@@ -318,7 +349,7 @@ struct ModernPaywallScreen: View {
                 Button(action: {
                     Haptics.success()
                     isLoading = true
-                    onSubscribe(selectedPlan)
+                    handleSubscribe()
                 }) {
                     HStack {
                         if isLoading {
@@ -381,6 +412,80 @@ struct ModernPaywallScreen: View {
             .repeatForever(autoreverses: true)
         ) {
             breatheScale = 1.03
+        }
+    }
+
+    // MARK: - Trial Countdown Timer
+
+    private func startCountdownTimer() {
+        updateCountdown()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            updateCountdown()
+        }
+    }
+
+    private static let trialStartKey = "paywall.trial.start.date"
+
+    private func updateCountdown() {
+        // Initialize trial start date on first paywall view
+        let defaults = UserDefaults.standard
+        let trialStart: Date
+        if let stored = defaults.object(forKey: Self.trialStartKey) as? Date {
+            trialStart = stored
+        } else {
+            trialStart = Date()
+            defaults.set(trialStart, forKey: Self.trialStartKey)
+        }
+
+        let trialDays: Double = 7
+        let trialEnd = trialStart.addingTimeInterval(trialDays * 86400)
+        let remaining = trialEnd.timeIntervalSince(Date())
+
+        if remaining > 0 {
+            let days = Int(remaining / 86400)
+            let hours = Int((remaining.truncatingRemainder(dividingBy: 86400)) / 3600)
+            if days > 0 {
+                trialCountdownText = "\(days) gün \(hours) saat"
+            } else if hours > 0 {
+                trialCountdownText = "\(hours) saat"
+            } else {
+                let minutes = Int(remaining / 60)
+                trialCountdownText = "\(minutes) dakika"
+            }
+        } else {
+            trialCountdownText = ""
+        }
+    }
+
+    // MARK: - Subscribe Handler (with celebration)
+
+    private func handleSubscribe() {
+        Task {
+            do {
+                try await subscriptionManager.purchase(plan: selectedPlan)
+                await MainActor.run {
+                    isLoading = false
+                    triggerPurchaseCelebration()
+                }
+            } catch SubscriptionError.userCancelled {
+                await MainActor.run { isLoading = false }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    // Fall back to coordinator-managed purchase flow for error handling
+                    onSubscribe(selectedPlan)
+                }
+            }
+        }
+    }
+
+    // MARK: - Post-Purchase Celebration
+
+    private func triggerPurchaseCelebration() {
+        Haptics.premiumUnlock()
+        SoundManager.shared.playSubscriptionActivatedSound()
+        withAnimation(.spring(duration: 0.5)) {
+            showPurchaseCelebration = true
         }
     }
 
@@ -521,29 +626,29 @@ private struct NoiseTexture: View {
     }
 }
 
-// MARK: - Review Marquee (Auto-Scrolling Social Proof)
+// MARK: - Review Marquee (Auto-Scrolling Social Proof with Avatars)
 
 private struct ReviewMarquee: View {
     @State private var offset: CGFloat = 0
 
-    private let reviews: [(text: String, name: String)] = [
-        ("1.5 GB dosyayı 200 MB'a düşürdü!", "Mehmet Y."),
-        ("WhatsApp videolarım artık 10 saniyede gidiyor", "Elif K."),
-        ("En iyi sıkıştırma uygulaması, 5 yıldız!", "Ahmet B."),
-        ("iCloud'u yükseltmeme gerek kalmadı", "Zeynep A."),
-        ("PDF'lerim artık e-postaya sığıyor", "Can D."),
+    private let reviews: [(text: String, name: String, initials: String, color: Color)] = [
+        ("1.5 GB dosyayı 200 MB'a düşürdü!", "Mehmet Y.", "MY", .blue),
+        ("WhatsApp videolarım artık 10 saniyede gidiyor", "Elif K.", "EK", .purple),
+        ("En iyi sıkıştırma uygulaması, 5 yıldız!", "Ahmet B.", "AB", .green),
+        ("iCloud'u yükseltmeme gerek kalmadı", "Zeynep A.", "ZA", .orange),
+        ("PDF'lerim artık e-postaya sığıyor", "Can D.", "CD", .pink),
     ]
 
     var body: some View {
         GeometryReader { geometry in
-            let cardWidth: CGFloat = 240
+            let cardWidth: CGFloat = 260
             let totalWidth = CGFloat(reviews.count) * (cardWidth + 12)
 
             HStack(spacing: 12) {
                 // Double the reviews for seamless loop
                 ForEach(0..<reviews.count * 2, id: \.self) { i in
                     let review = reviews[i % reviews.count]
-                    reviewCard(text: review.text, name: review.name, width: cardWidth)
+                    reviewCard(text: review.text, name: review.name, initials: review.initials, avatarColor: review.color, width: cardWidth)
                 }
             }
             .offset(x: offset)
@@ -555,28 +660,47 @@ private struct ReviewMarquee: View {
                 }
             }
         }
-        .frame(height: 72)
+        .frame(height: 80)
         .clipped()
     }
 
-    private func reviewCard(text: String, name: String, width: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 2) {
-                ForEach(0..<5, id: \.self) { _ in
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(Color.proGold)
-                }
+    private func reviewCard(text: String, name: String, initials: String, avatarColor: Color, width: CGFloat) -> some View {
+        HStack(spacing: 10) {
+            // Avatar circle with initials
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [avatarColor, avatarColor.opacity(0.6)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+
+                Text(initials)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
             }
 
-            Text("\"\(text)\"")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.8))
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 2) {
+                    ForEach(0..<5, id: \.self) { _ in
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(Color.proGold)
+                    }
+                }
 
-            Text("— \(name)")
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(.white.opacity(0.4))
+                Text("\"\(text)\"")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(2)
+
+                Text("— \(name)")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
         }
         .frame(width: width, alignment: .leading)
         .padding(10)
@@ -655,6 +779,7 @@ private struct GlassmorphicPlanCard: View {
                                 .padding(.vertical, 2)
                                 .background(badgeColor)
                                 .cornerRadius(4)
+                                .shimmer(isActive: isHero && isSelected)
                         }
                     }
 
@@ -833,6 +958,140 @@ private struct AnchorPricingBanner: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.proGold.opacity(0.2), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Trial Countdown Banner (Urgency Driver)
+
+private struct TrialCountdownBanner: View {
+    let countdownText: String
+    @State private var pulse = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "clock.badge.exclamationmark.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.warmOrange)
+                .scaleEffect(pulse ? 1.1 : 1.0)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Ücretsiz deneme süresi")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.5))
+
+                Text("\(countdownText) kaldı")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.warmOrange)
+            }
+
+            Spacer()
+
+            Text("Şimdi Başla")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.warmOrange)
+                .clipShape(Capsule())
+        }
+        .padding(12)
+        .background(Color.warmOrange.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.warmOrange.opacity(0.3), lineWidth: 1)
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+}
+
+// MARK: - Post-Purchase Celebration Overlay
+
+private struct PurchaseCelebrationOverlay: View {
+    let onComplete: () -> Void
+    @State private var showContent = false
+    @State private var showConfetti = false
+    @State private var crownScale: CGFloat = 0.3
+
+    var body: some View {
+        ZStack {
+            // Dark backdrop
+            Color.black.opacity(0.85)
+                .ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Crown icon with scale animation
+                ZStack {
+                    // Glow rings
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .stroke(Color.proGold.opacity(0.15 - Double(i) * 0.04), lineWidth: 2)
+                            .frame(width: CGFloat(100 + i * 30), height: CGFloat(100 + i * 30))
+                            .scaleEffect(showContent ? 1.0 : 0.5)
+                            .opacity(showContent ? 1 : 0)
+                            .animation(.spring(duration: 0.8).delay(Double(i) * 0.1), value: showContent)
+                    }
+
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.proGold, Color.appMint],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                        .shadow(color: Color.proGold.opacity(0.5), radius: 20)
+
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.white)
+                }
+                .scaleEffect(crownScale)
+
+                VStack(spacing: 8) {
+                    Text("Hoş Geldin, Pro!")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("Tüm premium özellikler artık senin")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 20)
+
+                Spacer()
+
+                // Confetti burst
+                if showConfetti {
+                    CelebrationBurstView(trigger: showConfetti)
+                }
+
+                Spacer()
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(duration: 0.7, bounce: 0.4)) {
+                crownScale = 1.0
+            }
+            withAnimation(.spring(duration: 0.6).delay(0.3)) {
+                showContent = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showConfetti = true
+            }
+            // Auto-dismiss after 2.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                onComplete()
+            }
+        }
     }
 }
 

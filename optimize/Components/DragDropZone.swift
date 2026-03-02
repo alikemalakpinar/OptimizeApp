@@ -74,9 +74,9 @@ struct DragDropZone<Content: View>: View {
 
     private var dropOverlay: some View {
         ZStack {
-            // Background blur
+            // Background blur — liquid glass
             RoundedRectangle(cornerRadius: 24)
-                .fill(.ultraThinMaterial)
+                .fill(.thinMaterial)
 
             // Dashed border
             RoundedRectangle(cornerRadius: 24)
@@ -290,10 +290,7 @@ struct DraggableFileCard: View {
                     .foregroundColor(.secondary)
             }
             .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-            )
+            .liquidGlass(cornerRadius: 16)
         }
         .buttonStyle(.plain)
         .onDrag {

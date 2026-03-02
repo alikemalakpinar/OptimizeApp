@@ -78,13 +78,8 @@ struct SecondaryButton: View {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 56)
-            .background(.thickMaterial) // Better visibility than ultraThinMaterial
-            .clipShape(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2) // Adds depth
+            .liquidGlass(cornerRadius: Radius.xl)
+            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
         }
         .buttonStyle(.pressable)
         .disabled(isLoading)
@@ -225,8 +220,7 @@ struct CloseButton: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.secondary)
                 .frame(width: 32, height: 32)
-                .background(.ultraThinMaterial)
-                .clipShape(Circle())
+                .liquidGlass(cornerRadius: 16)
         }
         .buttonStyle(.pressable)
     }
