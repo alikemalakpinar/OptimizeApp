@@ -196,6 +196,7 @@ struct RootViewWithCoordinator: View {
                 coordinator.ratingRequestComplete()
             }
         }
+        // Universal File Viewer (QuickLook-style fullScreenCover)
         .fullScreenCover(isPresented: $coordinator.showFileViewer) {
             if let url = coordinator.fileViewerURL {
                 UniversalFileViewer(
@@ -300,14 +301,25 @@ struct RootViewWithCoordinator: View {
                 result: result,
                 onShare: { coordinator.shareResult() },
                 onSave: { coordinator.saveResult() },
-                onNewFile: { coordinator.goHome() }
+                onNewFile: { coordinator.goHome() },
+                onPreview: {
+                    coordinator.openFileViewer(
+                        url: result.compressedURL,
+                        name: result.originalFile.name,
+                        size: result.compressedSize,
+                        type: result.originalFile.fileType
+                    )
+                }
             )
             .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
         case .history:
             HistoryScreen(
                 historyManager: coordinator.historyManager,
-                onBack: { coordinator.goBack() }
+                onBack: { coordinator.goBack() },
+                onPreviewFile: { url, name, size, type in
+                    coordinator.openFileViewer(url: url, name: name, size: size, type: type)
+                }
             )
             .toolbar(.hidden, for: .navigationBar) // Özel başlık var, native gizle
 
@@ -322,7 +334,10 @@ struct RootViewWithCoordinator: View {
 
         case .batchProcessing:
             BatchProcessingScreen(
-                onBack: { coordinator.goBack() }
+                onBack: { coordinator.goBack() },
+                onPreviewFile: { url, name, size, type in
+                    coordinator.openFileViewer(url: url, name: name, size: size, type: type)
+                }
             )
             .toolbar(.hidden, for: .navigationBar)
 

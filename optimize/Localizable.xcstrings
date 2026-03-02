@@ -642,6 +642,9 @@
     "Bitti" : {
       "comment" : "Converter: Done button"
     },
+    "Boyut" : {
+      "comment" : "File Viewer: Size label"
+    },
     "Bizi Değerlendirin!" : {
       "comment" : "Rating: Title",
       "localizations" : {
@@ -792,6 +795,9 @@
     },
     "Çoklu dosya sıkıştır" : {
       "comment" : "Quick actions: Batch description"
+    },
+    "Çözünürlük" : {
+      "comment" : "File Viewer: Resolution label"
     },
     "Compressed" : {
 
@@ -1466,6 +1472,9 @@
     },
     "Format Dönüştürme" : {
       "comment" : "File conversion feature"
+    },
+    "Format" : {
+      "comment" : "File Viewer: Format label"
     },
     "Format ve kodlama kontrol ediliyor..." : {
       "comment" : "Preparing detail 2"

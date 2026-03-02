@@ -74,6 +74,16 @@ struct AppStrings {
         static var unknownError: String { String(localized: "Bilinmeyen hata", comment: "Batch: Unknown error") }
     }
 
+    // MARK: - File Viewer
+    enum FileViewer {
+        static var format: String { String(localized: "Format", comment: "File Viewer: Format label") }
+        static var size: String { String(localized: "Boyut", comment: "File Viewer: Size label") }
+        static var resolution: String { String(localized: "Çözünürlük", comment: "File Viewer: Resolution label") }
+        static var share: String { String(localized: "Paylaş", comment: "File Viewer: Share button") }
+        static var save: String { String(localized: "Kaydet", comment: "File Viewer: Save button") }
+        static var preview: String { String(localized: "Önizleme", comment: "File Viewer: Preview title") }
+    }
+
     // MARK: - Screen Titles
     enum Titles {
         static var home: String { String(localized: "Optimize", comment: "Screen title: Home") }

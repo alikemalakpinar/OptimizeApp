@@ -18,6 +18,7 @@ struct HistoryScreen: View {
     @Namespace private var heroAnimation
 
     let onBack: () -> Void
+    var onPreviewFile: ((URL, String, Int64, FileType) -> Void)? = nil
 
     // Bento Grid Layout (2 Columns)
     private let columns = [
@@ -112,7 +113,13 @@ struct HistoryScreen: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             selectedItem = nil
                         }
-                    }
+                    },
+                    onPreview: item.hasCompressedFile ? {
+                        if let url = item.compressedFileURL {
+                            let fileType = FileType.from(extension: (item.fileName as NSString).pathExtension)
+                            onPreviewFile?(url, item.fileName, item.compressedSize, fileType)
+                        }
+                    } : nil
                 )
                 .transition(.opacity)
             }
@@ -267,6 +274,7 @@ struct HeroDetailView: View {
     let item: HistoryItem
     let namespace: Namespace.ID
     let onDismiss: () -> Void
+    var onPreview: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -334,6 +342,33 @@ struct HeroDetailView: View {
                         DetailRow(icon: "doc.badge.arrow.up", label: "Sıkıştırılmış", value: item.compressedSizeFormatted, valueColor: .appMint)
                         DetailRow(icon: "clock", label: "İşlem Zamanı", value: item.timeAgo, valueColor: .secondary)
                         DetailRow(icon: "slider.horizontal.3", label: "Kullanılan Ayar", value: presetName(item.presetUsed), valueColor: .appAccent)
+                    }
+
+                    // Preview button (only when compressed file exists on disk)
+                    if let onPreview = onPreview {
+                        Button(action: {
+                            Haptics.selection()
+                            onPreview()
+                        }) {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: "eye.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text(AppStrings.FileViewer.preview)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.appAccent, Color.appAccent.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                        }
+                        .buttonStyle(.pressable)
                     }
 
                     Spacer()
