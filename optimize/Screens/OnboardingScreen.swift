@@ -315,7 +315,36 @@ struct OnboardingScreen: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }
+
+            // Enhanced fallback: show what users can still do
+            VStack(spacing: Spacing.sm) {
+                noAccessFeatureRow(icon: "doc.fill", text: "PDF ve dosya sıkıştırma")
+                noAccessFeatureRow(icon: "video.fill", text: "Video boyutu küçültme")
+                noAccessFeatureRow(icon: "arrow.triangle.2.circlepath", text: "Format dönüştürme")
+            }
+            .padding(.horizontal, Spacing.xl)
+            .padding(.top, Spacing.sm)
         }
+    }
+
+    private func noAccessFeatureRow(icon: String, text: String) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.appMint)
+
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 20)
+
+            Text(text)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.7))
+
+            Spacer()
+        }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Bottom Controls
@@ -466,6 +495,17 @@ struct OnboardingScreen: View {
             // Estimate ~2MB per screenshot
             totalWasteBytes += Int64(screenshots) * 2_000_000
 
+            // Animate screenshot counter incrementally (faster, more engaging)
+            let screenshotStep = max(1, screenshots / 8)
+            for count in stride(from: 0, through: screenshots, by: screenshotStep) {
+                await MainActor.run {
+                    withAnimation(.spring(duration: 0.15)) {
+                        screenshotCount = min(count, screenshots)
+                        scanProgress = 0.05 + 0.25 * (Double(count) / max(1, Double(screenshots)))
+                    }
+                }
+                try? await Task.sleep(nanoseconds: 80_000_000) // 0.08s per tick
+            }
             await MainActor.run {
                 screenshotCount = screenshots
                 scanProgress = 0.3
@@ -489,6 +529,19 @@ struct OnboardingScreen: View {
                 }
             }
 
+            // Animate video counter incrementally
+            if largeVids > 0 {
+                let videoStep = max(1, largeVids / 5)
+                for count in stride(from: 0, through: largeVids, by: videoStep) {
+                    await MainActor.run {
+                        withAnimation(.spring(duration: 0.15)) {
+                            largeVideoCount = min(count, largeVids)
+                            scanProgress = 0.3 + 0.3 * (Double(count) / max(1, Double(largeVids)))
+                        }
+                    }
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s per tick
+                }
+            }
             await MainActor.run {
                 largeVideoCount = largeVids
                 scanProgress = 0.6
@@ -516,6 +569,23 @@ struct OnboardingScreen: View {
             // Estimate ~3MB per duplicate cluster photo
             totalWasteBytes += Int64(clusterCount) * 3_000_000
 
+            // Animate duplicate counter incrementally (slows down near end for drama)
+            if clusterCount > 0 {
+                let dupStep = max(1, clusterCount / 6)
+                for count in stride(from: 0, through: clusterCount, by: dupStep) {
+                    await MainActor.run {
+                        withAnimation(.spring(duration: 0.15)) {
+                            duplicateCount = min(count, clusterCount)
+                            scanProgress = 0.6 + 0.35 * (Double(count) / max(1, Double(clusterCount)))
+                        }
+                    }
+                    // Slow down in last 20% for dramatic reveal
+                    let ratio = Double(count) / max(1, Double(clusterCount))
+                    let delay = ratio > 0.8 ? 200_000_000 : 80_000_000
+                    try? await Task.sleep(nanoseconds: UInt64(delay))
+                }
+            }
+
             await MainActor.run {
                 duplicateCount = clusterCount
                 scanProgress = 1.0
@@ -530,6 +600,8 @@ struct OnboardingScreen: View {
                     scanState = .completed
                 }
                 Haptics.dramaticSuccess()
+                // AHA moment sound — chime on big reveal
+                SoundManager.shared.playAchievementSound()
             }
         }
     }

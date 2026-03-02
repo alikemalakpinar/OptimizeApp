@@ -129,14 +129,15 @@ struct HomeScreen: View {
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.md)
 
-                    // Quick Actions - Batch Processing & Converter
-                    QuickActionsGrid(
+                    // Featured Tools Carousel (horizontal scroll, 3 cards)
+                    FeaturedToolsCarousel(
                         isPro: subscriptionStatus.isPro,
                         onBatchProcessing: onBatchProcessing,
-                        onConverter: onConverter
+                        onConverter: onConverter,
+                        onStorageAnalysis: onStorageAnalysis
                     )
-                    .padding(.horizontal, Spacing.md)
 
+                    // Conversion Stats (moved above history for engagement)
                     ConversionHighlights(
                         totalSavedMB: totalSavedMB,
                         averageSaving: averageSavings,
@@ -1097,6 +1098,204 @@ struct QuickAccessBar: View {
 // MARK: - Quick Actions Grid
 /// Grid showing Batch Processing and Converter quick actions
 /// Shows premium badge for non-Pro users
+// MARK: - Featured Tools Carousel (Horizontal Scroll)
+
+struct FeaturedToolsCarousel: View {
+    let isPro: Bool
+    let onBatchProcessing: () -> Void
+    let onConverter: () -> Void
+    let onStorageAnalysis: () -> Void
+
+    private struct ToolItem: Identifiable {
+        let id: String
+        let icon: String
+        let title: String
+        let subtitle: String
+        let gradientColors: [Color]
+        let badge: String?
+        let action: () -> Void
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text(AppStrings.QuickActions.title)
+                    .font(.appSection)
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                if !isPro {
+                    HStack(spacing: 4) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("PRO")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.premiumPurple, Color.premiumBlue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Spacing.sm) {
+                    // Batch Processing
+                    FeaturedToolCard(
+                        icon: "square.stack.3d.up.fill",
+                        title: AppStrings.QuickActions.batchProcessing,
+                        subtitle: AppStrings.QuickActions.batchDescription,
+                        gradientColors: [Color.premiumPurple.opacity(0.8), Color.premiumBlue.opacity(0.6)],
+                        badge: nil,
+                        isPro: isPro,
+                        action: onBatchProcessing
+                    )
+
+                    // Converter
+                    FeaturedToolCard(
+                        icon: "arrow.triangle.2.circlepath.circle.fill",
+                        title: AppStrings.QuickActions.converter,
+                        subtitle: AppStrings.QuickActions.converterDescription,
+                        gradientColors: [Color.warmOrange.opacity(0.8), Color.warmCoral.opacity(0.6)],
+                        badge: nil,
+                        isPro: isPro,
+                        action: onConverter
+                    )
+
+                    // Storage Analysis
+                    FeaturedToolCard(
+                        icon: "chart.pie.fill",
+                        title: "Depolama Analizi",
+                        subtitle: "Alanını keşfet",
+                        gradientColors: [Color.appMint.opacity(0.8), Color.appTeal.opacity(0.6)],
+                        badge: "Yeni",
+                        isPro: false,
+                        action: onStorageAnalysis
+                    )
+                }
+                .padding(.horizontal, Spacing.md)
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+        }
+    }
+}
+
+// MARK: - Featured Tool Card (Carousel Item)
+
+private struct FeaturedToolCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let gradientColors: [Color]
+    let badge: String?
+    let isPro: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: {
+            Haptics.impact()
+            action()
+        }) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+
+                        Image(systemName: icon)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+
+                    Spacer()
+
+                    if let badge {
+                        Text(badge)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.appMint)
+                            .clipShape(Capsule())
+                    } else if !isPro {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.premiumPurple)
+                    }
+                }
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+
+                    Text(subtitle)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: 200, height: 130)
+            .padding(Spacing.md)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : .white)
+
+                    RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    gradientColors[0].opacity(0.05),
+                                    gradientColors[1].opacity(0.02),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [gradientColors[0].opacity(0.3), gradientColors[1].opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(.pressable)
+    }
+}
+
+// MARK: - Quick Actions Grid (Legacy, kept for reference)
+
 struct QuickActionsGrid: View {
     let isPro: Bool
     let onBatchProcessing: () -> Void
