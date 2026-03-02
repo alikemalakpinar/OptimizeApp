@@ -214,15 +214,8 @@ struct AchievementUnlockToast: View {
                     )
             }
             .padding(Spacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
-                            .strokeBorder(achievement.color.opacity(0.3), lineWidth: 1)
-                    )
-                    .shadow(color: achievement.color.opacity(0.2), radius: 20, x: 0, y: 10)
-            )
+            .liquidGlass(cornerRadius: Radius.xl, tint: achievement.color, prominent: true)
+            .shadow(color: achievement.color.opacity(0.2), radius: 20, x: 0, y: 10)
             .padding(.horizontal, Spacing.lg)
             .offset(y: slideIn ? 0 : 150)
             .opacity(slideIn ? 1 : 0)

@@ -97,25 +97,7 @@ struct FloatingTabBar: View {
         .frame(maxWidth: horizontalSizeClass == .regular ? 520 : .infinity)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(colorScheme == .dark ? 0.15 : 0.4),
-                                    Color.white.opacity(colorScheme == .dark ? 0.05 : 0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.4 : 0.15), radius: 20, x: 0, y: 10)
-        )
+        .liquidGlassCapsule()
         .padding(.horizontal, Spacing.xl)
         .padding(.bottom, 34) // Safe area for home indicator
     }

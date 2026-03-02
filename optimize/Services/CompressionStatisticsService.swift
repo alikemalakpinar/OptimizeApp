@@ -304,6 +304,10 @@ final class CompressionStatisticsService: ObservableObject {
         let statsURL = getStatsFileURL()
         let dailyURL = getDailyStatsFileURL()
 
+        // Calculate weekly stats for widget
+        let weeklyBytes = getWeeklyBytesSaved()
+        let weeklyFiles = getWeeklyFilesCompressed()
+
         saveQueue.async {
             if let data = try? JSONEncoder().encode(statsToSave) {
                 try? data.write(to: statsURL, options: .atomic)
@@ -312,7 +316,37 @@ final class CompressionStatisticsService: ObservableObject {
             if let data = try? JSONEncoder().encode(dailyToSave) {
                 try? data.write(to: dailyURL, options: .atomic)
             }
+
+            // Sync to widget via App Groups shared container
+            let avgSavings = statsToSave.totalBytesProcessed > 0
+                ? Double(statsToSave.totalBytesSaved) / Double(statsToSave.totalBytesProcessed) * 100
+                : 0
+            SharedDataService.shared.syncFromStatistics(
+                totalBytesSaved: statsToSave.totalBytesSaved,
+                totalFilesCompressed: statsToSave.totalFilesCompressed,
+                averageSavingsPercent: avgSavings,
+                lastDate: statsToSave.lastActivityDate,
+                weeklyBytesSaved: weeklyBytes,
+                weeklyFiles: weeklyFiles,
+                streak: statsToSave.currentStreak
+            )
         }
+    }
+
+    private func getWeeklyBytesSaved() -> Int64 {
+        let calendar = Calendar.current
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return dailyStats
+            .filter { $0.date >= weekAgo }
+            .reduce(0) { $0 + $1.bytesSaved }
+    }
+
+    private func getWeeklyFilesCompressed() -> Int {
+        let calendar = Calendar.current
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return dailyStats
+            .filter { $0.date >= weekAgo }
+            .reduce(0) { $0 + $1.filesProcessed }
     }
 }
 

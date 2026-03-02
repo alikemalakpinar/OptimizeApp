@@ -168,6 +168,29 @@ struct SettingsScreen: View {
                     Text(AppStrings.Settings.history)
                 }
 
+                // MARK: - Sounds & Haptics
+                Section {
+                    // Sound Effects Toggle
+                    Toggle(isOn: Binding(
+                        get: { SoundManager.shared.isSoundEnabled },
+                        set: { SoundManager.shared.isSoundEnabled = $0 }
+                    )) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Ses Efektleri")
+                                Text("Sıkıştırma, başarı ve etkileşim sesleri")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "speaker.wave.2.fill")
+                        }
+                    }
+                    .tint(Color.appMint)
+                } header: {
+                    Text("Sesler")
+                }
+
                 // MARK: - Privacy Settings
                 Section {
                     // Analytics Toggle
